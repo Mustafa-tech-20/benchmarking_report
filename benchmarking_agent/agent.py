@@ -34,7 +34,7 @@ LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "asia-south1")
 vertexai.init(project=PROJECT_ID, location=LOCATION)
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY") 
-SEARCH_ENGINE_ID = "a7aa909fb90a24678" 
+SEARCH_ENGINE_ID =os.getenv("SEARCH_ENGINE_ID") 
 CUSTOM_SEARCH_URL = "https://www.googleapis.com/customsearch/v1"
 
 
