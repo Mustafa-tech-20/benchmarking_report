@@ -1,0 +1,1453 @@
+{
+  "eval_set_id": "manual",
+  "name": "manual",
+  "description": null,
+  "eval_cases": [
+    {
+      "eval_id": "yes manual",
+      "conversation": [
+        {
+          "invocation_id": "e-cf1f23a1-fb05-4f76-b6d3-e65ce865263e",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "CODE:PROTO2\", \"Mahindra Thar\", \"Hyundai Creta\""
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": "Cv8BAePx_143oItBHQiShxE32_rV7P13rFloUlZSvLqf7MbTpWoNynLLuTjff7OssrU-NqZXfpRLzZTeLiujSxjCBu2ntYUVEzp-ml74YwfrcxVeIH3xOhRJA2_Jvxw_ci1t9uMqN7pvFOgLFBiOfO0HZ8esUqEgtDXBSxpFP3infvbpKVP5UvLonJeVwjmHu6iN5sqNO6yyM72a3bGDoHwMmpcXJOH4Uh-zhswUkmTiVe7H1mEbSa8_05gdVHuxXGhmBlisHw5fCIFBQenTCjZXuDyvAMHl45qx88Nya8RhRKy8uiAWYjWNRpi7v3WUj3qjgsiDrrLg8OUrrOvWeHF1",
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "I detected 1 CODE CAR(s): CODE:PROTO2\n\nFor the code car(s), I can either:\n1. Let you manually specify all specifications (recommended for prototypes)\n2. Attempt to search the web for information\n3. Leave the specifications blank/empty\n\nPlease respond:\n- 'yes' or 'manual' - to manually enter specifications\n- 'no' or 'web' - to search the web\n- 'blank' or 'empty' - to leave all specifications empty"
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "id": "adk-735f4f47-e4ae-42b6-b2c8-69874deac388",
+                "args": {
+                  "car_names": "CODE:PROTO2, Mahindra Thar, Hyundai Creta"
+                },
+                "name": "scrape_cars_tool"
+              }
+            ],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1760975214.379872
+        },
+        {
+          "invocation_id": "e-c4f68116-2e4a-45bf-b10c-395edceb9f63",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "yes"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": "CsEIAePx_170kHSi7iEjOcQmGyY6ajXnQRm3bwiSXgBIBxdP_Tr5HODdwBrYBbT6j0pVIXus-o436G3nLICHbwh9XGC-ieZ8GjIzjTLTF4gJW_aLvQj0kg8GuoR8mfiHpAV3nd3Xax6uWGT71bqPDaqgfPRLe0uLQTX9pE2oTOnhh6PehXLxqovYtEiRjRel5zMEqsd5kFKBVuGkVK4dnAeXE5CM2a5pIqy3NQ4CdBS199iH-8EEQGXwb73IW7G44Lj4YOYT0GBSPptuk5wpmXLHrb6BElZYaUmTCpXZEwfUALzgd2mS509ZGfkYpdx1JiO9SulBGkI-2tILUU_IXc484xvJntjEXoOXQpeyCpfa7bxslryZnK4WXTn2nEoYcQOMIpAF65c3wgLrbl2mhyuvmDtft6eENUduHN1L5S35HckIRX0C-fvkBiowd0XxLILrSKHkE0SmLMfAuV4INMzM4OfQYeGhKnFiiUGwIBAzPWUh_A-Dr4TZsuue4iSWNZpDs9amR-oNppIK8QF58345QXQzJMUrOpfKC4aLoLYpDEmM1PNac--IY0V3gz0g51ysY6j1V6YGPHkFI1OOM82kGvKfGhzYQg0xBTNvJPnDolNERPGcKUxiMLqpQd1yi3OQLJXo__ZKbvlvnuBa5S9mHN0OfybvJZimourJMrEFYvRrvOF5s5j4eWeRxyO2PpkqUS8MoeI0aCvd0AsHEumWO_ATS674RVEKdShLZmpmbnW9My-jDrAjRN633snmUSh-LJxJ6yrR9xt4uQrPi22tG1IcRiC11hnI9XQ94i3eFqARfiZNMtCiBvMD9avwbXGDrxs65IDNQJY9A5ZEmo3HuYKktO6xUUj9WJ4MsZ4wUVxClmh1KglaPAz5KzOsEOUwGOqg4LaOUU5JeHM_elrJsLyKu3k7WO0DXH7uXgPW18JEIc1oG8StqzHICHghsln3-5ksYXN7AcLpFSZPm2_5v6QxiRD5OAdlBYy58TOtBD0gw8wJuNvNLgHcXyJ47u__5q1xvE7NJGBy0khJnCGivzMMWtrgMpgsnyVQP6UoPSHkMUjVNG-fZilAWMH7gcb2a2_17MqKTep_X42y5Ll7NhC-3myecibbNewiGQvANtufBQoQ3vKOIJN-Y6a_k_i3-Nq_MQleaqewAOl3dVdwjWxCBTO5j2znLg9gi5jix2l0c4O-dMut2d7TCE5fizS2HSZhhKCCL7ePm9o9BMYMDv5sjhLrVXceeFI33j6CAzPVPCqLUH5Yg4jPpBwh5g79NSicQK4_oaxHkVRqu-ysCqMB4Lk0NCT8swCdZuncbC1R21vwQT3TXK2Au7ldms4VoTYH9ohmI2R83MilLzUYrmOdmjU6fhoixZwBRaQPsQWgwzBtSycRJfsfQKFWRqjt1h_iOMFsoba-j5pvpfhGS3U74EvZTZ7WcMlugUa72w_o",
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Okay, I'm ready to collect the specifications for CODE:PROTO2. Please provide the following:\n\nPrice Range:"
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "id": "adk-a258fdf8-a4f0-41b8-a580-8dfec3e5b27f",
+                "args": {
+                  "car_name": "CODE:PROTO2"
+                },
+                "name": "add_code_car_specs_tool"
+              }
+            ],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1760975230.908568
+        },
+        {
+          "invocation_id": "e-11d0f3fe-8889-48e9-a816-6684e128f328",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "price range is 1-2 lakh"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": "CucJAePx_16YhW_Yg58rCX6T1kKEfMbfFAwP5segvhOSHG9jK54-iev6Pxb6eb0N7Tmmpko1c9w-KhzlEUG6L3-VjbHVzsG576tYMW8NsYw8ztATLmqYzqkhJ3uREh9BTk8WYLSQazXAn3wvQ4-c4JakeeerUxkbjsz_V-OtCl3o-jqhiSl1pHUljaPaf6h0iKeGaCZ8PPFLgpwnp-rahoNtG0p8LZkEa0_gbGkslCAspc5o8SaiqlO7GkJv8LVOHEF482cNOOaowaM_2Biueo50Br6R4DEnF7g8UdHCWtjpi2CuDDY_RwLnFbxbn7kR7fU0CWqZ1WZbGayfQJ-VQb_F46yWVl21PlkzJulMrOYj2ajKuzZ9_7MQ3tj5bF2yJL-3pSiETR8fk4ba3y6kBCjSrnvKbyLTfFmprviIk5sy5qVP_EjbUIXzjGIznKVrjdFEyUb9H58wSxfjMoW4yIi_iXN55SefrzEYACkpSx4lxDf8--6BA0261pkvOm8ae-y1Pp6ABpODYbIYPA2zyAtvqgmYX086i-KGoSv1joD0x2sUXc7-oheTyGIrC0fT_sO0q7_VyZDcuQ-fUmgJHEXphtqpGjxsRVuVJ-wjzZPzlLmFxAmA5tX7eOv3w2Eckv2QdB-8WLubjPYb17fgwHLK1tC01VNsKAWkEs3NVEPze1vKkKoH-d9CWbZruHX6sXHFd2YGlxUq0bKlj4H5IIpxcioFutGEyVakyZDd2w6NcU5sE0DAFil3Up_j69Yeij13GL9HWrge3Iqg13NTCnqlolbvXjn58LoPh8lXdhuQUersQLbMyluRSoKn-mqahXOsM3EthlAX7sGBA3kRX68F_feQ8N9C8C_oRz2agUN2-ezL0sbFGKQ9qkNTK7d7EwPzeGj9skclesWTrBLzrvJPzKb7WZahTfN3TJxjHB0sZtwOHz6FoIuoaLzJe0CstaaGxhqUXLNOMQreqKgiAYQRi8TVXbdhKN7_zTfZgftjlVIUTssdRtUh34Si8rw1hyJtOIshimSxvamG0GHFynLK-uwzQHwYK6muawxRyFoHxH7Wu3UEAX57-Gq8Ny2tq-tv87RruC6gLk_qy7xKdc-WndsPiPCsBrwq0aB-GeJMztwWOUGEYnJv6uS4907yXMBUF9kzt9fk7L_rKpO5hjSDA0gyRbwub0HbsB_hesORR83_IgB3ubW5o9nYiNoxWFE1A_UQswDwmx_dvKxW09tKiwJIbzLPU2mqCcknvBbnm02dXLBGiW6dkW1l4l6yisU7jvJEDb8I8yEnbhc0mApTpO89eos_QZGM4j4pJ-DZwbiDijhjjl1dfCTJBzBkzZOvyL5oYl2bGUDmVa2n8N8MutL62grahaxL8NX6LrM8h0qTdsGEtp_fKD0is2Jtwidvo1uWIzTXVVWhInLchMG0RhrID9iHpWtIuvKHreSRZTB0WP1yAVXLSpbhn2JPF5IzBRQvFBmAS_edebRXS5nCmB-EViiliZkdMnEvlKtEREHpSBTd0pKx7fDiNjRrVmEP02wV_OWCFBW2j7sRjAkhGXbfK4USA7DGOmuJg9kyHgATBhnK-4abqjGjWPV2ygCsWWFN-PGTbV73OYITId0dF2TEZAquixv-88xx0RHM-cdHkkGUIck3dbkKNo6UiTRr13W8E9j0-w==",
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Got it. Price Range: 1-2 lakh.\n\nWhat is the Mileage?"
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1760975334.954539
+        },
+        {
+          "invocation_id": "e-f3abaebd-f318-496f-8c23-fcd7c6c27a0b",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "10.0 - 14.6 kmpl"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": "CrYDAePx_15slY2RhfjbsmxZ5u2BSJ7L0bgAvzyoLZupV_1knOJf0LSVDK3z8hTVWWG9SnlnLQKEGBs3GSFBIivVsXWrJ8ZYk98OEiNzwT4O2gd0Hz5NS2jEr1N3ihcoBQF_-GXrsdGjzaphgyd2G78JjGHjmNwEFvVizoDFrsidpkQ0kaErHihpXfoi-dKR9sfO_acAvWLyI2TtG6t3QiMpYFxgWRO3MVkpiLm0GnNwKc3yjhLSxHzZ1XkwQiub6ixSmFFEQHqMDg0QuR1NxphUG1hATYvk6b6fm4_Mf9-g1JPi9Qtu6kX0LfhnDNt6YToicpJWrggkAViuOXI7MIBpmxelI_LeRjQIBGPrM28RpPmqs9lqQLRB-CI18U9wXRbfKxijuo1nQ3P2p5VTcmDGKDtmThXgGOUf_7tVoexuczPzTdhOvD3xFWyKF8orBQ3ruPpR5IDLsCnnRWCyHs9jtuUQoKDw83rP6oCYvEzhvRNi3-REccxTfmmo-QD3GviYZX1jFFEKtDgTuAM2fOetecFqdyb05Qm_P7rchpUyeks-eWrfd21cR8XsOqkhwoJwqDREE7_I",
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Understood. Mileage: 10.0 - 14.6 kmpl.\n\nWhat is the User Rating?"
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1760975351.712206
+        },
+        {
+          "invocation_id": "e-47d2042a-b8e6-4975-9e92-a7e7423a8e2a",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "N/A"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": "Cr0CAePx_16xYL8n01UmR3KeX6f1O9ES5JM41Ra7LCew5EEImQotlWqjdc-BQ9eHaNuDFqBbP9aKROno0xUC0zZQGg8dxuWGzJB-JjSPUjeH5EAs_Ao2nZMK33OUYYmRcRmd6SbXD2SoB-pWefiEWpdZD-AYqnShC9uQyTQ8xkz9JP7msuzi3U5n1lEk7-IyTlbY3RXV0cy2rYyZV0_frcUKs8G4CKQYRzBO9dV-SJpgntW5x5oZ_5YU3E4eTnLKO_QhJgWrheMUZSx_LjdBRKIht_MN-8VJOChaROrSiOWzZlVnkW-fPeVY2ocps5dygHiZ4qQRe-FMekHzV8C1trPWDH5PMj4M-oPIP1e07bp698d_O7DHiPN84rR7a-dYMh065yyzLksTtub_w4jHxKhmJZ8rXIlyRcalntpc9nI=",
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Okay, User Rating: N/A.\n\nWhat is the Seating Capacity?"
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1760975360.748198
+        },
+        {
+          "invocation_id": "e-9ad8fae2-b7db-417c-bf68-a3d5831044e2",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "5"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": "CogDAePx_161GqvBH1P68_RnzseN0BG3b1v50epaDbsZ8FNkcRG2H0Dk3Gonedt4NqEuwXpm-X4epLUtt0noTx-XTk4H6rpuqJDgR7_OlFconHaDfnX9p8dJPXMrebBBamDBIFMbF_Pt-UqK_gdEvrNHFPP75fXWavHyJGmONGoqQUy5R3Cfs4Z_4UPd26NVHxAS_FxRNJ9R6McEgGPM1dUjqPvlkPlRLfmHk0bCgvUuKv9J3DM4QaBiDvM-9zWQe86IRb2WBgd6jW_J-pQwcnLEc9c2Dp6n3ZMiScs2ysYGmm9ERaTKy3OECKyiaFlhbe-J_hrKmaBj4nYEi6tVUJimpO6PU3vmEg8BQtBoYgzWnnkxsnj8J-TBYsodyB1sn29XRlVs3JTztTOdlJDDdnVg-3zqetWXhIfUe8nvHHWfwXT0nHjYBNqsUybjnWopTgk3cX4LnXiu9C0MXrvqx3Btm15v5QneJsANC-01U3PZfwC0WEv6pj_HfUAY8LfTCTTLCbNMTcmMXm8=",
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Got it. Seating Capacity: 5.\n\nWhat is the Braking System?"
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1760975370.82936
+        },
+        {
+          "invocation_id": "e-98208fc9-0cff-43d7-aaec-f8fc69d5f1b2",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Anti-Lock Braking System (ABS) with EBD and Brake Assist"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": "CoYDAePx_17U4HDb6JxyzsX5-pigcndJlUP2236XosvxzIofpVt89cd1IdNu9R1_nEwRHfw_3Bht86PgeRkIeN92_klwRCFH8KmSufciqAnMMI-Es-k6DLaGEqCL-BNlJ0irvRf_4HXT6NHWxSN_ubsL7rZyHdrJw1Hr69_o5Y3E50EC9JF7SorUX8762DYxJol1AQtCuyeCXWph-O9ETwY3A3UgHI9O2u_bjcaSPx3yWme5ABdiPRHdkC3wJ7lnOo-TNCXzuGaEd8ck6PDvXHVwo3cll7RaCUi48wgA7pNkFcmH__dcT-rWZwqgZhRGbtOY3lahtblc1BgZKOmXhbWbA1TRObzURzG3kv1OA6q4Rba3ttNd7QU_KPYtrHtuj3edqD8iHY7dtEIT70FKexBO1sI2HZlCYBla8rZscLtRdtdrS67T7S_IzPdFXZnlvz9NYpJbWsMQQXEn0R0fIwnJ-_-ul0MtZwFgcIu72e0V4Ign5_y6XeWXx2xpr3DNJD2G-pZvsF3M",
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Understood. Braking System: Anti-Lock Braking System (ABS) with EBD and Brake Assist.\n\nWhat is the Steering Type?"
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1760975387.643134
+        },
+        {
+          "invocation_id": "e-abc38cc0-9db7-4b6d-801e-e4aa5a2e4aaa",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Power Steering (Hydraulic)"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": "CoUDAePx_17-f0wBrpRlJJY8boZX51uNocJUwYliy3SKtamGQsD9eJHY8wP5pMG2Ikd1eeM8lpXeEH2ZsCHnp_PplOcK2XAPdSXFrsFak4TESdm8JpjTjPGKOpi9zhW0V1wz-JQvSbP9st1kTRXx7U7euGwMzrT_V9Qv-BnqVATHJa7JHM8dCQdRPTMLDODxgKAceZgeM3Mu4Jnfa4b6p0dapMNVdHHUjlxuA49DyQxpHQUAUMs3FAJ8oehwr0ZT-0jEDfyLncAjIcjnbj7iUSM65fxJvql9t9XAFlOabYySA-Sxwl9nIs2phmPOi98GESgCkw8QWPicuawmCHnn07sR_8QRm2ALdE0cfRTPQCXE6SYCYv8dlCM3WLP2U6IRxarskJZcHbLcRMVHx50jeqwWM2T9neccCYibUovY4cjWhAt20vb_AsaZTdXX8zUuo3f8FxNZw7x2jab2KgY0Qwl6E6BBDnXhd8A7Gq5tuoPpu50L4MfJ-wJG8OcqGHSSK9_s78tQ6Ps=",
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Got it. Steering Type: Power Steering (Hydraulic).\n\nWhat about Climate Control?"
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1760975409.984391
+        },
+        {
+          "invocation_id": "e-cb1f1767-1b87-49eb-b36e-e8198d2292c8",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Automatic Climate Control with Dual Zone"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": "Co0CAePx_15AYoeGDP2pB2t25rKpHzm8aGdwSOHEJxFuCMJNB_xyEzX_2f0vPgfZa-uBKAnlonEMiLMxjMTsM0yVEb1sfeEZSfJc6nob9mReOitspCTk4DFKXP8-KpTR4nQTydkNppSA8nG5QQ3c9hmp5KLnjGdXd8CYguLgNgHqw4fcWzOeFs0CCDFNazATj2v8jsjCq6MZVFOrq-we-FNJ3_l5Zj9NhZ7J1N8kz-ZQX8jyrI1cknOsJVKr3xsUoHxbPqqDIHMOJ_qko0amW-m92n5nj9-o9lvoMpKAO7doQshDWYRYjgUskd72NVXMvhU2GyCXDxD9p2Z6AoDZ800aHGWlUaSKLyLXwFLszLo=",
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Okay, Climate Control: Automatic Climate Control with Dual Zone.\n\nWhat about the Battery? (If it's an EV, otherwise you can type 'skip')"
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1760975429.246879
+        },
+        {
+          "invocation_id": "e-a38c51ee-3175-435b-8a71-536cadc237a4",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "skip"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": "CsMDAePx_16YPV9-44mSAwYR4h014QRiOcuWXgdE_kcT9w2ttc1cnVEE7TYm-5kHAjADBwXcRUpPYoPtXTw8O6IOfAjhKT1EIfyJJ1MkoHqgeRyXXK3G36d86tDLrie33pDdyN7x2msE1pIUM4ZwareJdakfVMEAcZSxtGy9YNh8nIDbHT3dNFFIU0z-Y0WHXjXKtJxkYo33ZJ3CaD45pTQscpynCv7DJ6dBzBOki-TqSjCFLak29ZrMoDJICpT5rl5H1DsaXeTmGNFOX5tAXZzFfsjTYnFLyG9T35znX3HwrLZl_NR_gDhb3AsIPjiVQAKTpXYf5oCSGHYllVWgRH7ZjFvkmYiDHcB-5KjtHPgSBkRdNoZjyb8Md4QsT5ihiFyoCzPwfnw-Lcs38WO9eqgEu3Oqp5WqAFh2kKsd1MD2496ogXVKrhA9dsD7SVTLeIL1hz96gsTPmVCj7vCqd9SpgDAFKXE6dII34oSpjq4yodiCMtapKV0O7BQ91s3zfH-XSkoe5IY3bR_XVxLm4TcTscLWZoXUooHHwTpKOZsr8mbBDXYYfVNJt4j6h-7d7_t_WrXHN0qQERe2Ik6CXmLv-QSzwA==",
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Skipping Battery.\n\nWhat is the Transmission type?"
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1760975449.327927
+        },
+        {
+          "invocation_id": "e-29524014-7f4f-41b0-a628-4d76dcbf2af5",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Manual & Automatic"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": "CokDAePx_15ojA5aj_EwVt3Sa_xoiINoR0HiF2Hr-gjdtBnVMjlV2_bB4QpLPR-C2kKU3uc3V0ZJSK3c5ux2DN2PD-JUPfnS1sIQT9YMzSjLVFspQzxBdR5p83nQr7DtA4CwpoTHZ6eOe-cO8R2jKGBZyrXC9-UgzQr97P1WeovKaEYy-oJ8vVM2DNtAln3PVtYb7jL2_6dCzcp7lypEhrEpfs6C796VNXLCNGq2K6lUJqx2u6V7HWU0afDcRrbXQVWwlR1a18r1-9vI1jY8HvqN5kfHp6UFQbGZuQBJl9OE9ZASTsfjnZAI5Wsh8I5bk5a09XTALn0jOyJRn0tO2DSCdk1L9X2SnxhkZ9RxGhvnokPh3A4r8PKcWUuxpH_2dYe_ga0pWtHPASsLIxYcBOuwokYesmVMIZooxOmje4zCRP9fIiZlHsTcI4GqC-WygCWOK0mrp-0GxAHCKs7w62IOjuLB4YEOJAbGw-48hg3ImZiZlXqfOoCdB_aGXO_cUK2k2JY2E8j1uRLP",
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Got it. Transmission: Manual & Automatic.\n\nWhat about the Brakes?"
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1760975455.058623
+        },
+        {
+          "invocation_id": "e-954e918c-b7fa-4a3c-99a2-c10864a04973",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "N/A for the rest of the specs"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": "CtRAAePx_17-SQ6MCJMq6duuVRKXQ6toljwuCubOCfFUmDYSg5hWjzpHXsbnaHBbHcPFkuZ9dkNi3aBBh_oPC6td71MzheyBS8wgwaylVqRcN3CIlzJdk-a7cgiNNvSjm9Y2oh6atEEliLal33w7-e-9SFt6U4vTQJjQgyOtxO1VPHvfrlb4b2wsyZJD2E25dtgXbMjWjmRabH-9lmh8EOa9Zm8fZnQb8C-m64EHFfFUft3tedYMfY-seHm_rkhsqriIRayDSITi4NMMgllWz_YpulXNbeSXn51So-tmuPmissmmndsuBv4pwmHgSq5JzRdEY_6tD0yNnGWIXd1DlD34_sIPZgbtzNZKg7HK1Z4tLdEmVzkFirnOTTGkLHkiPG38ougsB57-FDjw3D5ylwdPwYLu9XhyYhV-JEaNl6ojoj3AojTC3x5tGWFv55iPbh-6pkMjcEGzupH5fOvG3HAUNxJW9msExOVHIq2Ak6r7Qz1aTfwIhD3Eqqb042nwxIQFq1PRXavnPqGXEHvpMv1FSuoCg1e-xcOuHOzwL-de1bl2W7xioMVvojroltgjVWftiTR5oA0foepyaW2ULTAC3_DKlYM5yB_H1U0ryOC-DA_QvUhOR9f7uNb8tdLzNSW4SMBhT16LxTQppkNtTVg5hU9GtTqJFpyxJ6Z9qsfwg94220pxjBVXTcFjweDLKjasIBKgi6w9bwKzGjNneqhRg3qCKUMgN3yLWEeWSVQ5aY5eubwmQu0KDXq3vm26CFZDiZTKW7SKzrOw7J87HmAe5xcs_3owRiNIkk8ud9sdKDO0nOxCrlSVKDgkxsvX7GzuJSdR6uYevzNyNPgvqxWNsPaLp7AZ64Uto8Jjj1d52lyfkT0RBPh8UzKXmjmjSE43JcaQYe0zvvSrobTVU06KjoQ6r_qKuoTukr4dAVgiw0O67CLOnnGoOaYMPyVzHaMliUVIKhnbh7YRtZnrxGr3OurHOiAuJ-F5uJc5apot2sq73FzSmMhlzighjWLxaawmEn_TG9ZFgkvIaWQuYUZp5R5G0dv_aIpgaG2k2QMgZUlQQ-hzJGZrvbVb_9rZL81vsPaGadTFt46uWdiPUfrrK7gq1oGkglaFA9VBNhw4V9WMY1kluUZ-9fxpVypY6em2XqJoaQMGEwUppcWPfbtOtLn1WgoxVhSxo-aV7qKiYZmWFL2AsWu6e82JRSi5kIJfJWWC26Q8SIZBqx1u7Pcw-Y3fEMbop_0ljUeltFRuDsT1rydTsVIlIt1G04hj1PvTSfRKE3goPfIEVYd6LwkkvdHx4q3DaNPsY6A2cB-Ehftv5bh6zG76UJTlX1NhYFTwbg0fLAAK-EJzbrbF1_UEh8aLsz7jmk3oaCFoquLD3XelmEU_SGt2dSDwaJg5NNkSxjLFZmOZUAs0MA-OtENZavYG_t-GyOfZtSCwgXli2cEJqn-jHJ0BMxlKwp-yI0P5sDUlNYIkkTRup8RqOFHXZRhn2OuElvKfUP0F2ax7Ph_NXh4f40AbgItdq-9VHqk3t2sxqWyR8h1JW_IryZz_K7G9VWcV4CsOgDjPf3o8t3rIPIbKtczG1i9YJPJlID5RkvnP3dVtrLeZagF6exfbUFtD6IiZBID586LNjTswBLJRzVr5gUAPVQ-OW8X7_9WqgezqBXTNcJVirZNMOoJRhtoL6PEKC9Tw1EGkJvmaiF7lyobfLDi6TQ4YOvMnYFImwvmQhT9JHiNgXxoVWKVu_8Bk2TOej1CfrXOMDTLO6uirqOyzt44gd9jWDQzd610bdXXaDWkfmWdbQs_mZ8HG-sc8QsANz4vYpTCh0fyK10CW4YriUIn4_33EUrZDnqoCnnoeK6JJMfpHMBrFrw8gyC-8tpjJR6Eeu9GN9OgyrH0bLfuG6K_G0HJgdkMGxfbBAyX-Xm2eYtq89WVdR99EoCx0accUsg0zp-dNwXBa4tpmxxfIepVoapqPwT77JnqBdVuA98Xq9hU9ybPiH2F-r5s7MnDCs0I3iDCoGBuK5UDeyde5I3bkQApuVqF4Tgr10cSwYaxW9D30IdF6BrPGftTziz5ch-YfEzSgF9b2yh16BGzNjbhCVoX8hpwgk_IeBcxProM5sTSE9AJK5Jb2Gheh1vRH2mIA-0wqF0OYwQG4IalorcMT_m4ke8vtiroKQNqCJ3sUv3YZrZSzm9jX6oUfv4-ejqbNxwGyDPX4sRPb4tRgdqkzUWymLG7o1VeSYWBjUT9UDzM3EJ5cC7En2b3eRhdu7Un43MD_xRTwX8onpW5FROZlnznXZMsDhQ96p86LSjYUvPOR96KB-r6XTXv7hgiHwqWDTP33MhThG7Kieu0Eb68891LSTUNN5_ukzgIwt5foYFw85nNwI4GZuICPND2zMR5XbaWbnUPnIhI_zfOOgFPSsu4wIQeJCkGJCgANiTvQJ_UO5wb9TEGaarJnKtLbbhgPyMEjoPY6qd9tJaoOyno4kn642D3EsiZvN5nui66t0pJp28hSV0u0x1pbfsvtOiBoyCyvYHfDiwIWf7NsgiPMooqdyos6NWNPF6AP833LTXIFCRPtHgtNfG5C210Pk3B5O9Jgxa8srL0NAnMfA2CNKeuJRW8W6aqfyD9Z7WJgNk-rVU3X7cTbpvSAXOJCkV7rvMMYDp0oOpIfJMYy3fbLnIHBkeoRU3UstPEIP9QXSNMM4XVauiJ6kZbrOWRF2PIKX7SXj8y0h6Fp3382ZMQVSOxs7toa7nRc3X8l4bJrf8UuNrgL6H0UKYT5eeUWIxnT4awgviuvwR1YhGch9R3abV_99BexFhU44TcXg25LjwrZblkZ1Old2QMG9EJICh8lTs_udPO857NPI6kz_2q56qlJnYS9zUd_6idknEcXU0fmMj-Na3Roq8CuDuUHFZp1ozokjOOIrI9jn0sXPxquBBpVGDfMCY-9XMJ3SG_bwYSrFQul_zgw8Vux3mb9ReoXCwX4H-coL_VHr2EOaBldWb5Xdr1Xfbm-lqj2pJM1F7XbbGWzyj-VGy-yiXLMSFOrPaKahc0X_WQ-brE-gLdaSYQqFTvW36RamvkdZCUg76dyGmv5zaQ-AjrJifiUUtQLvndqM6NgbhUgFXUekIEhzje6sdNiZlsyiOMG9PuyeujUKgjcgUOWo1xXcu4a5v5uR-AuMzuYjhAclXAL5is4ODxitsM8Yy_6kVzEZ3tkTtrmw8HusJPBUE8ki_pfqYSrqZKuyNuj9t3SEcAvuykvp31Xb6FLZmSFMK9_aX7JiacJilI10p8iR6_G3EJVQvW9dQmAtCyFS1BFrusqEcyYw4KQ6JU1dznnckhdsG_98ZPqADOLldiZlIhNvGFrK_yHaA2IElJjBoQ4j1zehUHxWf5mHA5D70jBs3IErFDB0IZ_VV-HclqFbsS2POB5vvz53WofGcJFq-lwfxC4lLOGqQWTNNh6wQGPqx-guIVTKRnqyACrFl16bqrrO96e4lfxlKCasV5b7b9Gj52HjcAZMEazlfwy1gtgjSuX8TFyNMqroiegp9P-3yVHz7VljL_zg8lFzEunOxlWgSum8q3vtB7ZUma2Af7eGII5hbRGd-uwZOxZKOgGHmkANddk5Ou4sekhB6LFb0xxA9MWd1_K3bK5s-Qq-hJDLhT0u6yN8ig81Wv5UNM3nHW6JZyV5YeyIbh6cYDmTeS68VVFGPoM5290K9YmZ0QqEAo7F63HEGhYonDi_vnqeNaDAr1F2XRVSKrwU_Qnk7y48AC5mzJUVAbYbimlswcTmESiVEJj_GMhiuXISL0FXyuYs8l0w0FrZqJ5c6X1rgGzMgC4fXs1ofioLR2SBnDALU6fX3Sszusjt4Kxi03xVjkBfvCc4Qn61ta4JCYcoyH8ITASzsm6j9ntnt7qwUUCPHH8ir1qEibuBAfd7Jbdn5E_oaY-4-9ooy_NNEZyd3ESMiibWL-_loHXErLk_muUFApkTsOwHvwjPMq4DPSUCfxqiCvmcLKz7yDDzb034jI1l2-2FUay8PIy1lQc2u3kwOhfbaGTbdrvzaFcQFD8gYR6SJCbXdIVH3rtQ-ystkYIieM1cKDGxU24CftrAfjhLTq9Rt9jGkc4792SQoMa4r2WSYg4V-m4n-LQ0U-uXIbxlIB2m07r4n987wtTS3PxBcr9rcxHUdfyI8SATSc6TEU0frlfw4QBkJcvSa2xu51kyErC8Ycs5t4WwVTVKB2cNJFegKCwMKvhYOZsRbselIT4lDcjBDHTKyL5K44H7ApwYG1hqhDWiU_samd5bv0g6djrsJ9-qDixL3Z3Biu8quG6fyI7523DSv52gynp_fGAXwxMZhgR_QxOX_R9AyRaY62dB1FK9PDijf3ItpM3Vn3wIWKWWskw3yw40Ag3dWU4wj6eJttAX9xHR9Zk22GboToj3gOfBbGt7qWUuePvpyfpn_X02ykhzkJWu0WdXS2YzEzgNLh6u693K2bwmX1PdUlnZASiXODZUMWQ7wBfqtuelbRcR5vYUd5MqAiSkd6ttDsz6IvFzktxWV1iGugDuzCDuT4RM9jVhigfzWI4k-oDZQVbHtOPwa5dHTVyP1MREIO3QjdpNqcgeyfACoIz0tjqJH1lBnJSRIXzB9-s9Tih9s7CckcSvP2NCkBdFQgGEcX_31h5aRghXBJswUjZH-TItekKJgjm0sSYCw1iqSpeB6NmIfk0uooKUyIDrZARbe-lUBfZID0Q9aahPJEsTaZ0f2yHeonq5bp2T0jbBxcMxzp8goctAg4vZvaosC9EOOZAvuyCBeDinufhPvCJHTKFXPeRppGc-q2t1DCWPhCji6A3RpTH-uHX3WQV_NO9zEcLi530t8MKGcjIkpGAIynk9zmLlDbZnRxLPpe_0dwJqTcYcL3zvExa6ionwUVa4GWNoXRjavzuNZjwV7mYiI4gDvi2ZvQzgOyqS6DShX9ZxBs9G5vALK1QFFByfwr5O14vUXbLSOeArXUneJF9YU73dwsvfInszenhRzb6FMJUWye5aN9H1qLV1arvt2R-a1tDbycjL4OxpJ668muPXhC74SHggJACMXe3ta3Fle9GR-M2RYVK7fNnWnaFc0RMIz3551Y_Z2U4apnqB9J8C4BykCHE5zbnjwbYMcNLrnI089VWSunuoQBRJud4yCNrt0Q4REcDoTC2cE8G2IQC3U64NpRkD9TR_oDCkwihVULiauSDSVeFRk2_g0OxVB-qm-HaCFDm2lSwYsE9Ud4He2a4m3LL6c4l7PaH323sUQkXBimQYBBmGg-8JN5Fhhkxsm6h9gXugc1GKel_hxbI2f-90_JZf9KkUKaWNoJUU4OFwjgF2cJkLcicWS7rCvi_1agwjwubaltFg7fO8NJevprL2kHzCc_zl3QkYE3bfJmip7WxKHLaO-BRXgGjUeRrDSblRbOer1xoZjI889sdAY-KKnlxDHuYUB8gDpGjiMG-NrNWmpuz1peTm4xkH2lEsxnttkotJfRkHi3mhMlKSCSNEoMmacabAS8YGZ-LRfaFknzkuMQ6xZApyUWgPJG4OnvcWlTFUYmrPGtrjDS3J-DYxz3rRsFkBE6hIEAmxqu_7zMWvDII1Uz_eSDC1WX0otDX5V2lMzFV4mg679gGlH1seJFBkMjpfVjAVxXNP8qO0s-JpyiaLBoSFJ6lycpgqvon3CONnQkr3ow7wWgPDYVuYjACEe2KPeou4Q7k0hLTxMv1u8l_Xl4gY-NuseXUecRHZ7hlBRPxfrFJScFzX4a8iq13IZS7z7HXO93ktqlnciWS3IbkB6AWDx6gyRysuowNicaNS9S9iLaGlX3EieXmApeZG5q9KE2VoMiwg9p3Wa0u8qxmJTRz-aN6tk4tzotbRJdpyE8xTbAkulVx56iTJqt-YZn2-ytnZuNYcMNHdqsxrP6t5KZlslvES511MtefZZi5n7mtW3XW4vHvO4Wakm7oJQ3wpvtmwiUkQI7bxWSOhmVXASppk-UXLXU99daQvWxd8boXDrU5o5eY3P9d0IMDaZ0qlwC8BRvo0iUY8wusJg6sro_OPS9ZX71HlLUo1jjQmlDbnanRSeXmKcTtqgtekmzK1XmiVEINO1_uLHZQ1162NZwp8ZWjyf9mftYzxr6TD2PWN2wmaQr1h86_EELaFk0iNzemGtP6tVUmD78tynxyPuagpbBsgEVIdbxrYkX9jEPl8XEJEsf-648jw-HM_EYaZG2V-zcb_pySSdJ7oxLTe1eWzilnp9yOWyVDeoRbPuRT9Urvpx4ale4H7LprmZCWNKe8p1ilzWlJiLh3757z8hwlYR_RocI_n2lvXtdKc25xNI1Wwmi6UubMZAtgdVQshsGNlmmU260P58JivKvKp6RmNyLIwIvMxT8Wg2EhZrKpuKK4jtsrhZyr3tjXNi7-Z0emk4c0E29v_uo7tW-e3akEOnwcAv5FgyN3WzeJv13NCNfvH01TFXhcDbZn0L4m0ccsdM7BYWJKzcIbG0_ffrc_icBcNScA7mfAAExgA6wRGL-lwM_s5kNShARVFW3QtY5yLAVZjCTHZ84pHyYZaAO_fb3UEpFrlES_KFLQuqV1J8cMqAUrTwXB8koxFstNF1z2fOFHmpWC5TZKKXLX3CeXg61scLsJof-OGqRFzPA-jRjcBvNp4xqUadv7guQ-0x1p5tUPN3bzhnU4u6EFbmx--V_Wnv0cvgTuwGQDywl0UxAdSEeW35kkLh6dZHBut665yXDRAzdqj0RK51x_5BiOGYrukkX7OaNrwzaFb4pl2rJb7MwkRjyB0Q8-ZB3AG0OI_-wuiQ-mhAhaig--UewfvTc9s6bWnA4YgjYMBpGyLnQGo4w96gXMrYbnA7c1YUENUYKSooZxEXigYBLAgTh7AtzMF8YBzkhp4zsI_5Qzjuhc7L2SsqClu5-4kppxLdlZqwpRom6q8AjDMHg0nr7-vOnL0Sk_r3Y-juzB5of-5y6zIpxn6hhNV_jchrjj8S2rbIaUR8H7MOiK0VXnKKyVVIxAwD8pibY5pfPdGvUXFBGZ35J1Cc91tC0ea7FIWqhhVvXjZ0lKBU99HyfNbqmw5-OnqsjAqB9mh_F6k67aWgiTyBItKTxZOto9MLLVzdm64-IfC2ZN5bBXSmskAbIghJD940DnlwFQ-HJr6FbOaLJ75SqrYq5RcZyBkk20iUnsHNlkFxGz3joMWd2EDcr4Trk_hZFoIiIFJsBNUo4PKosrI478389GAB0Ok-cZhBqfaeovI7v_u_wDTjWJrTn65UEHqVQGt0AfQI1tlmevFT5PeTO1g6fyadOXOFBSkUVi4ahceJE-1Gj-VE2KWuikhqzby-orczOJEp2iuSgAXOA0TixMls412jR3ZBUFhfd6ECEE7dzLMVIXZfYaTsSuShnBy-XlNKm7q1wyUTXgbB38H7jmevBeS3fxWMvHTPxcjXnODxYw0xwEmsPTU0GYMJOxkYL0WTabrggEnAVJpdHptbfS8vkr7Z7qPFIWEgGvWN-4fhQNdFOQeCVat5rm_JPE14tw11CHbaf4E5OVXIE4dE4pzcrTG3qB0FGE7zRod_FvXvfnuYw475cf4JJT2mGhbVxB_BSSpZZ-f7WijTC_ptA8J7qp1roPpRheY8MHfYEkSG4PWOk8MXEUq4YGjVa1mMdD0LqKC7NDokgoZmHyFuUJhRl39vPvJMIsLKFGFogWjJn9LKcLrOwYAuG8R2whwphf5I-c9_kgKHH-Xxm7tcSeXTlrHnJjlv_SCZ5AApclRO9yIUVersF3LY3o92nVlR2NtG7hsyK4VWZaSGgU4pD1gpJC-qsk8JQYo4033l3QzwgCXbyOw971CRPTFm2wpo0Y1saPout152oMowWn2vayjkpWXOq_bqE2FSo7jen153zIEslQQl-vGondpdeNG1wrPORpD7atfDXFIxlaGeWCZAQ3e3pKEeP4ej9whwvHgeOUNn23CmkIKjK9CGqEN-ihF43epZhd6pRzPNFDKVojcvS2AH8TT1dQYB3psnMstNwwdsIds0VA61Ygcvqlc0maBVzHm-xKaQiU8Hae3aE4C7XpvbTPgoCeZxEe-YwRbktQIL5S1qxjbKVNZJJZydL6mjerzexKnnsgFpaTK6lmDzEzKE0x4-I21dMRxSbd5NQczsnFNumrIUpCYAh-U7YFVIhQVzwL4pTQT85K4wNbN5fsPV1r7moWWmJ_kPOPk18m3bfiFl2XoKQXkh74sVDLhKQ2oPkeRvG71bvLA9jU2QT_znY7gp5RrWvvx58HWMPw9CFAFx6HH0FY4V4MAkBNvo4rp7vbzR9IkAbtv9pjIQxoBakW7Ooh_XnW4j3nagXsKbIqPAgt9KLw0rm0OglGBbEZhsBhxXOVfkaHktkbP85lJcfGc3-w2AdIdGifop92Fi30oknzPDvSBTQ7JU0l990z-3ucMIiJlfXAaybf2DyepCIp4HiglpBsW_ErY6Gc1UQqRupRMqJTFCQfipDReAXBq9iADI8kOaNFyzf42_uwURSE5ebGdnwusonamNXdOlJB_DCda5Z_LAcZCyB7YpFQmFfWJO3j5nc9OoaKf7lHnUXur4Mxs26v662QJ_pn1EWYSxNQgnqhIVAyI_MMUPR8epjFgXhC_d_HSUVABeZU1nLIsL0uc4NOx3qidtM4I9jduedgF3BL_yYS3lGrXYCsK-Kmuyk5R_utl0tn4yFvO-axw_ani8RyUBmMMS41eBHgor7aAr09c0NXgfLwA7V4fZDrIviTULvLzYmSH0ziYdl-Qr8H1v3KLnuoBQ9_Coyga7tb7Z4dT8KLAdHCvl7DPXvOeCFm3K7xSVjjYdhu9zuN6x5BctW1iaV5kPou7Fu-40ZQAct2i8dTZMNmwvWBvgTqFuDN8w1IXsFoiF6652OWhMyZe5I1IZBw94oWUh6bbSPKaWrWv_uk9qF1owx1VAJ9vwwOhqer6e-zcZy_9yXsKAO-RGNMOAQZKP66QD4kN-OICfl1FqXEs0unhfQ4b-mm33Mi4r2woZ_QXEbDV1JqLji3e788MPANkZAXZfcbIEtSxtmHC00MBeJHD_-QR1SgLSojhcRAfaDqfdKXUTilkTGmeZlrEF1Qq213ZfAYrC-taL8octJJvL3dxGUKVh8DU1fsIODpXOYO8aOKhC4iwu59pj0KR2RWvpLVk-CTwztMlBCTQmYifMzB3lWCJbX6pgFdIFUYiq2Z1o2CuwT48PdHEKvN2bn3jROCJN4lDCpEfNN4W69PWKEnqbvdXDT_8ZvtJaqeRe4N-cQ83QB84qw9Vv-EPJClyeQyM5SJ5tdg6Ktfkiq7Wt_olcg8nMdlb4zcrXMEexUiIhkUfLWsqpY-RUNbzLn-o_BFU6BNYG-k7BXOVYFFKyDeKW2_wFB03mKn5dEhT8EA--Y6ojM-VEJQuN2qoQVhvV8roLP6Y_M6VrDDXnHZgN1-R78hpCc7kMv2gk3ieTIU8-ueZxIJVToLo9cDNCEwi4BqiGwLlAokzAruTSD2ePs7FkiGzMjQeYnKxMMyMkh8tnL2kyA9f85E2tNBGWYNyOqcO9g-UESX2uI6gRF-dR-ABhCxT-sXBB-n93Jbe6je9oqF42UopqBE3bFiXaAxbfjuI1CDOQkNWwv3SR6ZRXBV6pbId1fGkeN07zjJT8c2s1I6-T80VDjOjWAjOOqSVbnVuZhTIMVC9zAOhoCeGoNNL61pGrpcx85ZYQaQzj_y9mMg-FxexMKbpZTDUbQg8yqkdlBRM3TbdVN-m3WLmpM7Uxm4JZvltUTU1XsZC3KcQJ7jcZBRS27Nz-wNV4a-7pmJV-A_NnWAHimfPM-F0yXED17SIwtP83WLqjWrKm5uCEY7F1Gj_Zuzx3sFiW19gdQlVqfQqH8Bww8i2q2cT-5h7IUxoylX0tWPdjAidQK-iaCgskTvG1WawOKXKlAL7Ey00pMpVUSI16ulnGOecGZ1VZl3ihKIqUZuKDWafWb9ZJt33Qy0bBvOQyAU6VLL7pbpKFW5qBDbGw4VdjYdGBXm6ixfZ6J3qgrn9hbow_Cj0mZmfH-m8qf8zHxnBb06co00E8jpDEdNEeAyBna2ENAagStWtxqBC5bGe1nA735YGjJA105nDm8pHTcSpuxU0S_6dxGqYHQW0lAFTG1fSKP87G2qKaX12RNknoeNWCzbqsXaNlrYfCmbtOZghFekuMIZ-DMHCt9U6U0iILvgazZDJFjGvKzqXF3i3rlWg2ruZ2ReK1LBxPjGNlot0GoGA5hClrlPPUdi96C6Wy9REE0vOvK17Jnn6Up0CGrdpALKNLeUIAEWD4yBSv_2Ir7Rod_qqUuTHyULcxsoMdXKOB5NAoGSPKyVd4mabnideGTehGIBAsU9ngIJSysLi_a6XJIre090eKBxdglzWxJO0aUy4ZJJ6YmOe-saAh5xg6HeWE8lFXLK_1zKt0N5bfFgd1TawjmjOI_Wl77UCcBjPyhMFSlzQdakQ19Ri5jg0-4rF0trV6MFfEeD1_HvHTezoQlAbXA22ojUsguwu1UGegddyFfijwLNPAYC8T7Aluo-JNHQByYtKWX_rjQ6I17H93bVygzeQ2TQS29DDLTMIxbvrtnJWelHvTkJ7rAPP_Hvr1tSxvnnk1vY_XvTVImVyydYPIL0eEoGg8taefut83280FtJ8igo87tHvt2lwYHcfnjk0mbKGWuQMauddo230wjsWnqtYp3t112H15_Wwgw7HbHKOI1SRa5Whu8fFsR26XTFlJ__hxHToMWOXQEEuMZWEpJm_XksOimFikqZ20PB2DNzhWB8l63ZGYi-Me3cIoTs9CGicXQi4Xmwv6SmgRaJKvlW4SI03eTzqyGT5L5sN0jRwkld0qkFR8YkiT-dgH2UMmMB5ttl0RgBkuP73esWy077BupDNTrlM4H4pWZCPCSyp5sibs_34z3dNv2L1fmULjghD4aPjZdhjNp5Z41ntZxZ9G7x-w-b5IJ0z0VqiZYimq1e3x702xSF1Q0MFUzmuSc1eSnKRU8w92RfGbFe4Lw=",
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "It seems I still need to gather all 19 specifications for \"CODE:PROTO2\" to complete the manual entry process, even if you wish to mark them as \"N/A\". My apologies for the confusion.\n\nLet's continue. You said \"N/A for the rest of the specs\" regarding the Brakes. So, for Brakes, I will record \"N/A\".\n\nWhat about the Wheels?"
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "id": "adk-30543c6a-cc98-4cf3-8cc1-a58b7be7985b",
+                "args": {
+                  "seat": "N/A",
+                  "lighting": "N/A",
+                  "interior": "N/A",
+                  "performance": "N/A",
+                  "steering": "Power Steering (Hydraulic)",
+                  "vehicle_safety_features": "N/A",
+                  "price_range": "1-2 lakh",
+                  "braking": "Anti-Lock Braking System (ABS) with EBD and Brake Assist",
+                  "off_road": "N/A",
+                  "transmission": "Manual & Automatic",
+                  "battery": "skip",
+                  "wheels": "N/A",
+                  "climate_control": "Automatic Climate Control with Dual Zone",
+                  "mileage": "10.0 - 14.6 kmpl",
+                  "user_rating": "N/A",
+                  "seating_capacity": "5",
+                  "audio_system": "N/A",
+                  "brakes": "N/A",
+                  "body": "N/A",
+                  "car_name": "CODE:PROTO2"
+                },
+                "name": "add_code_car_specs_tool"
+              },
+              {
+                "id": "adk-08536952-9943-4a35-8d11-350649265806",
+                "args": {
+                  "user_decision": "manual",
+                  "car_names": "CODE:PROTO2, Mahindra Thar, Hyundai Creta"
+                },
+                "name": "scrape_cars_tool"
+              }
+            ],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1760975475.506231
+        },
+        {
+          "invocation_id": "e-699e445f-43f6-4e0a-9fb0-8a2ca9b883c5",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "17-inch / 18-inch Alloy Wheels"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": "CrMEAePx_17G_Y1CPW3qm-Uw0tBSiq6sm8BmPJU_UuwVBFje4VbMLwPn_McVYG3Z5kteWDG3PvakyiKbLe-6goEBcCzggMaG0Gv4EF5W1HAVwohrjj_81lijEtXoDLY8BQp7qxdJgrvuoLMu9bPycbdAgZILNfCO_j7HG2ScB1obKmOektIqWAZsjSTc3m_LDDkkofwNUrQj8ss3LKvltbAULr6R1Fb3HKjFUMvE0XSKPzxPN7QFK7M_EOI0A-nn-mlltLGkmt91SIb9N3tcIykYAUG_Td30V1Tq0KgC-szql8HomG90AH9-jDEh2yfLAsTZWY42_kRZX4G9IS7acBjnm9jcKx1-pyTm8X9DwqboDjvVyJIKzmNL56uMNW5AQT9WYRWp9Ia0dQU8qkpKwAN1eddRc8RnuFWNArydeUZIIaVQcuLC5fsS6wAKqHu4Dc3tDr4XqCh78rOCHkzEv0UpOR0tZ4U7CpWj5qkTEF3fpKw0rDWW3jG8iWl7SCKYFLEMzH8H61iyJpui2AszK8RLM_QnSCJBIZtYH5b4bibxkrgWk6UFKxCsrb4eT9FvjN5-Ikb_e496xaw04YqYlQ4hAaBC4MDq8X77NusK0I1diWTfPVrIdkqYFvYdZO0pcAqazCLPqodJgaoM_U3VEpOyliZD8jz2g5EfDLwEHTMMyeeix80ZNFKyl7SJOIQlLIJrboIfNA9B_tnN9jxopgfUV-u8mteB1KMU5D4XCJwOg8dIExY=",
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Got it. Wheels: 17-inch / 18-inch Alloy Wheels.\n\nWhat about Performance?"
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1760975524.358146
+        },
+        {
+          "invocation_id": "e-116e461c-f1ba-4540-a115-d3a8029ce87f",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "SUV"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": "CsYCAePx_14ef_R_8gcTnqmgXUtfQuYZnU7EIYcg08tjKNLlPuqgeaNpDzW7RYM6MbrV4rZ93fe3FOSlbAQZtK9ER1gCcG5uKNK7Sn3vp2ecLvlFwV4-0rWUJChjEelGTMdKOeltBv6vj1I-2UoiorP72ASVKXF9MSXtBTdHbSGTxKj9IZEv4snelT3lOaa_nRMUH8N9aPn3Ul7l9Tu5yMSuhyoB01hyjQRkG-Fkkt13zFX-MlfsBvnuSWQQsu96vqxWTu_eu5CKzpPC9auctI3aZAX6ntIGq4SysUE8lFZm1zXOjI1e4CbDBgsD9Ry3v4DoFlWWZVBeFta6o0JIm4vMl3UfbDEDISEZBX48v2NIkf00R78JZq1hJeXLSi6YkXtY0oBf2FABLJuY_12NwvIL-_GXuNV76IQa-gpnpMkDSOyda16ajas=",
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "\"SUV\" sounds like a Body Type. Can you please provide the Performance details (e.g., 0-100 in 10.5s)?"
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1760975531.629087
+        },
+        {
+          "invocation_id": "e-3add9d1c-1e27-4cc3-a3ee-d80deabf4f96",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "59"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": "Cu8BAePx_14Q9SnkO-yxAjB3jNFYY5S3ysbf9LkbSOPnjiDTtWmyVIolqtOg3zcTTdrzjBsfW36j_kVhf6ZF-sWxNXq8Ye1BQ8G5g5lMfIPqAlNaYSlDRXPe_xiDOSnrEGBRIG2CBC8jnj1iMjXdO00PD-FWgUu1Vt9zO_-HUPTiIkj0W4pxrdWORcycbs9QFpS-pQ8MSR8hQ9j5mGjDKpHvU0OkPHMEUSUPLOts_kHLjG-8_eMV7fbSDN_jK593jpafOsunnRPOYzzii_5Q6fNubTG0zitVw6GqSAkKXQ0telGha3mNDpay41JyIBB_3Mk=",
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "I'm not sure what \"59\" refers to. For Performance, I'm looking for details like acceleration (e.g., \"0-100 in 10.5s\") or top speed. Can you please clarify?"
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1760975554.906179
+        },
+        {
+          "invocation_id": "e-7bc4c3c4-a998-4659-8a0e-3f3941242ff6",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "10.5s"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": "Cp8DAePx_15aL4wRb0N7NrvjVxtOvWwTR45XK0vhgDPT5v9VZ5cZSPiI469qPEC_qIkRPVgYZBwVyl47inEzEDfM4xIHhTJohCEP7bsWgr2Uo5QLxYW0ig503_zOkkZ_0tcbEb3mpzs2CVgiUSRVIMVW0LX2iJtO4Rn1OvnXqaEtoz2tTx1j2xPnl1uV3-nw50J1fmnxAbCJj1nAT7UHN_wWzotnG9Qg4C0KD0sjByVxNEXXc82u4eAmEgaSUHe_PILEXpvJ8G6zdo7ffKdWS48mPb7_5azTIxhWqQnoz3y2xeZz1auxv2ANZRuqqmGX12BhAFIH5v1tm4w5Te_T6UX8t90phbS18ePphkvo9ABjppZMeqim12rgukD5xHrKBAQ1ns3i7TdDp0fqxD2qVFcP2Y8pIhkSnJnPlhoqYDHZ35-sGxWPZPCG5ZgufEImOxU8qWNZxS1FAbVDp17iYCspI9fqqIAGYxJIpgEALMFg_J9H40nefRdwbKy3zmIBxzEDWF4N-oTkKuGIzeL-IU-v5-K82aCiCN_c2PUnx4YN3w==",
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Okay, I'll record Performance as \"0-100 in 10.5s\".\n\nYou previously mentioned \"SUV\". Is that the Body Type?"
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1760975570.046632
+        },
+        {
+          "invocation_id": "e-7f211a48-8c8c-4ad6-b2e6-d705d2291759",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "yes"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": "CusCAePx_16xsxlA-s1aytiDI__cbDVONWpFF1nMCHBTvrozp0gItSeDwtiZ6t9Pqw0yeAq-CmAoY7cl_Uc0rUygZ5kSCOp-aMy3tBGecLC4FVDpqMKrew49EGcSd5699z_3Xsu4Mz8NgWXmH4Qi5oxZ4iMVSor66VRKF4R2XushNH8wHPBVjAgI8Lc0g9s6etOfoZyPeiarrIUPC-xZEZDItbd5CKjImNjN8uroK6cT2pQ2zIMcWNIHke3a-XyVsUEoKMjXgJ1GjPJezJlEA9jtDsKmDf8vvVLa8PMgZeCeLyqYKjwU732CzFGHzrI4BnNo4dhpPSdkvhLNlfyUbsfrg1Hu9BTSuJ2PtuRB1PO45wZWucfG0PJefJW4GRYrFSPqYnmMGoilTBe-Vr2a9TX0pS2Spr3Reecck1l-g1NVGUB53Ero0nYyR8NG7_cRb_yGamH_lELcOx-er9iKetbBMCNpuoXIYrtvAhEX",
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Got it. Body Type: SUV.\n\nWhat about Vehicle Safety Features?"
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1760975579.330579
+        },
+        {
+          "invocation_id": "e-27a7e5f3-abe0-419c-966f-cbfc14b93982",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "7 Airbags, Anti Lock Braking System, Vehicle Stability Control System, Hill Assist Control, Rear View Camera, ISOFIX Child Seat Mounts"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": "Co8DAePx_14UBzuiWIDAnqXW4lI-gOAQA0lMbwWrCKlQVusNR23CTVeK3ImEcJQ2QbGgY9sYb_kLSTNxWNA951WVdd1j5IpvuynFtcVgM0ybeNL4Gv34VYWBPcKg7gDFad1U2OoFSli-8MylbxX0B21vxh7xwPwP9Kn_HE2_DDJ8QknhynVgeJIlNjqggTp5oUIjOJOmutgnAR5bRhp_Ii4IAmLSZGksh4er2Cy7pkem_g4FdFj1Qy3lzGFxuYFv3UPgJXx1Z_SEroBCnj6ZoZkXf7jvo480eAr8Mqt-adyK6BcHT2tWFyMZMzC7jNaLpt3K0tiz2eeCLVjFuW_HyiWS7ParOiMkur6Ft5eR-lPN53B91lHcOAAoB7ntqlXCCgAENtZp7-4s2SlEaTi72cCjXRFbcPkqfsT43LYcICsOW-ByIf8FARutwLRa-6AifXz-FXlM93m7Zqf7D5gQfZQjcH2CQfauaVXW7kLXiwcF7oJX5p8hJh5gx4Em1WEc52icdWiM6ocPz7T72lewQ4TD",
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Got it. Vehicle Safety Features: 7 Airbags, Anti Lock Braking System, Vehicle Stability Control System, Hill Assist Control, Rear View Camera, ISOFIX Child Seat Mounts.\n\nWhat about Lighting?"
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1760975593.714024
+        },
+        {
+          "invocation_id": "e-85326a8a-a828-46b2-b52a-7d07eeeecfe5",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "LED Headlamps, DRLs (Day Time Running Lights), LED Tail Lights, Front Fog Lights"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": "Co4DAePx_15QmrbTKnvH3SjuIGHd8Z5NyN4s_AntHlaFc-uE69TQSj35__j5i0ZI03VRFkiOwW2qPcXtqC7N6ZLHRpHWkZxd3vvZS_a9arjvfvBlm_9zzk8Rl-dMOFVcFuU5_1jF7oS_sNHAzPeWu1g2-md1RWg2kB0BD6s3MN0o5xZSTmzjWr3c21dPcLjHts-GohaVRYjn_Z6qHhZcKVac4OpiECjvKqPsBQBc9g6FVEqWFitl8VisY0CIAbtMa0NWNVBCocqLuMpli21Nzz4Mm7PmCX0WX_POV37mEeAa3ENt_BA_Jmyjsun0LKovRC7ifn3VebUNYqnAgLCeVxd6toR8gB7XcuITqNIUgkbfRoYdYwfrHnNlJYUBsII9MTHVykI54QPRURyY0jUFJoH0UV6VOMFOYw0b_O2gBuKaAvZjKMgrrV8OU8wq7_dbQ1WoXSnueFn5RLk2SmDSa62XoINy7wDdP_EOfeP5Ir1cZXegQpWjq0LGNjbPFSqENwE4GcPQm2YpJMu2yHU7oRo=",
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Okay, Lighting: LED Headlamps, DRLs (Day Time Running Lights), LED Tail Lights, Front Fog Lights.\n\nWhat about the Audio System?"
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1760975606.733636
+        },
+        {
+          "invocation_id": "e-c9c83ba9-bcc8-47c2-bb81-a640852afee7",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Audio System\t\n8-inch Touch Screen with Android Auto, Apple CarPlay, USB & Auxiliary input, Bluetooth Connectivity\nRead more\t\n10.25 inch Touch Screen (Expected), 6 Speakers (Expected), Apple CarPlay, Android Auto, Voice Control\nRead more\nOff-Road\t4x4 (Optional), Hill Assist Control, Traction Control System\tN/A\nInterior\tLeather Seats, Automatic Climate Control, Multi-function Steering Wheel, Cruise Control\t\nLeatherette Upholstery, Panoramic Sunroof, Ambient Light, Electric Adjustable Driver Seat, Ventilated Front Seats (Expected)\nRead more\nSeat\tLeather Seats, Electrically Adjustable Front Seats, Ventilated Seats"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": "CvUFAePx_17H7Ztq5gsbCzE5FFamQjNWGTo_sVtaOx9k9slTsO2YArJICpiq2mVTO3CF51qqQI0qBGY6keSMZHhqRieEuROrjdKpryGJZT_mfBqltPeNAnUYsdH0p5z6NiQbIRsfAGNqm_UDF_A7Eu1YdF6RCxXz3WEtRZC4MxQEZp84KQp_L4YGqKi3ZFY78RUt8HkWZkeO9rjmpzqmye0V2m3KhXU9cj20-ujOGVDLBrqFrzJBpx-FsZc6o-1Bme3djs7KjlkmOvDBmgb2OZG0UhKf95nmpj30-pFGoHUSlq3nwdAERuw1K2vwxTpjgb3OR35qnnjRqaVp_JrvhhLLq5Pn4J2_RGFT4bbXHU_B7yPSnGoXo2G45Qm5BiTzz64ogynODjzyZvo8EnvPeMpLM8P1hfQu19hDTRxXsM2jhJl3YJi3yqBrh51dW-imlnbAlrQtRoR5a5sgSGbieO-qljEhlRE41fUZwNDoWGUCo-ivouTl_TGz0YAxRluDmZS7Jc3m7njWMDr5pHLFRfHqe96AOT02JAaj705EKlNEjY9qAfuoIMlMZUbc8aOOi_Gi-iLTfNVNjYvpertbzB0DuOTqm5d5F1rQ3D_Rhb5YX2NLN-K_XoetijEyENhHzZCxJJKVoE_kan0JWf-9K5GKe6OCxEb6ejh4smhtUvngVR3CgWE2kxUC0RZcQ4Pze6fzXw7pH2DwG702smQLhaWn9C8MHWrZJmrH0iyiE85cO_4ltlLV-8nYsM-wrk6rxYFkIufasFiEQpvgVmJFbSIeErT5B2hcTp216IXaHTG0g4jNVyYwW0nn2XTRqZt0lj1qKJTOeU9Lv5JQMOub-zwoJOaPCGh6pSxDtNbcunaPqi5_iaxNLfQ8c-da7qWNc-fX0yVlvv-MojItkthaBcZzBbPeRfiWGW7WdG8VDlo2Uw_j7ZaA6ceRogrz2uQZsvmIFZvmLCljH9xt0RYnHRvbKU0s4x8Q9O4G2eL0GrNDEvXBxTh7Mw==",
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Okay, for Audio System: 8-inch Touch Screen with Android Auto, Apple CarPlay, USB & Auxiliary input, Bluetooth Connectivity.\n\nWhat about Off-Road features?"
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1760975630.61107
+        },
+        {
+          "invocation_id": "e-be40480c-71ea-43c3-a29c-29b5072889bf",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "4x4 (Optional), Hill Assist Control, Traction Control System"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": "CokDAePx_16IztGMze5kPd7zRB6i4jPLNWgu_rvi3fZtCCSJcPFle8CLiEfgKkiichmuspUYI75qxhF8udN-uXw78jUcD2JVC_Q8_M5igns2rmo1B2ihRkBNNsamTsdUOAHrHjsqhtzMUN4LdxyQXTGHmt446DeA0zRGfapnhGCxx70KehIoaQ_n2pPzG_F6ByLOd_5CUJrxhS3wiDZWcmhKFd-DDwPRqmw4DRyrzPqueJ0P2X44dF_4rTX5fgvs6xtKco12PrgDlus0pe8g1I6GlX8kEWs4ckkDtqqw_D-2jpvrTTw0Q-FWsvbIiaw1LdbLl7kcbIr1FxJvxe8g8Cr5VFx8YEbFrgPqwaD9uYpsvtSTLGTm80fufFApbmiCnLE9iVL4ss6v-xx1kXOczfBPydNEykc0RV1Oz8SClU3i9xaWBhbzJEBdqdYHBKw5GGXYNSE6r1Zl4SAhGd267fal2d02IPwTCrRfWselZCWhCFcUkAx2xRCc3FeUdnoL7lSD5g-Jwfx5CQvt",
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Got it. Off-Road features: 4x4 (Optional), Hill Assist Control, Traction Control System.\n\nWhat about the Interior?"
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1760975660.489501
+        },
+        {
+          "invocation_id": "e-a42b4cb0-e1b4-4c47-a7f1-1ce25e7fe9ab",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Leather Seats, Automatic Climate Control, Multi-function Steering Wheel, Cruise Control"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": "Co8DAePx_16qODgdvJdfXG1k22UkBUEnF1lMVZ4znf9TZa2l8uDVYKlJ3v7l9Zstig4zNsICMMMEhpMRk9WoCq6URh3tigVbLoFMjL6G31WlVqGS548-_Zls6zzWNXx7bYwXoHKXHikR56UIubXzmI6PaqjclO2-4rKOV3ZCyjsSqnLavMwjkDmK-i2INHdAQVDX0NzyWSzhNWQDPD2ntd0rrsnv0vX2mQMD0-kvk9gVenVKHkP5W5x2FsXPyt1FvlTG79sSEEuocWz88wOWLGnozcGMkPW5MHfouzxbtXMGM5iCfFRfUhEGkRez-MYQ1M_EDVOaW1n3O-pRC_4M0zOOIF5CI9WNA_r3Nh0UtS5qm5hMDwfGkXAFhWge6KHxKkyxE9k12AbK1exN0Yj-v4M5euxRjPJ6b0n_cN6tKT43GT9XfSO6vd7at3NKKEme7p106s4Pdxvkupmo_Zo3H3KMUg1WItmlK_v7re-Bixs84KQPUpevEc8L8MtSN5bc5ZXRatI8zZYWd_KxLFxh1KSx",
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Understood. Interior: Leather Seats, Automatic Climate Control, Multi-function Steering Wheel, Cruise Control.\n\nFinally, what about the Seat details?"
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1760975715.036752
+        },
+        {
+          "invocation_id": "e-696c13cd-3a55-4c2c-9a9f-d0a3d4c23f80",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Leather Seats, Electrically Adjustable Front Seats, Venti"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": "CrsDAePx_14ZlDXS_dUlM2oYGzvNM7e8rbNG9ontM9K_0A5ZU_mJPQHdSqR8A4AzO3PdAxBq_CXzYBvQVDaqBoKQ2saJ7nZ0hjYxO8HjE7aZYvJXZnUrUFG2zyJHatpm-M6mfn5g7OlkQWwBu7pRklivjkgxzmudnt2raul2o8UTWfA-QvoYwe8WBfoUPgcrc22O8JadvMPsyn4BPS7CGoqdReJEfaoWL08spAt7yJ5sYydqtw8-UbzkgMLH8N-PWHZeO9Q1XiKpzpQ0Y1f73XXoizBLXGTzQs9ioteZxL6Io1myb3d30X01YFs9eKAfLGTVQqzp9_3O-GfK4Iq6m2lDh_IaVcF6ivHoWYUtggyRNe9d9GpB2CCaUYxGZO_NtFc2PeL0K9MZmo6p7s2RcTsaHOW80S7Q9NaQwFn0a4N0hJIj8-oKocYrZOZ2SlGrAC-8IEFIXahpLM6veD1IukVoMOyCPNRnqgpcf37yIMXYn9NMBtVtH06IDcTiH0vTeZ08nIYgo8cWiHK6hrICjaglVgTtjdcBuiIZ5tefZM_3cT3VKH-1LPU8lg94jxaZASLgRQ1XtwJMShsNyDQ=",
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Car comparison completed successfully for CODE:PROTO2, Mahindra Thar, and Hyundai Creta!\n\nYou can view the full comparison report here: file:///Users/mustafa.mohammed/Documents/adknext 2/car_comparison_20251020_212538/car_comparison_report.html\n\nHere are some key industry-standard pointers for car buyers:\n\n*   **Price and value for money**\n    *   Look for a competitive price point offering a strong balance of features, performance, and safety within its segment.\n    *   Consider overall ownership costs, including maintenance and resale value, for true value.\n\n*   **Engine & Power (performance)**\n    *   Seek a powertrain that delivers adequate power and torque for your driving needs, whether urban commuting or highway cruising.\n    *   For enthusiast drivers, look for quick acceleration times (e.g., 0-100 km/h under 10-12 seconds) and responsive handling.\n\n*   **Mileage/Fuel efficiency**\n    *   Prioritize higher mileage figures (e.g., 15 kmpl and above, depending on vehicle type) for long-term fuel savings.\n    *   Consider hybrid or electric options for superior efficiency and lower emissions, reflecting a growing trend.\n\n*   **Seating capacity and practicality**\n    *   Ensure seating capacity meets your family's needs, with flexible configurations (e.g., 60:40 split seats) for cargo versatility.\n    *   Look for practical storage solutions and ease of entry/exit, especially for rear passengers.\n\n*   **Key features and technology**\n    *   Prioritize advanced safety features like multiple airbags (6+), Electronic Stability Control, and ADAS (Advanced Driver Assistance Systems).\n    *   Desirable tech includes large touchscreens (8+ inches) with smartphone integration (Apple CarPlay/Android Auto) and LED lighting all around.\n    *   Comfort features like automatic climate control, ventilated seats, and panoramic sunroofs enhance the driving experience.\n\n*   **User ratings and satisfaction**\n    *   High user ratings (4.0/5 or above) indicate a generally positive ownership experience, reliability, and satisfaction.\n    *   Check for consistent positive feedback on after-sales service and overall vehicle performance."
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "id": "adk-fe311fe9-614b-47be-8c7c-261716e4afdd",
+                "args": {
+                  "audio_system": "8-inch Touch Screen with Android Auto, Apple CarPlay, USB & Auxiliary input, Bluetooth Connectivity",
+                  "transmission": "Manual & Automatic",
+                  "mileage": "10.0 - 14.6 kmpl",
+                  "car_name": "CODE:PROTO2",
+                  "lighting": "LED Headlamps, DRLs (Day Time Running Lights), LED Tail Lights, Front Fog Lights",
+                  "interior": "Leather Seats, Automatic Climate Control, Multi-function Steering Wheel, Cruise Control",
+                  "user_rating": "N/A",
+                  "steering": "Power Steering (Hydraulic)",
+                  "climate_control": "Automatic Climate Control with Dual Zone",
+                  "off_road": "4x4 (Optional), Hill Assist Control, Traction Control System",
+                  "body": "SUV",
+                  "vehicle_safety_features": "7 Airbags, Anti Lock Braking System, Vehicle Stability Control System, Hill Assist Control, Rear View Camera, ISOFIX Child Seat Mounts",
+                  "price_range": "1-2 lakh",
+                  "brakes": "N/A",
+                  "seating_capacity": "5",
+                  "performance": "0-100 in 10.5s",
+                  "seat": "Leather Seats, Electrically Adjustable Front Seats, Ventilated",
+                  "braking": "Anti-Lock Braking System (ABS) with EBD and Brake Assist",
+                  "wheels": "17-inch / 18-inch Alloy Wheels",
+                  "battery": "skip"
+                },
+                "name": "add_code_car_specs_tool"
+              },
+              {
+                "id": "adk-06bd3c15-29fd-4412-8f6e-7e5338ac621f",
+                "args": {
+                  "car_names": "CODE:PROTO2, Mahindra Thar, Hyundai Creta",
+                  "user_decision": "manual"
+                },
+                "name": "scrape_cars_tool"
+              },
+              {
+                "id": "adk-e6b3073e-e86a-4515-899b-6d15fb3d8d6d",
+                "args": {
+                  "car_names": "CODE:PROTO2, Mahindra Thar, Hyundai Creta"
+                },
+                "name": "scrape_cars_tool"
+              }
+            ],
+            "intermediate_responses": [
+              [
+                "Car_Comparison_AI_Agent",
+                [
+                  {
+                    "video_metadata": null,
+                    "thought": null,
+                    "inline_data": null,
+                    "file_data": null,
+                    "thought_signature": "CsQDAePx_17iO_HT8wHID1vCciz3l3f0gth_wU_aThTsl1xUSIvuKV-LbwC91EaiDMEUWA53wbSaMtjqZPEcVd6IHblfIhMlopRP7GB1AsGLkS__1KcTnoPtSWjJOPkYNOb2aNwxxGHOq_p9tv1aCI17Qjdaelwz9Igf7Eze960cfTppmWzpHKLoXddzuIu4kmwK65ne692pt1qKx64EUDde8AF3N7xtniv7g1UjImo7KcmFPWqvsKYY6a0t0WntkIFl6Zi5y8d5PJIas_nsaRoToMt6SDKatQUbpC4PFJEgSpaJ9PxAmYfiO9BXGgqQECWOytE6kD0F4TuHsLw6djIfjtItWSecJ4lSkEWqRvdEF5tNhKe1sSHGWcEoVj1HD-BUNc_x9fizDFlB9ta4BKayRQFxkrYfu9p-lC-3ptrsFRzQH2ZfoEcXnfm1ewPoVwEYPKZnAPhx4bKe-UQp2h-SHPMq55s7KMz02lzA7XRPTVD0wbzp8ud9m0BF_P6Nuiuc_THNCnhWfElHpVgwcKGGkVYLwt9Hz7_ney1MxJMjcFTqnkq24zLXlQD79kw0u2oz2U8o3Lf3zQ4xYWzxuOidPK6gjek=",
+                    "code_execution_result": null,
+                    "executable_code": null,
+                    "function_call": null,
+                    "function_response": null,
+                    "text": "Got it. Seat details: Leather Seats, Electrically Adjustable Front Seats, Ventilated.\n"
+                  }
+                ]
+              ]
+            ]
+          },
+          "creation_timestamp": 1760975722.873658
+        }
+      ],
+      "session_input": {
+        "app_name": "journey2",
+        "user_id": "user",
+        "state": {}
+      },
+      "creation_timestamp": 1760976039.721615
+    },
+    {
+      "eval_id": "yes manual bulk",
+      "conversation": [
+        {
+          "invocation_id": "e-fd697da8-c2a3-49f0-a1f6-56acf2f80953",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "hi"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Hello! I'm your enhanced car comparison specialist. I can compare cars based on 19 specifications. Just let me know which cars you'd like to compare!"
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1760977028.116026
+        },
+        {
+          "invocation_id": "e-856aa621-1406-4cfb-857b-fa28391cb934",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "CODE:PROTO2\", \"Mahindra Thar\", \"Hyundai Creta\""
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": "CpECAePx_146uuTYor45yzLgLzvT-4XuSmKYIjwnQKtMMeROL5I8PP7E9usSUW9i-XrWz9CqbE6kJ3ikF1zTkwQZQryj7jgE6sNSUUBT4RCoa52b356bNMWBQe4N5NfKVSI9SC83sSqWrqrJSntgbmnJUc-NYbJqThBeqpN0NfrX9CmhAT5Zkp6IPFoSGoGZal3hh0g6AHVnLpd2lZ1GAiZy7IT5Dmbv72Mv5NRsgLQLTNOMTXr4fIORIfh0WgezH9opSQE-DWtK3qLlYF8d-XbjbEC50H1f5Jl6q9LtNQmLSFIY4zjOM-NhHSUcA2WyWia7ATMP_lVvCyOhMzDv3qK8zc61O0hNJ70p_UifZIFUtMlU",
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Would you like to manually specify specifications for the code car(s)?\n\n1. **'yes' or 'manual'** - to manually enter specifications\n2. **'no' or 'web'** - to search the web\n3. **'blank' or 'empty'** - to leave all specifications empty"
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "id": "adk-00950461-c48a-4a39-b1c7-3b12d378a76e",
+                "args": {
+                  "car_names": "CODE:PROTO2, Mahindra Thar, Hyundai Creta"
+                },
+                "name": "scrape_cars_tool"
+              }
+            ],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1760977034.379395
+        },
+        {
+          "invocation_id": "e-d3c82b66-0a09-4d50-8c02-ec2e44126662",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "yes"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": "CtoBAePx_14ynhXDEBxEO65aOG8e5X65EdWeKVSIU9RUIidAjmfRcEq0zpL2KDswavWzlAWrPFAgXYx-r6LNHMdwvBt1tcJosNee-mqiquim5UA3fOD7cuE2PmBlFmdrUjf-qzlCYFXCc4Ep2vUeoZXseDQms7c-6QhniMXlx57usvEL3rNuhxsFh1pnLYQ7CgtX05bvZtHkGu8aKhozQ-9pTt4aO67tCDxjawSMEk8sSitJOWpCjghcoCj5F9BGh39I79Wr2GS8MTOjVhNJ8vrG3QgFkd2ZMbs0J3c=",
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "You've chosen to manually specify the specifications for \"CODE:PROTO2\".\n\nHow would you like to enter the data?\n\n1.  **One-by-one method**: I will prompt you for each of the 19 specifications individually.\n2.  **Bulk / All-at-once method**: You provide all 19 specifications in JSON format at once.\n\nPlease let me know your preferred method."
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1760977044.065102
+        },
+        {
+          "invocation_id": "e-287f4934-d7f1-4aef-8a92-af941ceda0ec",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "bulk all at once"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": "CsgCAePx_14ri_2Jt2ELN1SANJM9F1b-Udc9hIVKKaZoTVIwySCmPju7BvwQZtHZ3WX6AIVV3-svQVcg5uJOOlu_YWsib62xgdJWZub4GAzfoxTq-rwQyPqSVByZk4MXN_dlmn0z1HOL79sm81aPviOP9A0-kA3dd7Z8XJbX-lnI4cemCa8Ezjp2UEH2OcY6jBVi9oyNPg1NpXJkKte-GB2OiFxkLqCchc5sugFd1qlqswNYZRKoElzXgGtztCc9mgIgHca-T8BPokMeTW08VEvwWg5RY1KhutDdxpchks2jIYoQT2JPlnaut_npAki4Q-B0QtowYq1MAiENJgDhPinDaID0WPOxAo5wx6mYgip9E89fcrZOU1LN0xymF6p-v54SE2voR2OnYy6cLEPNvl5hL3oqikvqlf1LIPZsK7MbZov7L5Ibsp7Mjg==",
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Great! Please provide all 19 specifications for \"CODE:PROTO2\" in JSON format.\n\nHere's an example of the expected format:\n```json\n{\n    \"price_range\": \"₹15 Lakh\",\n    \"mileage\": \"18 kmpl\",\n    \"user_rating\": \"skip\",\n    \"seating_capacity\": \"5 Seater\",\n    \"braking\": \"ABS with EBD\",\n    \"steering\": \"Electric Power Steering\",\n    \"climate_control\": \"Dual Zone\",\n    \"battery\": \"N/A\",\n    \"transmission\": \"Manual & Automatic\",\n    \"brakes\": \"Disc/Drum\",\n    \"wheels\": \"18-inch alloy\",\n    \"performance\": \"0-100 in 9s\",\n    \"body\": \"SUV\",\n    \"vehicle_safety_features\": \"6 Airbags, ESP\",\n    \"lighting\": \"LED Headlamps\",\n    \"audio_system\": \"9-inch touchscreen\",\n    \"off_road\": \"4x4\",\n    \"interior\": \"Leather seats\",\n    \"seat\": \"Ventilated front seats\"\n}\n```\nRemember to use \"skip\", \"n/a\", or an empty string `\"\"` for any fields you want to leave blank."
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1760977059.583589
+        },
+        {
+          "invocation_id": "e-dbdf8330-d49f-41ae-b469-5a941a896986",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "{\n    \"price_range\": \"₹15 Lakh\",\n    \"mileage\": \"18 kmpl\",\n    \"user_rating\": \"skip\",\n    \"seating_capacity\": \"5 Seater\",\n    \"braking\": \"ABS with EBD\",\n    \"steering\": \"Electric Power Steering\",\n    \"climate_control\": \"Dual Zone\",\n    \"battery\": \"N/A\",\n    \"transmission\": \"Manual & Automatic\",\n    \"brakes\": \"Disc/Drum\",\n    \"wheels\": \"18-inch alloy\",\n    \"performance\": \"0-100 in 9s\",\n    \"body\": \"SUV\",\n    \"vehicle_safety_features\": \"6 Airbags, ESP\",\n    \"lighting\": \"LED Headlamps\",\n    \"audio_system\": \"9-inch touchscreen\",\n    \"off_road\": \"4x4\",\n    \"interior\": \"Leather seats\",\n    \"seat\": \"Ventilated front seats\"\n}"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": "CoMCAePx_16tmYiV4fC9qwTwX9Ij3lJjW1_06PMRi37Of_SE5sE49rsNF4-6Sp-2_CHtO6P_Ngj7XfwH7F3TDTZVUWI6NljYzA1doeWahlxMaGprVl-i8Ckz7MfoLS0t2YN0X8_ySafbFHc6D9rgy4QTvycJoDHOIY2ZTDsQGyGBXUu8Bt4hqth8LSW1YJkj3mKPzDvCPTD10Ek_Kykfx7Ws_ylLGRcnghrBA5zkv30R22eb5YAVEFbPpt-yTYVvQOOG9dqtZtKcQNKSjrZqteS01370oR3f67kP2UhUn9je0uehAcZjmsK_Swp5Ig4iz47QcZ8X41vGRjoGSGOFRGxYzvtmaA==",
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "The car comparison for \"CODE:PROTO2\", \"Mahindra Thar\", and \"Hyundai Creta\" is complete!\n\nHere's an analysis of key industry-standard pointers for car buyers:\n\n**1. Price and value for money**\n*   Competitive pricing, often starting around the ₹11-12 Lakh mark for entry-level variants, offers broad accessibility.\n*   A diverse range of trims and engine options allows buyers to match features and budget.\n*   Strong overall value proposition is key, balancing cost with features and performance.\n\n**2. Engine & Power (performance)**\n*   A balance of robust performance (e.g., 0-100 km/h in under 10 seconds for many segments) and refined power delivery.\n*   Multiple transmission options, including both manual and modern automatics, to suit driving preferences.\n*   Availability of diverse engine choices (petrol, diesel, or hybrid) catering to different needs.\n\n**3. Mileage/Fuel efficiency**\n*   Consistently high fuel economy, ideally exceeding 17 kmpl for gasoline engines, is highly desirable.\n*   Focus on efficient powertrains, with hybrid options gaining prominence for even better returns.\n*   Real-world mileage closely matching claimed figures is a significant draw.\n\n**4. Seating capacity and practicality**\n*   Flexible seating (e.g., 5-seater with comfortable legroom and ample boot space).\n*   Comfort-enhancing features like ventilated seats and a height-adjustable driver's seat.\n*   Thoughtful cabin design with smart storage solutions.\n\n**5. Key features and technology**\n*   Comprehensive safety suite including 6+ airbags, ABS with EBD, ESP, and advanced driver-assistance systems (ADAS).\n*   Large, intuitive touchscreen infotainment with seamless smartphone integration.\n*   Premium comfort like dual-zone climate control, panoramic sunroof, and powered seats.\n*   Modern LED lighting and advanced steering systems.\n\n**6. User ratings and satisfaction**\n*   Consistently high user ratings (4.0/5 or above) indicate strong owner satisfaction and reliability.\n*   Positive feedback on after-sales service, driving experience, and overall ownership costs.\n*   Availability of a substantial volume of reviews provides a reliable gauge of public sentiment.\n\nYou can view the full comparison report, including a detailed chart, at this link: file:///Users/mustafa.mohammed/Documents/adknext 2/car_comparison_20251020_214801/car_comparison_report.html"
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "id": "adk-87efd492-823b-403d-a387-a1f05e401a33",
+                "args": {
+                  "car_name": "CODE:PROTO2",
+                  "specifications": "{\n    \"price_range\": \"₹15 Lakh\",\n    \"mileage\": \"18 kmpl\",\n    \"user_rating\": \"skip\",\n    \"seating_capacity\": \"5 Seater\",\n    \"braking\": \"ABS with EBD\",\n    \"steering\": \"Electric Power Steering\",\n    \"climate_control\": \"Dual Zone\",\n    \"battery\": \"N/A\",\n    \"transmission\": \"Manual & Automatic\",\n    \"brakes\": \"Disc/Drum\",\n    \"wheels\": \"18-inch alloy\",\n    \"performance\": \"0-100 in 9s\",\n    \"body\": \"SUV\",\n    \"vehicle_safety_features\": \"6 Airbags, ESP\",\n    \"lighting\": \"LED Headlamps\",\n    \"audio_system\": \"9-inch touchscreen\",\n    \"off_road\": \"4x4\",\n    \"interior\": \"Leather seats\",\n    \"seat\": \"Ventilated front seats\"\n}"
+                },
+                "name": "add_code_car_specs_bulk_tool"
+              },
+              {
+                "id": "adk-31e6458b-2cc2-482c-b8de-68b3fa5e4ea6",
+                "args": {
+                  "car_names": "CODE:PROTO2, Mahindra Thar, Hyundai Creta"
+                },
+                "name": "scrape_cars_tool"
+              }
+            ],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1760977074.012696
+        }
+      ],
+      "session_input": {
+        "app_name": "journey2",
+        "user_id": "user",
+        "state": {}
+      },
+      "creation_timestamp": 1760977234.4504828
+    },
+    {
+      "eval_id": "pre prompt",
+      "conversation": [
+        {
+          "invocation_id": "e-fe21d224-e305-4b49-be44-ad4f4231db2b",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "\"CODE:PROTO1\", \"Mahindra Thar\", \"Hyundai Creta\""
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "Is this a **released car** or an **internal product**?"
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "id": "adk-db658f60-7ef1-46e3-b547-fa67844c5415",
+                "args": {
+                  "car_names": "CODE:PROTO1, Mahindra Thar, Hyundai Creta"
+                },
+                "name": "scrape_cars_tool"
+              }
+            ],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1761288379.806011
+        },
+        {
+          "invocation_id": "e-41c7de0b-cc15-4888-93d0-08d2805f53a0",
+          "user_content": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "its a released car"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "video_metadata": null,
+                "thought": null,
+                "inline_data": null,
+                "file_data": null,
+                "thought_signature": null,
+                "code_execution_result": null,
+                "executable_code": null,
+                "function_call": null,
+                "function_response": null,
+                "text": "I apologize, but I'm still showing \"CODE:PROTO1\" as a code car that needs specifications. Even if it's a released car, the system needs to know how to get its specifications.\n\nWould you like to manually specify specifications for \"CODE:PROTO1\"?\n\nYou can choose from these options:\n\n1.  **MANUAL ENTRY** (ONE-BY-ONE or BULK)\n2.  **RAG CORPUS** (Vertex RAG query)\n3.  **BLANK** (Leave all fields empty)"
+              }
+            ],
+            "role": null
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "id": "adk-0e22ae7d-90f0-49e4-a766-2f1b6b96b85e",
+                "args": {
+                  "use_custom_search": true,
+                  "car_names": "CODE:PROTO1, Mahindra Thar, Hyundai Creta"
+                },
+                "name": "scrape_cars_tool"
+              }
+            ],
+            "intermediate_responses": []
+          },
+          "creation_timestamp": 1761288385.190037
+        }
+      ],
+      "session_input": {
+        "app_name": "journey2",
+        "user_id": "user",
+        "state": {}
+      },
+      "creation_timestamp": 1761288414.708171
+    }
+  ],
+  "creation_timestamp": 1760976013.913729
+}
