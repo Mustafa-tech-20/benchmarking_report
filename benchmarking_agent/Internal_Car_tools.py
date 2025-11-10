@@ -8,7 +8,7 @@ from vertexai.preview import rag
 from vertexai.generative_models import GenerativeModel
 
 CAR_SPECS = [
-    # Original 19 specs
+
     "price_range",
     "mileage",
     "user_rating",
@@ -28,7 +28,6 @@ CAR_SPECS = [
     "off_road",
     "interior",
     "seat",
-    # NEW: 72 Additional specs
     "ride",
     "performance_feel",
     "driveability",
