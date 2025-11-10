@@ -767,1099 +767,1099 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
         .footer .logo {{ height: 24px; width: auto; }}
         .footer span {{ color: white; font-size: 13px; font-weight: 400; }}
         /* Consolidated Review Table Styles */
-.review-table-container {{
-    background: white;
-    padding: 30px;
-    border-radius: 16px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-    border: 1px solid #e9ecef;
-    overflow-x: auto;
-    margin-top: 30px;
-}}
-
-.review-table {{
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-    table-layout: fixed;
-}}
-
-.review-table th {{
-    background: #2E3B4E !important;
-    color: white !important;
-    padding: 16px 14px;
-    text-align: center;
-    font-weight: 600;
-    border: 1px solid #dee2e6;
-    font-size: 14px;
-}}
-
-.review-table th:first-child {{
-    background: #dd032b !important;
-    text-align: left;
-}}
-
-.review-table td {{
-    padding: 16px 14px;
-    border: 1px solid #dee2e6;
-    vertical-align: top;
-    text-align: left;
-    line-height: 1.8;
-}}
-
-.review-table td:first-child {{
-    font-weight: 700;
-    background: #f8f9fa;
-    color: #1c2a39;
-    font-size: 13px;
-}}
-
-.review-table .review-negative {{
-    color: #000000;
-    font-weight: 600;
-}}
-.review-table .review-category {{
-    font-weight: 700;
-    color: #212529;
-}}
-.review-table .expandable-content {{
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-    overflow: hidden;
-    transition: -webkit-line-clamp 0.3s ease;
-    text-overflow: ellipsis; /* Ensure ellipsis is shown */
-}}
-.review-table .expandable-content.expanded {{
-    -webkit-line-clamp: 50;
-}}
-
-.review-table .read-more-btn {{
-    background: none;
-    border: none;
-    color: black;
-    text-decoration: underline;
-    cursor: pointer;
-    padding: 4px 0;
-    font-size: 12px;
-    font-weight: 600;
-    margin-top: 4px;
-}}
-
-.review-table .read-more-btn:hover {{
-    color: #dd032b;
-}}
-
-        
-        /* Citations Section Styles */
-        .citations-grid {{
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
-            gap: 25px;
-        }}
-        
-        .citation-card {{
+        .review-table-container {{
             background: white;
-            padding: 25px;
-            border-radius: 12px;
-            border: 1px solid #e9ecef;
+            padding: 30px;
+            border-radius: 16px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e9ecef;
+            overflow-x: auto;
+            margin-top: 30px;
         }}
-        
-        .citation-car-name {{
-            font-size: 20px;
+
+        .review-table {{
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            table-layout: fixed;
+        }}
+
+        .review-table th {{
+            background: #2E3B4E !important;
+            color: white !important;
+            padding: 16px 14px;
+            text-align: center;
+            font-weight: 600;
+            border: 1px solid #dee2e6;
+            font-size: 14px;
+        }}
+
+        .review-table th:first-child {{
+            background: #dd032b !important;
+            text-align: left;
+        }}
+
+        .review-table td {{
+            padding: 16px 14px;
+            border: 1px solid #dee2e6;
+            vertical-align: top;
+            text-align: left;
+            line-height: 1.8;
+        }}
+
+        .review-table td:first-child {{
+            font-weight: 700;
+            background: #f8f9fa;
+            color: #1c2a39;
+            font-size: 13px;
+        }}
+
+        .review-table .review-negative {{
+            color: #000000;
+            font-weight: 600;
+        }}
+        .review-table .review-category {{
             font-weight: 700;
             color: #212529;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #212529;
         }}
-        
-        .citation-items {{
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            max-height: 600px;
-            overflow-y: auto;
+        .review-table .expandable-content {{
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 3;
+            overflow: hidden;
+            transition: -webkit-line-clamp 0.3s ease;
+            text-overflow: ellipsis; /* Ensure ellipsis is shown */
         }}
-        
-        .citation-item {{
-            padding: 12px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            border-left: 3px solid #dd032b;
+        .review-table .expandable-content.expanded {{
+            -webkit-line-clamp: 50;
         }}
-        
-        .citation-field-name {{
-            font-size: 12px;
-            font-weight: 600;
-            color: #6c757d;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 6px;
-        }}
-        
-        .citation-link {{
-            font-size: 12px;
-            color: #212529;
-            text-decoration: none;
-            font-weight: 600;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            transition: color 0.2s ease;
-        }}
-        
-        .citation-link:hover {{
-            color: #dd032b;
+
+        .review-table .read-more-btn {{
+            background: none;
+            border: none;
+            color: black;
             text-decoration: underline;
+            cursor: pointer;
+            padding: 4px 0;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 4px;
         }}
-        
-       
-      @media print {{
-    #citations-section, #citations-toggle, .site-header, .print-btn, .main-nav, .table-filter-wrapper, .read-more-btn {{ display: none !important; }}
-    
-    @page {{ 
-        size: A4 landscape; 
-        margin: 10mm; 
-    }}
-    
-    * {{
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-        color-adjust: exact !important;
-    }}
-    
-    /* BASE FONT RESET */
-    html {{
-        font-size: 10px !important;
-    }}
-    
-    body {{
-        font-size: 10px !important;
-        line-height: 1.4 !important;
-        font-family: 'Poppins', Arial, sans-serif !important;
-    }}
-    
-    .animate-on-scroll {{ opacity: 1 !important; transform: none !important; }}
-    .filtered-row {{ display: table-row !important; }}
-    .expandable-content {{ display: block !important; -webkit-line-clamp: unset !important; overflow: visible !important; }}
-    
-    .container {{ max-width: 100%; background: white; box-shadow: none; }}
-    .content {{ padding: 15px 8px; page-break-inside: avoid; }}
-    
-    .section-header {{ margin-bottom: 12px; page-break-after: avoid; }}
-    .section-header h2 {{ font-size: 16px !important; line-height: 1.3 !important; }}
-    .section-header .icon-wrapper {{ display: none; }}
-    
-    /* OPTIMIZED TABLE STYLES */
-    .table-container {{ 
-        overflow: visible !important; 
-        border-radius: 0; 
-        box-shadow: none; 
-        page-break-inside: auto; 
-        margin-top: 8px; 
-        width: 100%;
-    }}
-    
-    table {{ 
-        font-size: 10px !important; 
-        line-height: 1.4 !important;
-        width: 100% !important; 
-        page-break-inside: auto; 
-        border-collapse: collapse !important;
-        table-layout: fixed !important;
-    }}
-    
-    table th, table td {{ 
-        padding: 8px 6px !important; 
-        border: 1px solid #333 !important; 
-        font-size: 10px !important;
-        line-height: 1.4 !important;
-        word-wrap: break-word !important;
-        overflow-wrap: break-word !important;
-        word-break: break-word !important;
-        vertical-align: top !important;
-        hyphens: auto !important;
-        -webkit-hyphens: auto !important;
-        -ms-hyphens: auto !important;
-    }}
-    
-    table th {{ 
-        background: #e9ecef !important; 
-        color: #000 !important; 
-        font-size: 11px !important; 
-        font-weight: 700 !important;
-        text-align: center !important;
-        line-height: 1.3 !important;
-        padding: 10px 6px !important;
-    }}
-    
-    table th:first-child {{ 
-        background: #6c757d !important; 
-        color: white !important;
-        text-align: left !important;
-        width: 180px !important;
-        min-width: 180px !important;
-        max-width: 180px !important;
-        font-size: 11px !important;
-    }}
-    
-    table tr {{ 
-        page-break-inside: avoid !important;
-    }}
-    
-    tbody td {{ 
-        font-size: 10px !important;
-        line-height: 1.4 !important;
-        padding: 8px 6px !important;
-    }}
-    
-    tbody td:first-child {{ 
-        font-weight: 700; 
-        font-size: 10px !important;
-        background: #f8f9fa !important;
-        text-align: left !important;
-        width: 180px !important;
-        min-width: 180px !important;
-        max-width: 180px !important;
-        line-height: 1.3 !important;
-    }}
-    
-    tbody td:not(:first-child) {{
-        text-align: center !important;
-        font-size: 10px !important;
-        font-weight: 400 !important;
-    }}
-    
-    /* Long text handling */
-    tbody td {{
-        white-space: normal !important;
-        overflow: visible !important;
-    }}
-    
-    /* Hide empty cells/rows */
-    tbody tr:has(td:nth-child(2):empty):has(td:nth-child(3):empty):not(.spec-row) {{
-        display: none !important;
-    }}
-    
-    /* Accordion Headers */
-    .accordion-header {{ 
-        display: table-row !important; 
-        background: #dee2e6 !important; 
-        page-break-after: avoid !important;
-    }}
-    
-    .accordion-header td {{ 
-        font-size: 11px !important; 
-        font-weight: 700 !important;
-        padding: 10px 6px !important;
-        border: 1px solid #333 !important;
-        line-height: 1.3 !important;
-    }}
-    
-    .accordion-header td:not(:first-child):empty {{
-        display: none !important;
-    }}
-    
-    .accordion-icon {{ display: none !important; }}
-    
-    .accordion-title-cell {{
-        padding: 10px 6px !important;
-        font-weight: 700;
-        font-size: 11px !important;
-        color: #000 !important;
-        border: 1px solid #333 !important;
-        background: #dee2e6 !important;
-        text-align: left !important;
-        line-height: 1.3 !important;
-    }}
 
-    .accordion-empty-cell {{
-        background: #dee2e6 !important;
-        border: 1px solid #333 !important;
-        padding: 10px 6px !important;
-    }}
-
-    /* Main Group Headers */
-    .main-group-header td {{
-        font-size: 12px !important;
-        font-weight: 700 !important;
-        line-height: 1.3 !important;
-        color: #000 !important;
-        padding: 12px 6px !important;
-        background: #f8f9fa !important;
-        border: 1px solid #333 !important;
-        text-align: left !important;
-    }}
-
-    .spec-row td {{
-        background: #fff !important;
-    }}
-    
-    .hidden-spec {{ display: table-row !important; }}
-    
-    /* Review Table */
-    .review-table-container {{
-        page-break-inside: avoid !important;
-        padding: 12px !important;
-        margin-top: 15px;
-        box-shadow: none !important;
-        border-radius: 0;
-        overflow: visible !important;
-    }}
-    
-    .review-table {{
-        font-size: 10px !important;
-        line-height: 1.4 !important;
-        page-break-inside: avoid !important;
-        table-layout: fixed !important;
-        width: 100% !important;
-        border-collapse: collapse !important;
-    }}
-
-    .review-table th, .review-table td {{
-        padding: 8px 6px !important;
-        font-size: 10px !important;
-        line-height: 1.4 !important;
-        border: 1px solid #333 !important;
-        word-wrap: break-word !important;
-        overflow-wrap: break-word !important;
-        word-break: break-word !important;
-        vertical-align: top !important;
-        hyphens: auto !important;
-        -webkit-hyphens: auto !important;
-        -ms-hyphens: auto !important;
-        white-space: normal !important;
-        overflow: visible !important;
-    }}
-
-    .review-table th {{
-        background: #e9ecef !important;
-        color: #000 !important;
-        font-size: 11px !important;
-        font-weight: 700 !important;
-        text-align: center !important;
-        line-height: 1.3 !important;
-        padding: 10px 6px !important;
-    }}
-    
-    .review-table th:first-child {{
-        background: #adb5bd !important;
-        color: #000 !important;
-        text-align: left !important;
-        width: 180px !important;
-        min-width: 180px !important;
-        max-width: 180px !important;
-        font-size: 11px !important;
-    }}
-    
-    .review-table td:first-child {{
-        font-size: 11px !important;
-        background: #f8f9fa !important;
-        width: 180px !important;
-        min-width: 180px !important;
-        max-width: 180px !important;
-        font-weight: 700 !important;
-        text-align: left !important;
-        line-height: 1.3 !important;
-    }}
-    
-    .review-table td:not(:first-child) {{
-        text-align: left !important;
-        font-size: 10px !important;
-        font-weight: 400 !important;
-        line-height: 1.4 !important;
-    }}
-    
-    .review-table tr {{
-        page-break-inside: avoid !important;
-    }}
-    
-    .review-table .review-category {{
-        font-weight: 700 !important;
-        color: #000 !important;
-    }}
-    
-    /* Hide Read More buttons in print */
-    .review-table .read-more-btn {{
-        display: none !important;
-    }}
-    
-    /* Expand all content in print */
-    .review-table .expandable-content {{
-        display: block !important;
-        -webkit-line-clamp: unset !important;
-        overflow: visible !important;
-    }}
-    
-    .review-table .expandable-content.expanded {{
-        -webkit-line-clamp: unset !important;
-    }}
-    
-    /* Charts */
-    .charts-grid {{ 
-        display: grid !important; 
-        grid-template-columns: repeat(2, 1fr) !important; 
-        gap: 12px !important; 
-        margin-bottom: 0 !important; 
-        page-break-inside: avoid; 
-    }}
-    
-    .chart-container {{ 
-        padding: 12px !important; 
-        border: 1px solid #333 !important; 
-        border-radius: 6px; 
-        box-shadow: none !important; 
-        page-break-inside: avoid !important; 
-        break-inside: avoid !important; 
-        margin-bottom: 8px; 
-    }}
-    
-    .chart-container h3 {{ 
-        font-size: 13px !important; 
-        line-height: 1.3 !important;
-        margin-bottom: 8px !important; 
-    }}
-    
-    .chart-container:nth-child(2) {{ 
-        page-break-after: always !important; 
-        break-after: page !important; 
-    }}
-    
-    canvas {{ 
-        max-width: 100% !important; 
-        height: auto !important; 
-    }}
-    
-    /* Summary */
-    .summary {{ 
-        padding: 12px !important; 
-        border: 1px solid #333 !important; 
-        border-radius: 6px; 
-        box-shadow: none !important; 
-        page-break-inside: avoid; 
-        font-size: 11px !important; 
-        line-height: 1.5 !important;
-    }}
-    
-    .summary p {{ 
-        font-size: 11px !important; 
-        line-height: 1.5 !important; 
-    }}
-    
-    /* Footer */
-    .footer {{ 
-        page-break-before: avoid; 
-        padding: 12px 15px !important; 
-        margin-top: 15px; 
-    }}
-    
-    .footer span {{ 
-        font-size: 10px !important; 
-    }}
-    
-    .footer .logo {{ 
-        height: 18px !important; 
-    }}
-    
-    h2, h3 {{ 
-        page-break-after: avoid; 
-        orphans: 3; 
-        widows: 3; 
-    }}
-    
-    /* Typography consistency */
-    p, span, div, li {{
-        font-size: 10px !important;
-        line-height: 1.4 !important;
-    }}
-    
-    strong, b {{
-        font-weight: 700 !important;
-    }}
-}}
-        /* Tablet Styles (1024px and below) */
-        @media (max-width: 1024px) {{ 
-            .charts-grid {{ 
-                grid-template-columns: 1fr; 
-            }} 
-            
-            .citations-grid {{
-                grid-template-columns: 1fr;
-            }}
-            
-            .main-nav {{ 
-                gap: 15px; 
-            }} 
-            
-            .main-nav a {{
-                font-size: 13px;
-            }}
-            
-            .content {{ 
-                padding: 30px 40px; 
-            }} 
-            
-            .site-header {{
-                padding: 16px 30px;
-            }}
-            
-            .footer {{
-                padding: 20px 40px;
-            }}
-            
-            table {{
-                font-size: 12px;
-            }}
-            
-            table th, table td {{
-                padding: 12px 10px;
-            }}
-            
-            .section-header h2 {{
-                font-size: 22px;
-            }}
-            
-            .chart-container {{
-                padding: 25px;
-            }}
-            
-            .chart-container h3 {{
-                font-size: 15px;
-            }}
+        .review-table .read-more-btn:hover {{
+            color: #dd032b;
         }}
-        
-        /* Mobile Styles (768px and below) */
-        @media (max-width: 768px) {{ 
-            .site-header {{ 
-                padding: 12px 20px;
-                flex-wrap: wrap;
-                gap: 12px;
-            }} 
+
+                
+                /* Citations Section Styles */
+                .citations-grid {{
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+                    gap: 25px;
+                }}
+                
+                .citation-card {{
+                    background: white;
+                    padding: 25px;
+                    border-radius: 12px;
+                    border: 1px solid #e9ecef;
+                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+                }}
+                
+                .citation-car-name {{
+                    font-size: 20px;
+                    font-weight: 700;
+                    color: #212529;
+                    margin-bottom: 20px;
+                    padding-bottom: 10px;
+                    border-bottom: 2px solid #212529;
+                }}
+                
+                .citation-items {{
+                    display: flex;
+                    flex-direction: column;
+                    gap: 15px;
+                    max-height: 600px;
+                    overflow-y: auto;
+                }}
+                
+                .citation-item {{
+                    padding: 12px;
+                    background: #f8f9fa;
+                    border-radius: 8px;
+                    border-left: 3px solid #dd032b;
+                }}
+                
+                .citation-field-name {{
+                    font-size: 12px;
+                    font-weight: 600;
+                    color: #6c757d;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    margin-bottom: 6px;
+                }}
+                
+                .citation-link {{
+                    font-size: 12px;
+                    color: #212529;
+                    text-decoration: none;
+                    font-weight: 600;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 4px;
+                    transition: color 0.2s ease;
+                }}
+                
+                .citation-link:hover {{
+                    color: #dd032b;
+                    text-decoration: underline;
+                }}
+                
             
-            .logo {{
-                height: 18px;
+            @media print {{
+            #citations-section, #citations-toggle, .site-header, .print-btn, .main-nav, .table-filter-wrapper, .read-more-btn {{ display: none !important; }}
+            
+            @page {{ 
+                size: A4 landscape; 
+                margin: 10mm; 
             }}
-            .review-table {{
-        font-size: 11px;
-    }}
-    
-    .review-table th, .review-table td {{
-        padding: 10px 8px;
-    }}
-            .header-actions {{
+            
+            * {{
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                color-adjust: exact !important;
+            }}
+            
+            /* BASE FONT RESET */
+            html {{
+                font-size: 10px !important;
+            }}
+            
+            body {{
+                font-size: 10px !important;
+                line-height: 1.4 !important;
+                font-family: 'Poppins', Arial, sans-serif !important;
+            }}
+            
+            .animate-on-scroll {{ opacity: 1 !important; transform: none !important; }}
+            .filtered-row {{ display: table-row !important; }}
+            .expandable-content {{ display: block !important; -webkit-line-clamp: unset !important; overflow: visible !important; }}
+            
+            .container {{ max-width: 100%; background: white; box-shadow: none; }}
+            .content {{ padding: 15px 8px; page-break-inside: avoid; }}
+            
+            .section-header {{ margin-bottom: 12px; page-break-after: avoid; }}
+            .section-header h2 {{ font-size: 16px !important; line-height: 1.3 !important; }}
+            .section-header .icon-wrapper {{ display: none; }}
+            
+            /* OPTIMIZED TABLE STYLES */
+            .table-container {{ 
+                overflow: visible !important; 
+                border-radius: 0; 
+                box-shadow: none; 
+                page-break-inside: auto; 
+                margin-top: 8px; 
                 width: 100%;
-                justify-content: space-between;
-                gap: 15px;
             }}
             
-            .main-nav {{
-                flex-wrap: wrap;
-                gap: 10px;
-                justify-content: center;
+            table {{ 
+                font-size: 10px !important; 
+                line-height: 1.4 !important;
+                width: 100% !important; 
+                page-break-inside: auto; 
+                border-collapse: collapse !important;
+                table-layout: fixed !important;
             }}
             
-            .main-nav a {{
-                font-size: 12px;
-                padding: 4px 8px;
-            }}
-            
-            .print-btn {{
-                font-size: 11px;
-                padding: 6px 10px;
-                gap: 4px;
-            }}
-            
-            .content {{ 
-                padding: 20px 15px; 
-            }} 
-            
-            .section-header {{
-                gap: 10px;
-                margin-bottom: 20px;
-            }}
-            
-            .section-header .icon-wrapper {{
-                width: 40px;
-                height: 40px;
-            }}
-            
-            .section-header .icon-wrapper svg {{
-                width: 20px;
-                height: 20px;
-            }}
-            
-            .section-header h2 {{ 
-                font-size: 18px; 
-            }} 
-            
-             .main-group-header td {{
-                font-size: 16px !important;
-                padding: 20px 8px 8px 8px !important;
-                text-align: left !important;
-                font-weight: 700 !important;
-            }}
-            
-            .summary, .chart-container {{
-                padding: 20px 15px;
-                border-radius: 12px;
-            }}
-            
-            .summary p {{
-                font-size: 13px;
-                line-height: 1.6;
-            }}
-            
-            .charts-grid {{
-                gap: 20px;
-                margin-bottom: 30px;
-            }}
-            
-            .chart-container {{
-                padding: 15px 10px !important;
-                width: 100%;
-                overflow-x: hidden;
-            }}
-            
-            .chart-container canvas {{
-                width: 100% !important;
-                max-width: 100% !important;
-                height: auto !important;
-            }}
-            
-            .charts-grid {{
-                padding: 0;
-                margin-bottom: 20px;
-                width: 100%;
-            }}
-            
-            /* Sales Chart Mobile Fix */
-            .chart-container:has(#salesChart) {{
-                padding: 10px 5px !important;
-                height: 400px;
-            }}
-            
-            #salesChart {{
-                height: 100% !important;
-                min-height: unset !important;
-            }}
-            
-            .table-container {{
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
-                margin-top: 20px;
-                border-radius: 8px;
-                position: relative;
-            }}
-            
-            .table-filter-wrapper {{
-                padding: 15px 15px 0 15px;
-            }}
-            .spec-row td {{
-        font-size: 11px !important;
-        background: #fff !important;
-    }}
-    
-    .spec-row td:first-child {{
-        font-size: 11px !important;
-        background: #f8f9fa !important;
-        font-weight: 600 !important;
-        text-align: left !important;
-    }}
-            .filter-input {{
-                padding: 10px 40px 10px 40px;
-                font-size: 13px;
-            }}
-            
-            .filter-icon {{
-                left: 12px;
-                width: 16px;
-                height: 16px;
-            }}
-            
-            .filter-clear-btn {{
-                right: 10px;
-                width: 24px;
-                height: 24px;
-            }}
-            
-            .filter-results-info {{
-                font-size: 12px;
-            }}
-            
-             table {{
-                font-size: 11px !important;
-                min-width: 100% !important;
-                table-layout: auto !important;
-                width: 100% !important;
-            }}
-            
-             table th, table td {{
-                padding: 10px 8px !important;
-                font-size: 11px !important;
-                line-height: 1.5 !important;
+            table th, table td {{ 
+                padding: 8px 6px !important; 
+                border: 1px solid #333 !important; 
+                font-size: 10px !important;
+                line-height: 1.4 !important;
                 word-wrap: break-word !important;
                 overflow-wrap: break-word !important;
-                white-space: normal !important;
+                word-break: break-word !important;
+                vertical-align: top !important;
+                hyphens: auto !important;
+                -webkit-hyphens: auto !important;
+                -ms-hyphens: auto !important;
             }}
             
-            .accordion-header td {{
-                padding: 10px 8px !important;
-                font-size: 13px;
+            table th {{ 
+                background: #e9ecef !important; 
+                color: #000 !important; 
+                font-size: 11px !important; 
+                font-weight: 700 !important;
+                text-align: center !important;
+                line-height: 1.3 !important;
+                padding: 10px 6px !important;
             }}
             
-            .accordion-icon {{
-                font-size: 18px !important;
-                display: inline-flex !important;
-            }}
-            
-             table th:first-child,
-            table td:first-child,
-            tbody td:first-child {{
+            table th:first-child {{ 
+                background: #6c757d !important; 
+                color: white !important;
+                text-align: left !important;
+                width: 180px !important;
+                min-width: 180px !important;
+                max-width: 180px !important;
                 font-size: 11px !important;
+            }}
+            
+            table tr {{ 
+                page-break-inside: avoid !important;
+            }}
+            
+            tbody td {{ 
+                font-size: 10px !important;
+                line-height: 1.4 !important;
+                padding: 8px 6px !important;
+            }}
+            
+            tbody td:first-child {{ 
+                font-weight: 700; 
+                font-size: 10px !important;
+                background: #f8f9fa !important;
+                text-align: left !important;
+                width: 180px !important;
+                min-width: 180px !important;
+                max-width: 180px !important;
+                line-height: 1.3 !important;
+            }}
+            
+            tbody td:not(:first-child) {{
+                text-align: center !important;
+                font-size: 10px !important;
+                font-weight: 400 !important;
+            }}
+            
+            /* Long text handling */
+            tbody td {{
+                white-space: normal !important;
+                overflow: visible !important;
+            }}
+            
+            /* Hide empty cells/rows */
+            tbody tr:has(td:nth-child(2):empty):has(td:nth-child(3):empty):not(.spec-row) {{
+                display: none !important;
+            }}
+            
+            /* Accordion Headers */
+            .accordion-header {{ 
+                display: table-row !important; 
+                background: #dee2e6 !important; 
+                page-break-after: avoid !important;
+            }}
+            
+            .accordion-header td {{ 
+                font-size: 11px !important; 
+                font-weight: 700 !important;
+                padding: 10px 6px !important;
+                border: 1px solid #333 !important;
+                line-height: 1.3 !important;
+            }}
+            
+            .accordion-header td:not(:first-child):empty {{
+                display: none !important;
+            }}
+            
+            .accordion-icon {{ display: none !important; }}
+            
+            .accordion-title-cell {{
+                padding: 10px 6px !important;
+                font-weight: 700;
+                font-size: 11px !important;
+                color: #000 !important;
+                border: 1px solid #333 !important;
+                background: #dee2e6 !important;
+                text-align: left !important;
+                line-height: 1.3 !important;
+            }}
+
+            .accordion-empty-cell {{
+                background: #dee2e6 !important;
+                border: 1px solid #333 !important;
+                padding: 10px 6px !important;
+            }}
+
+            /* Main Group Headers */
+            .main-group-header td {{
+                font-size: 12px !important;
+                font-weight: 700 !important;
+                line-height: 1.3 !important;
+                color: #000 !important;
+                padding: 12px 6px !important;
+                background: #f8f9fa !important;
+                border: 1px solid #333 !important;
+                text-align: left !important;
+            }}
+
+            .spec-row td {{
+                background: #fff !important;
+            }}
+            
+            .hidden-spec {{ display: table-row !important; }}
+            
+            /* Review Table */
+            .review-table-container {{
+                page-break-inside: avoid !important;
+                padding: 12px !important;
+                margin-top: 15px;
+                box-shadow: none !important;
+                border-radius: 0;
+                overflow: visible !important;
+            }}
+            
+            .review-table {{
+                font-size: 10px !important;
+                line-height: 1.4 !important;
+                page-break-inside: avoid !important;
+                table-layout: fixed !important;
+                width: 100% !important;
+                border-collapse: collapse !important;
+            }}
+
+            .review-table th, .review-table td {{
+                padding: 8px 6px !important;
+                font-size: 10px !important;
+                line-height: 1.4 !important;
+                border: 1px solid #333 !important;
+                word-wrap: break-word !important;
+                overflow-wrap: break-word !important;
+                word-break: break-word !important;
+                vertical-align: top !important;
+                hyphens: auto !important;
+                -webkit-hyphens: auto !important;
+                -ms-hyphens: auto !important;
+                white-space: normal !important;
+                overflow: visible !important;
+            }}
+
+            .review-table th {{
+                background: #e9ecef !important;
+                color: #000 !important;
+                font-size: 11px !important;
+                font-weight: 700 !important;
+                text-align: center !important;
+                line-height: 1.3 !important;
+                padding: 10px 6px !important;
+            }}
+            
+            .review-table th:first-child {{
+                background: #adb5bd !important;
+                color: #000 !important;
+                text-align: left !important;
+                width: 180px !important;
+                min-width: 180px !important;
+                max-width: 180px !important;
+                font-size: 11px !important;
+            }}
+            
+            .review-table td:first-child {{
+                font-size: 11px !important;
+                background: #f8f9fa !important;
+                width: 180px !important;
+                min-width: 180px !important;
+                max-width: 180px !important;
+                font-weight: 700 !important;
+                text-align: left !important;
+                line-height: 1.3 !important;
+            }}
+            
+            .review-table td:not(:first-child) {{
+                text-align: left !important;
+                font-size: 10px !important;
+                font-weight: 400 !important;
+                line-height: 1.4 !important;
+            }}
+            
+            .review-table tr {{
+                page-break-inside: avoid !important;
+            }}
+            
+            .review-table .review-category {{
+                font-weight: 700 !important;
+                color: #000 !important;
+            }}
+            
+            /* Hide Read More buttons in print */
+            .review-table .read-more-btn {{
+                display: none !important;
+            }}
+            
+            /* Expand all content in print */
+            .review-table .expandable-content {{
+                display: block !important;
+                -webkit-line-clamp: unset !important;
+                overflow: visible !important;
+            }}
+            
+            .review-table .expandable-content.expanded {{
+                -webkit-line-clamp: unset !important;
+            }}
+            
+            /* Charts */
+            .charts-grid {{ 
+                display: grid !important; 
+                grid-template-columns: repeat(2, 1fr) !important; 
+                gap: 12px !important; 
+                margin-bottom: 0 !important; 
+                page-break-inside: avoid; 
+            }}
+            
+            .chart-container {{ 
+                padding: 12px !important; 
+                border: 1px solid #333 !important; 
+                border-radius: 6px; 
+                box-shadow: none !important; 
+                page-break-inside: avoid !important; 
+                break-inside: avoid !important; 
+                margin-bottom: 8px; 
+            }}
+            
+            .chart-container h3 {{ 
+                font-size: 13px !important; 
+                line-height: 1.3 !important;
+                margin-bottom: 8px !important; 
+            }}
+            
+            .chart-container:nth-child(2) {{ 
+                page-break-after: always !important; 
+                break-after: page !important; 
+            }}
+            
+            canvas {{ 
+                max-width: 100% !important; 
+                height: auto !important; 
+            }}
+            
+            /* Summary */
+            .summary {{ 
+                padding: 12px !important; 
+                border: 1px solid #333 !important; 
+                border-radius: 6px; 
+                box-shadow: none !important; 
+                page-break-inside: avoid; 
+                font-size: 11px !important; 
+                line-height: 1.5 !important;
+            }}
+            
+            .summary p {{ 
+                font-size: 11px !important; 
+                line-height: 1.5 !important; 
+            }}
+            
+            /* Footer */
+            .footer {{ 
+                page-break-before: avoid; 
+                padding: 12px 15px !important; 
+                margin-top: 15px; 
+            }}
+            
+            .footer span {{ 
+                font-size: 10px !important; 
+            }}
+            
+            .footer .logo {{ 
+                height: 18px !important; 
+            }}
+            
+            h2, h3 {{ 
+                page-break-after: avoid; 
+                orphans: 3; 
+                widows: 3; 
+            }}
+            
+            /* Typography consistency */
+            p, span, div, li {{
+                font-size: 10px !important;
+                line-height: 1.4 !important;
+            }}
+            
+            strong, b {{
+                font-weight: 700 !important;
+            }}
+        }}
+                /* Tablet Styles (1024px and below) */
+                @media (max-width: 1024px) {{ 
+                    .charts-grid {{ 
+                        grid-template-columns: 1fr; 
+                    }} 
+                    
+                    .citations-grid {{
+                        grid-template-columns: 1fr;
+                    }}
+                    
+                    .main-nav {{ 
+                        gap: 15px; 
+                    }} 
+                    
+                    .main-nav a {{
+                        font-size: 13px;
+                    }}
+                    
+                    .content {{ 
+                        padding: 30px 40px; 
+                    }} 
+                    
+                    .site-header {{
+                        padding: 16px 30px;
+                    }}
+                    
+                    .footer {{
+                        padding: 20px 40px;
+                    }}
+                    
+                    table {{
+                        font-size: 12px;
+                    }}
+                    
+                    table th, table td {{
+                        padding: 12px 10px;
+                    }}
+                    
+                    .section-header h2 {{
+                        font-size: 22px;
+                    }}
+                    
+                    .chart-container {{
+                        padding: 25px;
+                    }}
+                    
+                    .chart-container h3 {{
+                        font-size: 15px;
+                    }}
+                }}
+                
+                /* Mobile Styles (768px and below) */
+                @media (max-width: 768px) {{ 
+                    .site-header {{ 
+                        padding: 12px 20px;
+                        flex-wrap: wrap;
+                        gap: 12px;
+                    }} 
+                    
+                    .logo {{
+                        height: 18px;
+                    }}
+                    .review-table {{
+                font-size: 11px;
+            }}
+            
+            .review-table th, .review-table td {{
+                padding: 10px 8px;
+            }}
+                    .header-actions {{
+                        width: 100%;
+                        justify-content: space-between;
+                        gap: 15px;
+                    }}
+                    
+                    .main-nav {{
+                        flex-wrap: wrap;
+                        gap: 10px;
+                        justify-content: center;
+                    }}
+                    
+                    .main-nav a {{
+                        font-size: 12px;
+                        padding: 4px 8px;
+                    }}
+                    
+                    .print-btn {{
+                        font-size: 11px;
+                        padding: 6px 10px;
+                        gap: 4px;
+                    }}
+                    
+                    .content {{ 
+                        padding: 20px 15px; 
+                    }} 
+                    
+                    .section-header {{
+                        gap: 10px;
+                        margin-bottom: 20px;
+                    }}
+                    
+                    .section-header .icon-wrapper {{
+                        width: 40px;
+                        height: 40px;
+                    }}
+                    
+                    .section-header .icon-wrapper svg {{
+                        width: 20px;
+                        height: 20px;
+                    }}
+                    
+                    .section-header h2 {{ 
+                        font-size: 18px; 
+                    }} 
+                    
+                    .main-group-header td {{
+                        font-size: 16px !important;
+                        padding: 20px 8px 8px 8px !important;
+                        text-align: left !important;
+                        font-weight: 700 !important;
+                    }}
+                    
+                    .summary, .chart-container {{
+                        padding: 20px 15px;
+                        border-radius: 12px;
+                    }}
+                    
+                    .summary p {{
+                        font-size: 13px;
+                        line-height: 1.6;
+                    }}
+                    
+                    .charts-grid {{
+                        gap: 20px;
+                        margin-bottom: 30px;
+                    }}
+                    
+                    .chart-container {{
+                        padding: 15px 10px !important;
+                        width: 100%;
+                        overflow-x: hidden;
+                    }}
+                    
+                    .chart-container canvas {{
+                        width: 100% !important;
+                        max-width: 100% !important;
+                        height: auto !important;
+                    }}
+                    
+                    .charts-grid {{
+                        padding: 0;
+                        margin-bottom: 20px;
+                        width: 100%;
+                    }}
+                    
+                    /* Sales Chart Mobile Fix */
+                    .chart-container:has(#salesChart) {{
+                        padding: 10px 5px !important;
+                        height: 400px;
+                    }}
+                    
+                    #salesChart {{
+                        height: 100% !important;
+                        min-height: unset !important;
+                    }}
+                    
+                    .table-container {{
+                        overflow-x: auto;
+                        -webkit-overflow-scrolling: touch;
+                        margin-top: 20px;
+                        border-radius: 8px;
+                        position: relative;
+                    }}
+                    
+                    .table-filter-wrapper {{
+                        padding: 15px 15px 0 15px;
+                    }}
+                    .spec-row td {{
+                font-size: 11px !important;
+                background: #fff !important;
+            }}
+            
+            .spec-row td:first-child {{
+                font-size: 11px !important;
+                background: #f8f9fa !important;
                 font-weight: 600 !important;
                 text-align: left !important;
+            }}
+                    .filter-input {{
+                        padding: 10px 40px 10px 40px;
+                        font-size: 13px;
+                    }}
+                    
+                    .filter-icon {{
+                        left: 12px;
+                        width: 16px;
+                        height: 16px;
+                    }}
+                    
+                    .filter-clear-btn {{
+                        right: 10px;
+                        width: 24px;
+                        height: 24px;
+                    }}
+                    
+                    .filter-results-info {{
+                        font-size: 12px;
+                    }}
+                    
+                    table {{
+                        font-size: 11px !important;
+                        min-width: 100% !important;
+                        table-layout: auto !important;
+                        width: 100% !important;
+                    }}
+                    
+                    table th, table td {{
+                        padding: 10px 8px !important;
+                        font-size: 11px !important;
+                        line-height: 1.5 !important;
+                        word-wrap: break-word !important;
+                        overflow-wrap: break-word !important;
+                        white-space: normal !important;
+                    }}
+                    
+                    .accordion-header td {{
+                        padding: 10px 8px !important;
+                        font-size: 13px;
+                    }}
+                    
+                    .accordion-icon {{
+                        font-size: 18px !important;
+                        display: inline-flex !important;
+                    }}
+                    
+                    table th:first-child,
+                    table td:first-child,
+                    tbody td:first-child {{
+                        font-size: 11px !important;
+                        font-weight: 600 !important;
+                        text-align: left !important;
+                        padding: 10px 8px !important;
+                        min-width: 140px !important;
+                        max-width: 140px !important;
+                        width: 140px !important;
+                        position: sticky !important;
+                        left: 0 !important;
+                        background: #f8f9fa !important;
+                        z-index: 2 !important;
+                    }}
+                    tbody td:not(:first-child) {{
+                text-align: center !important;
+                font-size: 11px !important;
+                font-weight: 400 !important;
+                vertical-align: middle !important;
                 padding: 10px 8px !important;
-                min-width: 140px !important;
-                max-width: 140px !important;
-                width: 140px !important;
+            }}
+                    
+                    .expandable-content {{
+                font-size: 11px !important;
+                -webkit-line-clamp: 2 !important;
+                line-height: 1.5 !important;
+            }}
+                    
+                    .read-more-btn {{
+                font-size: 10px !important;
+                padding: 2px 0 !important;
+                margin-top: 4px !important;
+            }}
+                    .footer {{
+                        padding: 15px 20px;
+                        flex-direction: column;
+                        gap: 8px;
+                    }}
+                    
+                    .footer .logo {{
+                        height: 20px;
+                    }}
+                    
+                    .footer span {{
+                        font-size: 11px;
+                        text-align: center;
+                    }}
+                    
+                    .citations-grid {{
+                        grid-template-columns: 1fr;
+                        gap: 20px;
+                    }}
+                    
+                    .citation-card {{
+                        padding: 20px 15px;
+                    }}
+                    
+                    .citation-car-name {{
+                        font-size: 18px;
+                        margin-bottom: 15px;
+                    }}
+                    
+                    .citation-items {{
+                        gap: 12px;
+                        max-height: 500px;
+                    }}
+                    
+                    .citation-item {{
+                        padding: 10px;
+                    }}
+                    
+                    .citation-field-name {{
+                        font-size: 11px;
+                    }}
+                    
+                    .citation-link {{
+                font-size: 11px;
+                line-height: 1.5;
+                padding: 4px 0;
+                word-break: break-all; /* Ensure URLs break */
+                max-width: 100%;
+            }}
+                .review-table {{
+                font-size: 11px !important;
+                table-layout: auto !important;
+            }}
+            
+            review-table th, .review-table td {{
+                padding: 10px 8px !important;
+                font-size: 11px !important;
+                text-align: left !important;
+            }}
+            
+            .review-table-container {{
+                padding: 20px 15px;
+                margin-top: 20px;
+            }}
+            
+            .review-table .read-more-btn {{
+                font-size: 11px;
+            }}
+            .review-table td:first-child {{
+                font-size: 11px !important;
+                min-width: 120px !important;
+                max-width: 120px !important;
                 position: sticky !important;
                 left: 0 !important;
                 background: #f8f9fa !important;
                 z-index: 2 !important;
             }}
-             tbody td:not(:first-child) {{
-        text-align: center !important;
-        font-size: 11px !important;
-        font-weight: 400 !important;
-        vertical-align: middle !important;
-        padding: 10px 8px !important;
-    }}
+            .review-table .expandable-content {{
+                -webkit-line-clamp: 2;
+            }}
+                }}
+                
+                /* Small Mobile Styles (480px and below) */
+                @media (max-width: 430px) {{
+                    .site-header {{
+                        padding: 10px 15px;
+                    }}
+                    
+                    .logo {{
+                        height: 16px;
+                    }}
+                    
+                    .header-actions {{
+                        flex-direction: column;
+                        gap: 10px;
+                    }}
+                    
+                    .main-nav {{
+                        width: 100%;
+                    }}
+                    
+                    .main-nav a {{
+                        font-size: 11px;
+                        padding: 3px 6px;
+                    }}
+                    
+                    .print-btn {{
+                        font-size: 10px;
+                        padding: 5px 8px;
+                        width: 100%;
+                        justify-content: center;
+                    }}
+                    
+                    .content {{
+                        padding: 15px 10px;
+                    }}
+                    
+                    .section-header h2 {{
+                        font-size: 16px;
+                    }}
+                    
+                    .section-header .icon-wrapper {{
+                        width: 35px;
+                        height: 35px;
+                    }}
+                    
+                    .section-header .icon-wrapper svg {{
+                        width: 18px;
+                        height: 18px;
+                    }}
+                    
+                    .main-group-header td {{
+                        font-size: 16px;
+                    }}
+                    
+                    .summary {{
+                        padding: 15px 10px;
+                    }}
+                    
+                    .summary p {{
+                        font-size: 12px;
+                    }}
+                    
+                    .chart-container {{
+                        padding: 10px 5px !important;
+                    }}
+                    
+                    .chart-container h3 {{
+                        font-size: 12px;
+                        margin-bottom: 10px;
+                    }}
+                    
+                    /* Sales Chart Small Mobile Fix */
+                    .chart-container:has(#salesChart) {{
+                        padding: 8px 3px !important;
+                        height: 350px;
+                    }}
             
-            .expandable-content {{
-        font-size: 11px !important;
-        -webkit-line-clamp: 2 !important;
-        line-height: 1.5 !important;
-    }}
-            
-            .read-more-btn {{
-        font-size: 10px !important;
-        padding: 2px 0 !important;
-        margin-top: 4px !important;
-    }}
-            .footer {{
-                padding: 15px 20px;
-                flex-direction: column;
-                gap: 8px;
+                    table {{
+                font-size: 10px !important;
+            }}
+                    
+                    table th, table td {{
+                font-size: 10px !important;
+                padding: 8px 5px !important;
+            }}
+                    table td:first-child,
+            tbody td:first-child {{
+                font-size: 10px !important;
+                min-width: 105px !important;
+                max-width: 105px !important;
+                width: 105px !important;
+            }}
+            tbody td:not(:first-child) {{
+                font-size: 10px !important;
+                text-align: center !important;
             }}
             
-            .footer .logo {{
-                height: 20px;
+                    .accordion-header td {{
+                font-size: 10px !important;
+                padding: 8px 5px !important;
             }}
-            
-            .footer span {{
-                font-size: 11px;
-                text-align: center;
-            }}
-            
-            .citations-grid {{
-                grid-template-columns: 1fr;
-                gap: 20px;
-            }}
-            
-            .citation-card {{
-                padding: 20px 15px;
-            }}
-            
-            .citation-car-name {{
-                font-size: 18px;
-                margin-bottom: 15px;
-            }}
-            
-            .citation-items {{
-                gap: 12px;
-                max-height: 500px;
-            }}
-            
-            .citation-item {{
-                padding: 10px;
-            }}
-            
-            .citation-field-name {{
-                font-size: 11px;
-            }}
-            
-             .citation-link {{
-        font-size: 11px;
-        line-height: 1.5;
-        padding: 4px 0;
-        word-break: break-all; /* Ensure URLs break */
-        max-width: 100%;
-    }}
-           .review-table {{
-        font-size: 11px !important;
-        table-layout: auto !important;
-    }}
-    
-    review-table th, .review-table td {{
-        padding: 10px 8px !important;
-        font-size: 11px !important;
-        text-align: left !important;
-    }}
-    
-    .review-table-container {{
-        padding: 20px 15px;
-        margin-top: 20px;
-    }}
-    
-    .review-table .read-more-btn {{
-        font-size: 11px;
-    }}
-    .review-table td:first-child {{
-        font-size: 11px !important;
-        min-width: 120px !important;
-        max-width: 120px !important;
-        position: sticky !important;
-        left: 0 !important;
-        background: #f8f9fa !important;
-        z-index: 2 !important;
-    }}
-    .review-table .expandable-content {{
-        -webkit-line-clamp: 2;
-    }}
-        }}
-        
-        /* Small Mobile Styles (480px and below) */
-        @media (max-width: 430px) {{
-            .site-header {{
-                padding: 10px 15px;
-            }}
-            
-            .logo {{
-                height: 16px;
-            }}
-            
-            .header-actions {{
-                flex-direction: column;
-                gap: 10px;
-            }}
-            
-            .main-nav {{
-                width: 100%;
-            }}
-            
-            .main-nav a {{
-                font-size: 11px;
-                padding: 3px 6px;
-            }}
-            
-            .print-btn {{
-                font-size: 10px;
-                padding: 5px 8px;
-                width: 100%;
-                justify-content: center;
-            }}
-            
-            .content {{
-                padding: 15px 10px;
-            }}
-            
-            .section-header h2 {{
-                font-size: 16px;
-            }}
-            
-            .section-header .icon-wrapper {{
-                width: 35px;
-                height: 35px;
-            }}
-            
-            .section-header .icon-wrapper svg {{
-                width: 18px;
-                height: 18px;
-            }}
-            
             .main-group-header td {{
-                font-size: 16px;
+                font-size: 13px !important;
             }}
-            
-            .summary {{
-                padding: 15px 10px;
-            }}
-            
-            .summary p {{
-                font-size: 12px;
-            }}
-            
-            .chart-container {{
-                padding: 10px 5px !important;
-            }}
-            
-            .chart-container h3 {{
-                font-size: 12px;
-                margin-bottom: 10px;
-            }}
-            
-            /* Sales Chart Small Mobile Fix */
-            .chart-container:has(#salesChart) {{
-                padding: 8px 3px !important;
-                height: 350px;
-            }}
-    
-            table {{
-        font-size: 10px !important;
-    }}
-            
-             table th, table td {{
-        font-size: 10px !important;
-        padding: 8px 5px !important;
-    }}
-            table td:first-child,
-    tbody td:first-child {{
-        font-size: 10px !important;
-        min-width: 105px !important;
-        max-width: 105px !important;
-        width: 105px !important;
-    }}
-    tbody td:not(:first-child) {{
-        font-size: 10px !important;
-        text-align: center !important;
-    }}
-    
-            .accordion-header td {{
-        font-size: 10px !important;
-        padding: 8px 5px !important;
-    }}
-    .main-group-header td {{
-        font-size: 13px !important;
-    }}
-            
-            .filter-input {{
-                padding: 8px 35px 8px 35px;
-                font-size: 12px;
-            }}
-            
-            .citation-card {{
-                padding: 15px 10px;
-            }}
-            
-            .citation-car-name {{
-                font-size: 16px;
-            }}
-            
-            .citation-items {{
-                max-height: 400px;
-            }}
+                    
+                    .filter-input {{
+                        padding: 8px 35px 8px 35px;
+                        font-size: 12px;
+                    }}
+                    
+                    .citation-card {{
+                        padding: 15px 10px;
+                    }}
+                    
+                    .citation-car-name {{
+                        font-size: 16px;
+                    }}
+                    
+                    .citation-items {{
+                        max-height: 400px;
+                    }}
 
-    
-    .citation-link {{
-        font-size: 10px;
-        line-height: 1.6;
-        padding: 5px 0;
-        word-break: break-all;
-        max-width: 100%;
-    }}
-            .footer {{
-                padding: 12px 15px;
-            }}
             
-            .footer span {{
+            .citation-link {{
+                font-size: 10px;
+                line-height: 1.6;
+                padding: 5px 0;
+                word-break: break-all;
+                max-width: 100%;
+            }}
+                    .footer {{
+                        padding: 12px 15px;
+                    }}
+                    
+                    .footer span {{
+                        font-size: 10px;
+                    }}
+                    
+                    canvas {{
+                        max-height: 250px !important;
+                    }}
+                    .review-table {{
                 font-size: 10px;
             }}
             
-            canvas {{
-                max-height: 250px !important;
+            .review-table th, .review-table td {{
+                padding: 8px 6px;
             }}
-            .review-table {{
-        font-size: 10px;
-    }}
-    
-    .review-table th, .review-table td {{
-        padding: 8px 6px;
-    }}
-    
-    .review-table-container {{
-        padding: 15px 10px;
-    }}
-        }}
+            
+            .review-table-container {{
+                padding: 15px 10px;
+            }}
+                }}
 
-        /* Extra Small Mobile - 375px specific fix */
-        @media (max-width: 375px) {{
-            .site-header {{
-                padding: 8px 12px;
-                flex-direction: column;
-                gap: 8px;
-                align-items: stretch;
-            }}
+                /* Extra Small Mobile - 375px specific fix */
+                @media (max-width: 375px) {{
+                    .site-header {{
+                        padding: 8px 12px;
+                        flex-direction: column;
+                        gap: 8px;
+                        align-items: stretch;
+                    }}
+                    
+                    .logo {{
+                        height: 16px;
+                        align-self: flex-start;
+                    }}
+                    
+                    .header-actions {{
+                        width: 100%;
+                        flex-direction: column;
+                        gap: 8px;
+                    }}
+                    
+                    .main-nav {{
+                        width: 100%;
+                        flex-wrap: nowrap;
+                        justify-content: space-between;
+                        gap: 5px;
+                        overflow-x: auto;
+                        -webkit-overflow-scrolling: touch;
+                        padding: 4px 0;
+                    }}
+                    
+                    .main-nav a {{
+                        font-size: 10px;
+                        padding: 4px 6px;
+                        white-space: nowrap;
+                        flex-shrink: 0;
+                    }}
+                    
+                    .print-btn {{
+                        font-size: 11px;
+                        padding: 6px 10px;
+                        width: 100%;
+                        justify-content: center;
+                    }}
+                    
+                    .content {{
+                        padding: 12px 8px;
+                    }}
+                    
+                    .section-header h2 {{
+                        font-size: 14px;
+                    }}
+                    
+                    .section-header .icon-wrapper {{
+                        width: 32px;
+                        height: 32px;
+                    }}
+                    
+                    .section-header .icon-wrapper svg {{
+                        width: 16px;
+                        height: 16px;
+                    }}
+                    
+                    /* Sales Chart Extra Small Fix */
+                    .chart-container:has(#salesChart) {{
+                        height: 380px;
+                    }}
+        
             
-            .logo {{
-                height: 16px;
-                align-self: flex-start;
+            .citation-link {{
+                font-size: 10px; /* Don't go smaller than 10px */
+                line-height: 1.6;
+                padding: 5px 0;
+                word-break: break-all;
+                max-width: 100%;
             }}
-            
-            .header-actions {{
-                width: 100%;
-                flex-direction: column;
-                gap: 8px;
-            }}
-            
-            .main-nav {{
-                width: 100%;
-                flex-wrap: nowrap;
-                justify-content: space-between;
-                gap: 5px;
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
-                padding: 4px 0;
-            }}
-            
-            .main-nav a {{
-                font-size: 10px;
-                padding: 4px 6px;
-                white-space: nowrap;
-                flex-shrink: 0;
-            }}
-            
-            .print-btn {{
-                font-size: 11px;
-                padding: 6px 10px;
-                width: 100%;
-                justify-content: center;
-            }}
-            
-            .content {{
-                padding: 12px 8px;
-            }}
-            
-            .section-header h2 {{
-                font-size: 14px;
-            }}
-            
-            .section-header .icon-wrapper {{
-                width: 32px;
-                height: 32px;
-            }}
-            
-            .section-header .icon-wrapper svg {{
-                width: 16px;
-                height: 16px;
-            }}
-            
-            /* Sales Chart Extra Small Fix */
-            .chart-container:has(#salesChart) {{
-                height: 380px;
-            }}
- 
-    
-    .citation-link {{
-        font-size: 10px; /* Don't go smaller than 10px */
-        line-height: 1.6;
-        padding: 5px 0;
-        word-break: break-all;
-        max-width: 100%;
-    }}
-        }}
-    </style>
+                }}
+            </style>
 </head>
 <body>
     <header class="site-header">
@@ -2054,4 +2054,5 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
         document.addEventListener('DOMContentLoaded', () => {{ const observer = new IntersectionObserver((entries) => {{ entries.forEach(entry => {{ if (entry.isIntersecting) {{ entry.target.classList.add('is-visible'); observer.unobserve(entry.target); }} }}); }}, {{ threshold: 0.1 }}); document.querySelectorAll('.animate-on-scroll').forEach(el => observer.observe(el)); }});
     </script>
 </body></html>"""
+    
     return html
