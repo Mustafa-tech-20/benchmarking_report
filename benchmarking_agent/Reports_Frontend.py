@@ -638,7 +638,8 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
 
     features_table += "</tbody></table>"
 
-    # The rest of the HTML template 
+    #HTML template 
+    
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>

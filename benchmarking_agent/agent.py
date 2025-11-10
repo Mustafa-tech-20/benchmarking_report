@@ -82,8 +82,6 @@ def get_spec_search_queries(car_name: str) -> Dict[str, str]:
         "interior": f"{car_name} interior features",
         "seat": f"{car_name} seat features ",
         "monthly_sales": f"{car_name} monthly sales units",
-        
-        # NEW: 72 Additional spec queries
         "ride": f"{car_name} ride quality and comfort",
         "performance_feel": f"{car_name} driving experience",
         "driveability": f"{car_name} driveability and ease of driving",
@@ -214,18 +212,18 @@ async def call_custom_search_api_async(
                     continue
                 
                 else:
-                    print(f"   ✗ API error {response.status} for query '{query[:50]}...'")
+                    print(f"API error {response.status} for query '{query[:50]}...'")
                     return []
         
         except asyncio.TimeoutError:
-            print(f"   ⚠ Timeout for query '{query[:50]}...' (attempt {attempt + 1}/{retry_count})")
+            print(f"Timeout for query '{query[:50]}...' (attempt {attempt + 1}/{retry_count})")
             if attempt < retry_count - 1:
                 await asyncio.sleep(1)
                 continue
             return []
         
         except Exception as e:
-            print(f"   ✗ Error for query '{query[:50]}...': {e}")
+            print(f"    Error for query '{query[:50]}...': {e}")
             if attempt < retry_count - 1:
                 await asyncio.sleep(1)
                 continue
@@ -285,10 +283,10 @@ async def search_youtube_for_car(car_name: str) -> str:
         for result in results:
             url = result.get('link', '')
             if 'youtube.com/watch' in url or 'youtu.be/' in url:
-                print(f"   ✓ Found YouTube video: {url}")
+                print(f"Found YouTube video: {url}")
                 return url
         
-        print(f"   ✗ No YouTube video found")
+        print(f"    No YouTube video found")
         return None
 
 def extract_spec_from_search_results(
@@ -390,7 +388,7 @@ Return ONLY valid JSON, no additional text.
         }
         
     except Exception as e:
-        print(f"   ✗ Gemini extraction error: {e}")
+        print(f"    Gemini extraction error: {e}")
         return {
             "value": "Not Available",
             "citation": f"Extraction failed: {str(e)}",
@@ -443,7 +441,7 @@ async def scrape_car_data_with_custom_search_async(car_name: str) -> Dict[str, A
     url_car_name = normalize_car_name_for_url(car_name)
     cardekho_url = f"https://www.cardekho.com/{brand}/{url_car_name}"
     
-    print(f"   ✓ CardDekho URL: {cardekho_url}")
+    print(f"    CardDekho URL: {cardekho_url}")
     print(f"   → Extracting ALL specs from CardDekho using Gemini...")
     
     # Use Gemini to scrape the CardDekho URL
@@ -469,15 +467,15 @@ async def scrape_car_data_with_custom_search_async(car_name: str) -> Dict[str, A
         
         # Count populated fields
         populated = count_populated_fields(car_data, CAR_SPECS)
-        print(f"   ✓ Extracted {populated}/{len(CAR_SPECS)} fields from CardDekho")
+        print(f"    Extracted {populated}/{len(CAR_SPECS)} fields from CardDekho")
         
         # Check threshold
         if populated >= THRESHOLD:
             elapsed = time.time() - start_time
             print(f"\n{'='*60}")
-            print(f"✓ SUCCESS! {populated}/{len(CAR_SPECS)} fields populated")
-            print(f"✓ Threshold met ({THRESHOLD}+), stopping early")
-            print(f"✓ Completed in {elapsed:.2f} seconds")
+            print(f" SUCCESS! {populated}/{len(CAR_SPECS)} fields populated")
+            print(f" Threshold met ({THRESHOLD}+), stopping early")
+            print(f" Completed in {elapsed:.2f} seconds")
             print(f"{'='*60}\n")
             
             # Fill remaining fields with "Not Available"
@@ -491,7 +489,7 @@ async def scrape_car_data_with_custom_search_async(car_name: str) -> Dict[str, A
             
             return car_data
     else:
-        print(f"   ✗ CardDekho scraping failed: {url_data.get('error', 'Unknown error')}")
+        print(f"    CardDekho scraping failed: {url_data.get('error', 'Unknown error')}")
     
     # PHASE 1.5: YouTube Video Analysis(slows down 2x but better results)
 
@@ -533,7 +531,7 @@ async def scrape_car_data_with_custom_search_async(car_name: str) -> Dict[str, A
     #             if youtube_url not in car_data["source_urls"]:
     #                 car_data["source_urls"].append(youtube_url)
                 
-    #             print(f"   ✓ Found {newly_found} additional fields from YouTube")
+    #             print(f"    Found {newly_found} additional fields from YouTube")
                 
     #             # Update missing fields
     #             missing_fields = [
@@ -546,9 +544,9 @@ async def scrape_car_data_with_custom_search_async(car_name: str) -> Dict[str, A
     #             if populated >= THRESHOLD:
     #                 elapsed = time.time() - start_time
     #                 print(f"\n{'='*60}")
-    #                 print(f"✓ SUCCESS! {populated}/{len(CAR_SPECS)} fields populated")
-    #                 print(f"✓ Threshold met after YouTube analysis")
-    #                 print(f"✓ Completed in {elapsed:.2f} seconds")
+    #                 print(f" SUCCESS! {populated}/{len(CAR_SPECS)} fields populated")
+    #                 print(f" Threshold met after YouTube analysis")
+    #                 print(f" Completed in {elapsed:.2f} seconds")
     #                 print(f"{'='*60}\n")
                     
     #                 # Fill remaining fields
@@ -583,7 +581,7 @@ async def scrape_car_data_with_custom_search_async(car_name: str) -> Dict[str, A
         search_results = await call_custom_search_parallel(missing_queries,num_results=3, max_concurrent=20  # Increased from 15
         )
         
-        print(f"   ✓ API calls completed")
+        print(f"    API calls completed")
         print(f"   → Processing ALL {len(search_results)} specs with Gemini in PARALLEL...")
         
         # PARALLEL GEMINI EXTRACTION with semaphore
@@ -623,7 +621,7 @@ async def scrape_car_data_with_custom_search_async(car_name: str) -> Dict[str, A
                 if extracted_data["source_url"] not in car_data["source_urls"] and extracted_data["source_url"] != "N/A":
                     car_data["source_urls"].append(extracted_data["source_url"])
         
-        print(f"   ✓ Parallel Gemini extraction completed")
+        print(f"    Parallel Gemini extraction completed")
     
     # Fill any remaining empty fields
     for field in CAR_SPECS:
@@ -638,8 +636,8 @@ async def scrape_car_data_with_custom_search_async(car_name: str) -> Dict[str, A
     elapsed_time = time.time() - start_time
     
     print(f"\n{'='*60}")
-    print(f"✓ Scraping completed: {final_populated}/{len(CAR_SPECS)} fields")
-    print(f"✓ Time taken: {elapsed_time:.2f} seconds")
+    print(f" Scraping completed: {final_populated}/{len(CAR_SPECS)} fields")
+    print(f" Time taken: {elapsed_time:.2f} seconds")
     print(f"{'='*60}\n")
     
     return car_data
@@ -818,7 +816,7 @@ def extract_car_data_from_url(url: str, car_name: str, missing_fields: List[str]
                           if car_data.get(field) not in ["Not Available", "N/A", None, ""] 
                           and str(car_data.get(field, "")).strip())
         
-        print(f"   ✓ Gemini extracted {valid_fields} valid fields")
+        print(f"    Gemini extracted {valid_fields} valid fields")
         return car_data
         
     except json.JSONDecodeError as e:
@@ -829,7 +827,7 @@ def extract_car_data_from_url(url: str, car_name: str, missing_fields: List[str]
             "error": "Failed to parse Gemini response as JSON"
         }
     except Exception as e:
-        print(f"  ✗Gemini URL analysis failed: {e}")
+        print(f"  Gemini URL analysis failed: {e}")
         return {
             "car_name": car_name,
             "error": f"Failed to analyze URL: {str(e)}"
@@ -930,11 +928,11 @@ def extract_specs_from_youtube_video(url: str, car_name: str, missing_fields: Li
                           if car_data.get(field) not in ["Not Available", "N/A", None, ""] 
                           and str(car_data.get(field, "")).strip())
         
-        print(f"   ✓ Extracted {valid_fields} valid fields from YouTube video")
+        print(f"    Extracted {valid_fields} valid fields from YouTube video")
         return car_data
         
     except Exception as e:
-        print(f"   ✗ YouTube video analysis failed: {e}")
+        print(f"    YouTube video analysis failed: {e}")
         return {
             "car_name": car_name,
             "error": f"Failed to analyze YouTube video: {str(e)}"
@@ -1011,9 +1009,9 @@ def collect_manual_specs_for_code_car(code_car_name: str) -> Dict[str, Any]:
         "source_urls": ["Manual User Input"]
     }
     
-    # Define all specs with user-friendly prompts - UPDATE THIS LIST
+    #all specs with user-friendly prompts
     spec_prompts = [
-        # Original 19 specs
+   
         ("price_range", "Price Range (e.g., ₹13.66 Lakh onwards): "),
         ("mileage", "Mileage (e.g., 16.5 kmpl): "),
         ("user_rating", "User Rating (e.g., 4.5/5): "),
@@ -1033,8 +1031,6 @@ def collect_manual_specs_for_code_car(code_car_name: str) -> Dict[str, Any]:
         ("off_road", "Off-Road Features (e.g., 4x4, Hill Descent Control): "),
         ("interior", "Interior Features (e.g., Leather seats, Panoramic sunroof): "),
         ("seat", "Seat Details (e.g., Ventilated leather seats): "),
-        
-        # NEW: 72 Additional specs
         ("ride", "Ride Quality/Comfort: "),
         ("performance_feel", "Performance Feel/Driving Experience: "),
         ("driveability", "Driveability/Ease of Driving: "),
@@ -1122,10 +1118,10 @@ def collect_manual_specs_for_code_car(code_car_name: str) -> Dict[str, Any]:
                 "citation_text": f"Manually entered by user: '{user_input}'"
             }
             manually_entered_count += 1
-            print(f"   ✓ Saved")
+            print(f"Saved")
         else:
             manual_specs[field] = None  # Mark as not provided
-            print(f"   - Skipped (will attempt web scraping)")
+            print(f"  Skipped (will attempt web scraping)")
     
     print(f"\n{'='*60}")
     print(f"Manual Entry Complete: {manually_entered_count}/91 fields provided")
@@ -1204,7 +1200,7 @@ def extract_sales_data_from_url(url: str, car_name: str) -> Dict[str, Any]:
         print(f"   JSON parsing error for sales data: {e}")
         return {"car_name": car_name, "error": "Failed to parse sales data"}
     except Exception as e:
-        print(f"   ✗ Sales data extraction failed: {e}")
+        print(f"    Sales data extraction failed: {e}")
         return {"car_name": car_name, "error": f"Failed to extract sales data: {str(e)}"}
     
 
@@ -1229,7 +1225,7 @@ def scrape_sales_data(car_name: str) -> Dict[str, Any]:
     
     for idx, url in enumerate(urls):
         if not missing_fields:
-            print(f"\n✓ All sales fields populated! Stopping early.")
+            print(f"\n All sales fields populated! Stopping early.")
             break
         
         print(f"\n[Sales URL {idx+1}/{len(urls)}] Analyzing: {url}")
@@ -1254,9 +1250,9 @@ def scrape_sales_data(car_name: str) -> Dict[str, Any]:
             
             if newly_found:
                 aggregated_sales["sales_source_urls"].append(url)
-                print(f"   ✓ Found {len(newly_found)} sales metrics: {', '.join(newly_found)}")
+                print(f"    Found {len(newly_found)} sales metrics: {', '.join(newly_found)}")
         else:
-            print(f"   ✗ No sales data found")
+            print(f"    No sales data found")
         
         time.sleep(2)  # Rate limiting
     
@@ -1269,7 +1265,7 @@ def scrape_sales_data(car_name: str) -> Dict[str, Any]:
         }
     
     populated = len(sales_fields) - len(missing_fields)
-    print(f"\n✓ Sales data complete: {populated}/{len(sales_fields)} fields populated")
+    print(f"\n Sales data complete: {populated}/{len(sales_fields)} fields populated")
     
     return aggregated_sales
 
@@ -1292,12 +1288,12 @@ def scrape_car_data(car_name: str, manual_specs: Dict[str, Any] = None, use_cust
     
     # If manual specs provided for a code car, skip web scraping entirely
     if manual_specs and manual_specs.get('is_code_car'):
-        print(f"✓ CODE CAR detected with manual specs - SKIPPING web scraping")
+        print(f" CODE CAR detected with manual specs - SKIPPING web scraping")
         manually_provided = sum(1 for k, v in manual_specs.items() 
                                if v and not k.endswith('_citation') 
                                and k not in ['car_name', 'is_code_car', 'manual_entry', 'source_urls', 'left_blank'])
         
-        print(f"✓ Using {manually_provided}/19 manually entered fields")
+        print(f" Using {manually_provided}/19 manually entered fields")
         
         # Fill any missing fields with "Not Available"
         for field in CAR_SPECS:
@@ -1308,7 +1304,7 @@ def scrape_car_data(car_name: str, manual_specs: Dict[str, Any] = None, use_cust
                     "citation_text": "User skipped this specification during manual entry"
                 }
         
-        print(f"✓ CODE CAR processing complete: {manually_provided} provided, {19-manually_provided} marked as N/A")
+        print(f" CODE CAR processing complete: {manually_provided} provided, {19-manually_provided} marked as N/A")
         return manual_specs
     
  
@@ -1358,7 +1354,7 @@ def scrape_multiple_cars(car_list: List[str], use_custom_search: bool = True) ->
         
         populated = sum(1 for field in CAR_SPECS 
                        if car_data.get(field) not in ["Not Available", "N/A", None, ""])
-        print(f"\n✓ {car}: {populated}/{len(CAR_SPECS)} fields populated")
+        print(f"\n {car}: {populated}/{len(CAR_SPECS)} fields populated")
         
     
     return results
@@ -1427,7 +1423,6 @@ def upload_html_to_gcs(html_content: str, gcs_destination_path: str) -> str:
         bucket = client.bucket(GCS_BUCKET_NAME)
         blob = bucket.blob(gcs_destination_path)
         
-        # Set metadata for proper browser rendering
         blob.content_type = "text/html; charset=utf-8"
         blob.cache_control = "public, max-age=3600"  
         
@@ -1439,13 +1434,13 @@ def upload_html_to_gcs(html_content: str, gcs_destination_path: str) -> str:
         
         # Set additional metadata after upload
         blob.metadata = {
-            "Content-Disposition": "inline",  # Display in browser, don't download
+            "Content-Disposition": "inline",
             "X-Content-Type-Options": "nosniff"
         }
         blob.patch()
         
         gcs_uri = f"gs://{GCS_BUCKET_NAME}/{gcs_destination_path}"
-        print(f"   ✓ Uploaded HTML to GCS: {gcs_uri}")
+        print(f"    Uploaded HTML to GCS: {gcs_uri}")
         
         return gcs_uri
         
@@ -1481,7 +1476,7 @@ def upload_json_to_gcs(json_content: str, gcs_destination_path: str) -> str:
         )
         
         gcs_uri = f"gs://{GCS_BUCKET_NAME}/{gcs_destination_path}"
-        print(f"   ✓ Uploaded JSON to GCS: {gcs_uri}")
+        print(f"    Uploaded JSON to GCS: {gcs_uri}")
         
         return gcs_uri
         
@@ -1510,7 +1505,7 @@ def generate_signed_url(gcs_path: str, expiration_minutes: int = 60) -> str:
             method="GET"
         )
         
-        print(f"   ✓ Generated signed URL (expires in {expiration_minutes} min)")
+        print(f"    Generated signed URL (expires in {expiration_minutes} min)")
         return signed_url
         
     except Exception as e:
@@ -1674,7 +1669,7 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
                     if not hasattr(add_code_car_specs_tool, 'collected_specs'):
                         add_code_car_specs_tool.collected_specs = {}
                     add_code_car_specs_tool.collected_specs[car] = blank_specs
-                    print(f"✓ Created blank spec structure for '{car}'")
+                    print(f" Created blank spec structure for '{car}'")
             
             elif decision in ['yes', 'y', 'manual', 'enter', 'specify']:
                 # User wants manual entry - offer both methods
@@ -1712,9 +1707,9 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
                         if not hasattr(add_code_car_specs_tool, 'collected_specs'):
                             add_code_car_specs_tool.collected_specs = {}
                         add_code_car_specs_tool.collected_specs[car] = rag_specs
-                        print(f"✓ Retrieved specs from RAG for '{car}'")
+                        print(f" Retrieved specs from RAG for '{car}'")
                     else:
-                        print(f"✗ RAG query failed for '{car}', will use blank specs")
+                        print(f" RAG query failed for '{car}', will use blank specs")
                         blank_specs = create_blank_specs_for_code_car(car)
                         if not hasattr(add_code_car_specs_tool, 'collected_specs'):
                             add_code_car_specs_tool.collected_specs = {}
@@ -1808,7 +1803,7 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
                         future = executor.submit(run_async_task)
                         sales_results = future.result(timeout=60)  # 60 second timeout
                 except Exception as e:
-                    print(f"   ✗ Error fetching sales data: {e}")
+                    print(f"    Error fetching sales data: {e}")
                     sales_results = []
                 
                 if sales_results:
@@ -1857,7 +1852,7 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
         # Show completion status
         populated = sum(1 for field in CAR_SPECS 
                        if car_data.get(field) not in ["Not Available", "N/A", None, ""])
-        print(f"\n✓ {car}: {populated}/{len(CAR_SPECS)} specs populated")
+        print(f"\n {car}: {populated}/{len(CAR_SPECS)} specs populated")
         
         
     

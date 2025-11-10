@@ -2,7 +2,10 @@
 from typing import Dict, Any
 
 import json
-
+import os, json
+import vertexai
+from vertexai.preview import rag
+from vertexai.generative_models import GenerativeModel
 
 CAR_SPECS = [
     # Original 19 specs
@@ -238,7 +241,6 @@ def add_code_car_specs_tool(
     Args:
         car_name: Name of the code car
         
-        # Original 19 specs
         price_range: Price Range (e.g., ₹13.66 Lakh onwards, or 'skip')
         mileage: Mileage (e.g., 16.5 kmpl, or 'skip')
         user_rating: User Rating (e.g., 4.5/5, or 'skip')
@@ -258,8 +260,6 @@ def add_code_car_specs_tool(
         off_road: Off-Road Features (e.g., 4x4, Hill Descent, or 'skip')
         interior: Interior Features (e.g., Leather seats, or 'skip')
         seat: Seat Details (e.g., Ventilated leather seats, or 'skip')
-        
-        # NEW: 72 Additional specs
         ride: Ride quality/comfort (or 'skip')
         performance_feel: Performance feel/driving experience (or 'skip')
         driveability: Driveability/ease of driving (or 'skip')
@@ -527,30 +527,7 @@ def add_code_car_specs_bulk_tool(
         }
         
         # Map of expected fields - UPDATE THIS LIST
-        expected_fields = [
-            # Original 19 specs
-            "price_range", "mileage", "user_rating", "seating_capacity",
-            "braking", "steering", "climate_control", "battery",
-            "transmission", "brakes", "wheels", "performance",
-            "body", "vehicle_safety_features", "lighting",
-            "audio_system", "off_road", "interior", "seat",
-            # NEW: 72 Additional specs
-            "ride", "performance_feel", "driveability", "manual_transmission_performance",
-            "pedal_operation", "automatic_transmission_performance", "powertrain_nvh",
-            "wind_nvh", "road_nvh", "visibility", "seats_restraint", "impact",
-            "seat_cushion", "turning_radius", "epb", "brake_performance",
-            "stiff_on_pot_holes", "bumps", "jerks", "pulsation", "stability",
-            "shakes", "shudder", "shocks", "grabby", "spongy", "telescopic_steering",
-            "torque", "nvh", "wind_noise", "tire_noise", "crawl", "gear_shift",
-            "pedal_travel", "gear_selection", "turbo_noise", "resolution",
-            "touch_response", "button", "apple_carplay", "digital_display",
-            "blower_noise", "soft_trims", "armrest", "sunroof", "irvm", "orvm",
-            "window", "alloy_wheel", "tail_lamp", "boot_space", "led", "drl",
-            "ride_quality", "infotainment_screen", "chasis", "straight_ahead_stability",
-            "wheelbase", "egress", "ingress", "corner_stability", "parking",
-            "manoeuvring", "city_performance", "highway_performance", "wiper_control",
-            "sensitivity", "rattle", "headrest", "acceleration", "response", "door_effort"
-        ]
+        expected_fields = CAR_SPECS
         
         specs_provided = 0
         for field in expected_fields:
@@ -602,11 +579,7 @@ def query_rag_for_code_car_specs(car_name: str, rag_corpus: str) -> Dict[str, An
     print(f"{'='*60}")
 
     try:
-        import os, json
-        import vertexai
-        from vertexai.preview import rag
-        from vertexai.generative_models import GenerativeModel
-
+        
         # Initialize VertexAI at RAG corpus region
         rag_location = "asia-south1"
         project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
@@ -788,7 +761,7 @@ def query_rag_for_code_car_specs(car_name: str, rag_corpus: str) -> Dict[str, An
         return car_data
 
     except Exception as e:
-        print(f"   ✗ RAG query failed: {e}")
+        print(f"RAG query failed: {e}")
         import traceback; traceback.print_exc()
         try:
             vertexai.init(
