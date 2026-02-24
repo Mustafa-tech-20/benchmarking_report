@@ -109,13 +109,6 @@ CAR_SPECS = [
     "review_gsq"                  
 ]
 
-def is_code_car(car_name: str) -> bool:
-    """Check if a car name is a code/custom car."""
-    car_name_upper = car_name.strip().upper()
-    return (car_name.startswith("CODE:") or 
-            car_name.startswith("code:") or
-            (car_name_upper == car_name and len(car_name.split()) <= 2))
-
 def create_blank_specs_for_code_car(car_name: str) -> Dict[str, Any]:
     """Create a blank spec structure for a code car - all fields marked as Not Available."""
     blank_specs = {
