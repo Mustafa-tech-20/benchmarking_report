@@ -1,10 +1,9 @@
-"""Test Vertex AI Grounding with Google Search - Automatic Citations
+"""Test Vertex AI Grounding with Domain Preference
 
-Uses google-genai SDK with Vertex AI for grounded responses.
+Note: Google Search grounding only supports excludeDomains, NOT includeDomains.
+We use prompt engineering to guide searches to preferred domains.
 """
 import os
-import sys
-import json
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/Users/mustafa.mohammed/Documents/Mahindra-CloudRun/service.json"
 
@@ -17,8 +16,61 @@ from google.genai.types import (
 
 # Configuration
 PROJECT_ID = "srv-ad-nvoc-dev-445421"
-LOCATION = "global"  # MUST be "global" for Google Search grounding
+LOCATION = "global"
 MODEL_ID = "gemini-2.5-flash"
+
+# Preferred automotive domains
+PREFERRED_DOMAINS = [
+    # Indian automotive sites
+    "team-bhp.com",
+    "autocarindia.com",
+    "overdrive.in",
+    "zigwheels.com",
+    "carwale.com",
+    "cardekho.com",
+    "autocarpro.in",
+    "evreporter.com",
+    "motoringworld.in",
+    # International automotive sites
+    "bestsellingcarsblog.com",
+    "esource.com",
+    "orovel.net",
+    "evadoption.com",
+    "insideevs.com",
+    "autoprove.net",
+    "gasgoo.com",
+    "response.jp",
+    "carnewschina.com",
+    "autoblog.com",
+    "autohome.com.cn",
+    "autonews.com",
+    "autonetmagz.com",
+    "paultan.org",
+    "chinaelectricvehicles.com",
+    "chinacartimes.com",
+    "jalopnik.com",
+    "just-auto.com",
+    "leftlanenews.com",
+    "egmcartech.com",
+    "autocar.co.uk",
+    "automobilemag.com",
+    "automobile.tn",
+    "wandaloo.com",
+    "motory.com",
+    "zigwheels.ae",
+    "chileautos.cl",
+]
+
+# Domains to EXCLUDE (non-automotive, generic sites)
+EXCLUDE_DOMAINS = [
+    "wikipedia.org",
+    "youtube.com",
+    "reddit.com",
+    "quora.com",
+    "facebook.com",
+    "twitter.com",
+    "instagram.com",
+]
 
 # Initialize client
 try:
@@ -28,89 +80,89 @@ try:
     print(f"  Location: {LOCATION}")
     print(f"  Model: {MODEL_ID}\n")
 except Exception as e:
-    print(f"❌ Error initializing Vertex AI: {e}")
-    sys.exit(1)
+    print(f"❌ Error initializing: {e}")
+    exit(1)
 
 
 def print_sources(response):
-    """Extract and print source URLs from grounding metadata."""
+    """Extract and print source URLs with domain check."""
     if not response.candidates:
-        return
+        return []
 
     candidate = response.candidates[0]
     metadata = getattr(candidate, "grounding_metadata", None)
 
     if not metadata:
         print("No grounding metadata found.")
-        return
+        return []
 
-    # Print search queries used
+    sources = []
+
+    # Print search queries
     if metadata.web_search_queries:
-        print("\nSearch queries used:")
+        print("\nSearch queries:")
         for q in metadata.web_search_queries:
             print(f"  - {q}")
 
-    # Print source URLs
+    # Print sources with domain check
     chunks = metadata.grounding_chunks
     if chunks:
-        print(f"\nSources ({len(chunks)}):")
+        print(f"\n" + "-" * 60)
+        print(f"SOURCES ({len(chunks)}):")
+        print("-" * 60)
+
+        preferred_count = 0
         for i, chunk in enumerate(chunks, 1):
             if chunk.web:
-                print(f"  [{i}] {chunk.web.title}")
-                print(f"       {chunk.web.uri}")
+                domain = chunk.web.title.lower() if chunk.web.title else "unknown"
+                is_preferred = any(d.split('.')[0] in domain for d in PREFERRED_DOMAINS)
+                if is_preferred:
+                    preferred_count += 1
+                status = "✓" if is_preferred else "○"
+                print(f"  {status} [{i}] {domain}")
+                sources.append({"domain": domain, "preferred": is_preferred})
+
+        print(f"\n  → {preferred_count}/{len(chunks)} from preferred automotive domains")
     else:
-        print("\nNo source chunks found.")
+        print("\nNo sources found.")
+
+    return sources
 
 
-def test_grounding_basic():
-    """Test 1: Basic grounding with automatic citations."""
+def search_car_specs(car_name: str):
+    """Search for car specifications with domain preference."""
 
-    print("="*80)
-    print("TEST 1: Basic Grounding - Mahindra Thar Search")
-    print("="*80)
+    print("="*70)
+    print(f"SEARCHING: {car_name}")
+    print("="*70)
 
-    google_search_tool = Tool(google_search=GoogleSearch())
-
-    prompt = """What are the key specifications of the 2024 Mahindra Thar Roxx?
-Include price, engine options, mileage, safety features, and infotainment."""
-
-    print(f"\nPrompt: {prompt[:100]}...\n")
-    print("Generating response with Google Search grounding...\n")
-
-    response = client.models.generate_content(
-        model=MODEL_ID,
-        contents=prompt,
-        config=GenerateContentConfig(tools=[google_search_tool]),
+    # Use excludeDomains to block unwanted sites
+    google_search_tool = Tool(
+        google_search=GoogleSearch(
+            exclude_domains=EXCLUDE_DOMAINS
+        )
     )
 
-    print("-" * 80)
-    print("RESPONSE:")
-    print("-" * 80)
-    print(response.text)
+    # Build domain hints for prompt
+    top_domains = ", ".join(PREFERRED_DOMAINS[:10])
 
-    print_sources(response)
-    print()
+    prompt = f"""Search for detailed specifications and reviews of {car_name}.
 
+IMPORTANT: Prioritize information from these automotive websites:
+{top_domains}
 
-def test_grounding_clinical_trial():
-    """Test 2: Extract clinical trial data with citations."""
+Find:
+- Price range (ex-showroom and on-road)
+- Engine options (petrol/diesel, power, torque)
+- Mileage (ARAI and real-world)
+- Safety features and ratings
+- User reviews and expert opinions
+- Key features (infotainment, comfort, off-road capability)
 
-    print("="*80)
-    print("TEST 2: Clinical Trial Data Extraction")
-    print("="*80)
+Return a comprehensive JSON with all specifications found."""
 
-    google_search_tool = Tool(google_search=GoogleSearch())
-
-    prompt = """Extract clinical efficacy data for the Semaglutide STEP 1 trial (NCT03548935):
-- Weight loss percentage at primary endpoint
-- Trial phase
-- Sample size
-- Duration
-
-Provide the data in JSON format."""
-
-    print(f"\nPrompt: {prompt}\n")
-    print("Generating response with Google Search grounding...\n")
+    print(f"\nSearching with exclude_domains: {EXCLUDE_DOMAINS[:3]}...")
+    print(f"Preferred sources: {top_domains[:50]}...\n")
 
     response = client.models.generate_content(
         model=MODEL_ID,
@@ -121,65 +173,33 @@ Provide the data in JSON format."""
         ),
     )
 
-    print("-" * 80)
+    print("-" * 70)
     print("RESPONSE:")
-    print("-" * 80)
+    print("-" * 70)
     print(response.text)
 
     print_sources(response)
     print()
-
-
-def test_grounding_simple():
-    """Test 3: Simple factual query."""
-
-    print("="*80)
-    print("TEST 3: Simple Factual Query")
-    print("="*80)
-
-    google_search_tool = Tool(google_search=GoogleSearch())
-
-    prompt = "What is the current price of Bitcoin today?"
-
-    print(f"\nPrompt: {prompt}\n")
-    print("Generating response with Google Search grounding...\n")
-
-    response = client.models.generate_content(
-        model=MODEL_ID,
-        contents=prompt,
-        config=GenerateContentConfig(tools=[google_search_tool]),
-    )
-
-    print("-" * 80)
-    print("RESPONSE:")
-    print("-" * 80)
-    print(response.text)
-
-    print_sources(response)
-    print()
+    return response
 
 
 def main():
-    """Run grounding tests."""
+    """Run automotive search tests."""
 
-    print("\n" + "="*80)
-    print("VERTEX AI GROUNDING WITH GOOGLE SEARCH")
-    print("="*80)
-    print("\nUsing google-genai SDK with location='global'\n")
+    print("\n" + "="*70)
+    print("AUTOMOTIVE SPECIFICATIONS SEARCH")
+    print("Using Google Search with excludeDomains + prompt engineering")
+    print("="*70)
+    print(f"\nNote: API only supports excludeDomains, not includeDomains.")
+    print(f"Using prompt hints to guide searches to preferred domains.\n")
 
     try:
-        test_grounding_simple()
-        print("\n")
+        # Search for car specs
+        search_car_specs("Mahindra Thar Roxx 2024")
 
-        test_grounding_basic()
-        print("\n")
-
-        test_grounding_clinical_trial()
-        print("\n")
-
-        print("="*80)
+        print("="*70)
         print("DONE")
-        print("="*80)
+        print("="*70)
 
     except Exception as e:
         print(f"\n❌ Error: {e}")
