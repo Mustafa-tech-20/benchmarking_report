@@ -1,860 +1,701 @@
-import asyncio
-import aiohttp
-import json
-import time
-import concurrent.futures
-from typing import Dict, Any, List
+"""
+Car Specifications Scraper using Google Custom Search + Gemini
 
-from vertexai.generative_models import GenerativeModel, Part
+Enhanced pipeline with:
+- 87 targeted spec queries
+- Parallel search and extraction
+- Alternative keywords retry when accuracy < 80%
+- Full URL citations
+- Exponential backoff for API calls
+"""
+import time
+import random
+import requests
+import concurrent.futures
+from typing import Dict, Any, List, Callable
+from functools import wraps
+
+from vertexai.generative_models import GenerativeModel
 
 from benchmarking_agent.config import GOOGLE_API_KEY, SEARCH_ENGINE_ID, CUSTOM_SEARCH_URL
-from benchmarking_agent.utils import normalize_car_name_for_url, get_brand_name, count_populated_fields
-from benchmarking_agent.Internal_Car_tools import CAR_SPECS
 
 
-def get_spec_search_queries(car_name: str) -> Dict[str, str]:
-    """
-    Generate Custom Search queries for each specification.
-    Returns a dictionary mapping spec name to search query.
-    """
-    queries = {
-        "price_range": f"{car_name} price ",
-        "mileage": f"{car_name} mileage kmpl",
-        "user_rating": f"{car_name} user ratings",
-        "seating_capacity": f"{car_name} seating capacity",
-        "braking": f"{car_name} braking system features",
-        "steering": f"{car_name} steering type",
-        "climate_control": f"{car_name} climate control features",
-        "battery": f"{car_name} battery capacity ",
-        "transmission": f"{car_name} transmission features",
-        "brakes": f"{car_name} brakes features",
-        "wheels": f"{car_name} wheels size",
-        "performance": f"{car_name} performance and acceleration power and features",
-        "body": f"{car_name} body type ",
-        "vehicle_safety_features": f"{car_name} safety features ",
-        "lighting": f"{car_name} lighting features",
-        "audio_system": f"{car_name} audio system features",
-        "off_road": f"{car_name} off-road 4x4 capabilities",
-        "interior": f"{car_name} interior features",
-        "seat": f"{car_name} seat features ",
-        "monthly_sales": f"{car_name} monthly sales units",
-        "ride": f"{car_name} ride quality and comfort",
-        "performance_feel": f"{car_name} driving experience",
-        "driveability": f"{car_name} driveability and ease of driving",
-        "manual_transmission_performance": f"{car_name} manual transmission performance",
-        "pedal_operation": f"{car_name} pedal operation clutch brake features",
-        "automatic_transmission_performance": f"{car_name} automatic transmission performance",
-        "powertrain_nvh": f"{car_name} powertrain NVH noise vibration",
-        "wind_nvh": f"{car_name} wind noise NVH",
-        "road_nvh": f"{car_name} road noise NVH",
-        "visibility": f"{car_name} visibility sight lines",
-        "seats_restraint": f"{car_name} seats restraint safety",
-        "impact": f"{car_name} impact safety crash test",
-        "seat_cushion": f"{car_name} seat cushion comfort",
-        "turning_radius": f"{car_name} turning radius circle",
-        "epb": f"{car_name} electronic parking brake EPB",
-        "brake_performance": f"{car_name} brake performance stopping distance",
-        "stiff_on_pot_holes": f"{car_name} stiff pot holes suspension",
-        "bumps": f"{car_name} bumps ride quality",
-        "jerks": f"{car_name} jerks transmission drivetrain",
-        "pulsation": f"{car_name} pulsation vibration",
-        "stability": f"{car_name} stability high speed cornering",
-        "shakes": f"{car_name} shakes vibration",
-        "shudder": f"{car_name} shudder vibration",
-        "shocks": f"{car_name} shocks suspension",
-        "grabby": f"{car_name} grabby brakes clutch",
-        "spongy": f"{car_name} spongy brakes pedal feel",
-        "telescopic_steering": f"{car_name} telescopic steering adjustment",
-        "torque": f"{car_name} torque power output",
-        "nvh": f"{car_name} NVH noise vibration harshness",
-        "wind_noise": f"{car_name} wind noise cabin",
-        "tire_noise": f"{car_name} tire noise road noise",
-        "crawl": f"{car_name} crawl low speed control",
-        "gear_shift": f"{car_name} gear shift quality",
-        "pedal_travel": f"{car_name} pedal travel distance",
-        "gear_selection": f"{car_name} gear selection transmission",
-        "turbo_noise": f"{car_name} turbo noise sound",
-        "resolution": f"{car_name} display resolution screen",
-        "touch_response": f"{car_name} touch response infotainment",
-        "button": f"{car_name} button controls quality",
-        "apple_carplay": f"{car_name} Apple CarPlay support",
-        "digital_display": f"{car_name} digital display instrument cluster",
-        "blower_noise": f"{car_name} blower noise AC",
-        "soft_trims": f"{car_name} soft trims interior quality",
-        "armrest": f"{car_name} armrest comfort",
-        "sunroof": f"{car_name} sunroof panoramic",
-        "irvm": f"{car_name} IRVM interior rear view mirror",
-        "orvm": f"{car_name} ORVM outside rear view mirror",
-        "window": f"{car_name} window power quality",
-        "alloy_wheel": f"{car_name} alloy wheel design size",
-        "tail_lamp": f"{car_name} tail lamp LED design",
-        "boot_space": f"{car_name} boot space luggage capacity",
-        "led": f"{car_name} LED lights",
-        "drl": f"{car_name} DRL daytime running lights",
-        "ride_quality": f"{car_name} ride quality comfort smoothness",
-        "infotainment_screen": f"{car_name} infotainment screen size touchscreen",
-        "chasis": f"{car_name} chassis platform construction",
-        "straight_ahead_stability": f"{car_name} straight ahead stability highway",
-        "wheelbase": f"{car_name} wheelbase dimensions",
-        "egress": f"{car_name} egress getting out ease",
-        "ingress": f"{car_name} ingress getting in ease",
-        "corner_stability": f"{car_name} corner stability handling",
-        "parking": f"{car_name} parking ease sensors camera",
-        "manoeuvring": f"{car_name} manoeuvring city driving",
-        "city_performance": f"{car_name} city performance urban driving",
-        "highway_performance": f"{car_name} highway performance cruising",
-        "wiper_control": f"{car_name} wiper control operation",
-        "sensitivity": f"{car_name} sensitivity controls responsiveness",
-        "rattle": f"{car_name} rattle interior quality",
-        "headrest": f"{car_name} headrest comfort adjustment",
-        "acceleration": f"{car_name} acceleration 0-100 performance",
-        "response": f"{car_name} response throttle steering",
-        "door_effort": f"{car_name} door effort opening closing",
-        "review_ride_handling": f"{car_name} ride quality handling review expert opinion",
-        "review_steering": f"{car_name} steering feel feedback review",
-        "review_braking": f"{car_name} braking performance review stopping",
-        "review_performance": f"{car_name} performance drivability review driving experience",
-        "review_4x4_operation": f"{car_name} 4x4 off-road capability review terrain",
-        "review_nvh": f"{car_name} NVH noise vibration review cabin refinement",
-        "review_gsq": f"{car_name} gear shift quality transmission review smoothness"
-    }
-    return queries
+# Parallel processing settings
+SEARCH_WORKERS = 15
+GEMINI_WORKERS = 20
+SEARCH_RESULTS_PER_SPEC = 5
+ACCURACY_THRESHOLD = 80
+
+# Retry settings
+MAX_RETRIES = 3
+BASE_DELAY = 1.0  # seconds
+MAX_DELAY = 30.0  # seconds
 
 
-async def call_custom_search_api_async(
-    session: aiohttp.ClientSession,
-    query: str,
-    num_results: int = 5,
-    retry_count: int = 3
-) -> List[Dict[str, str]]:
-    """
-    Async version of Custom Search API call.
+def exponential_backoff_retry(max_retries: int = MAX_RETRIES, base_delay: float = BASE_DELAY):
+    """Decorator for exponential backoff retry with jitter."""
+    def decorator(func: Callable):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            last_exception = None
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    last_exception = e
+                    if attempt < max_retries - 1:
+                        # Exponential backoff with jitter
+                        delay = min(base_delay * (2 ** attempt) + random.uniform(0, 1), MAX_DELAY)
+                        time.sleep(delay)
+            # All retries failed
+            raise last_exception
+        return wrapper
+    return decorator
 
-    Args:
-        session: aiohttp ClientSession for connection pooling
-        query: Search query string
-        num_results: Number of results to return (max 10)
-        retry_count: Number of retries on failure
 
-    Returns:
-        List of search results with title, snippet, and link
-    """
+def call_gemini_with_retry(prompt: str, model_name: str = "gemini-2.5-flash", max_retries: int = MAX_RETRIES) -> str:
+    """Call Gemini API with exponential backoff retry."""
+    last_error = None
+    for attempt in range(max_retries):
+        try:
+            model = GenerativeModel(model_name)
+            response = model.generate_content(prompt)
+            return response.text.strip()
+        except Exception as e:
+            last_error = e
+            error_str = str(e).lower()
+            # Check if it's a retryable error
+            if any(x in error_str for x in ["429", "rate", "quota", "resource", "503", "500", "timeout"]):
+                if attempt < max_retries - 1:
+                    delay = min(BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), MAX_DELAY)
+                    time.sleep(delay)
+                continue
+            else:
+                # Non-retryable error, raise immediately
+                raise e
+    # All retries exhausted
+    raise last_error
+
+
+# 87 specs with targeted search keywords (from car_search.py)
+SPEC_QUERIES = {
+    # Basic Info
+    "price_range": "price ex-showroom on-road cost variants lakh",
+    "mileage": "mileage fuel efficiency kmpl ARAI certified real world",
+    "user_rating": "user rating owner review score stars out of 5",
+    "seating_capacity": "seating capacity seats passengers seater",
+
+    # Engine & Performance
+    "performance": "engine power bhp hp horsepower specs kW",
+    "torque": "torque Nm engine pulling power peak",
+    "transmission": "transmission gearbox manual automatic 6-speed DCT CVT",
+    "acceleration": "acceleration 0-100 kmph seconds sprint time",
+
+    # Braking & Safety
+    "braking": "braking system disc drum front rear caliper",
+    "brakes": "ABS EBD brake assist emergency braking system",
+    "brake_performance": "braking distance stopping power test 100-0",
+    "vehicle_safety_features": "safety features airbags ADAS NCAP rating ESP",
+    "impact": "crash test safety rating NCAP stars adult child",
+
+    # Steering & Handling
+    "steering": "steering feel weight electric hydraulic EPS feedback",
+    "telescopic_steering": "tilt telescopic steering adjustment column",
+    "turning_radius": "turning radius circle meters kerb to kerb",
+    "stability": "high speed stability highway cruising 120 kmph",
+    "corner_stability": "cornering handling curves grip body roll",
+    "straight_ahead_stability": "straight line stability highway tracking",
+
+    # Ride & Suspension
+    "ride": "ride quality comfort suspension setup feel",
+    "ride_quality": "ride comfort smooth rough roads bumpy surfaces",
+    "stiff_on_pot_holes": "pothole absorption suspension stiffness harsh impact",
+    "bumps": "bump absorption rough road handling speed breaker",
+    "shocks": "suspension setup dampers ride comfort absorbers",
+
+    # NVH (Noise Vibration Harshness)
+    "nvh": "NVH noise vibration harshness levels cabin insulation",
+    "powertrain_nvh": "engine noise vibration refinement idle clatter",
+    "wind_nvh": "wind noise cabin insulation highway speeds sealing",
+    "road_nvh": "road noise tyre noise cabin quiet insulation",
+    "wind_noise": "wind noise highway speeds aerodynamic 100 120 kmph",
+    "tire_noise": "tyre noise road surface cabin rubber pattern",
+    "turbo_noise": "turbo whistle sound diesel turbocharger boost",
+
+    # Transmission Feel
+    "manual_transmission_performance": "manual gearbox shift quality clutch notchy smooth",
+    "automatic_transmission_performance": "automatic gearbox smooth shifts response torque converter",
+    "pedal_operation": "clutch pedal feel light heavy travel range",
+    "gear_shift": "gear shift quality notchy smooth slick throw",
+    "gear_selection": "gear lever throw precision feel slot gate",
+    "pedal_travel": "pedal travel stroke accelerator brake clutch",
+    "crawl": "low speed crawl traffic driving creep mode",
+
+    # Driving Dynamics
+    "driveability": "driveability daily driving city traffic ease",
+    "performance_feel": "driving feel sporty responsive quick agile",
+    "city_performance": "city driving traffic mileage fuel efficiency urban",
+    "highway_performance": "highway driving cruising stability overtaking",
+    "off_road": "off-road capability 4x4 terrain modes ground clearance",
+    "manoeuvring": "manoeuvring tight spaces parking u-turn ease",
+
+    # Vibration & Feel Issues
+    "jerks": "jerky acceleration smooth power delivery judder",
+    "pulsation": "brake pulsation vibration pedal judder disc",
+    "shakes": "steering shake vibration wheels shimmy",
+    "shudder": "shudder vibration acceleration braking clutch",
+    "grabby": "brake grabbiness initial bite feel progressive",
+    "spongy": "brake pedal spongy firm feel travel",
+    "rattle": "rattle squeak creak cabin quality build noise",
+
+    # Interior & Comfort
+    "interior": "interior quality materials fit finish plastics leather",
+    "climate_control": "AC climate control cooling heating automatic dual zone",
+    "seats": "seat comfort cushioning support bolstering contour",
+    "seat_cushion": "seat cushion foam density soft firm thigh support",
+    "visibility": "visibility windshield pillars blind spots IRVM view",
+    "soft_trims": "soft touch materials dashboard quality premium feel",
+    "armrest": "armrest center console comfort storage elbow rest",
+    "headrest": "headrest comfort adjustable support height angle",
+    "egress": "egress exit getting out ease door opening",
+    "ingress": "ingress entry getting in ease step height",
+
+    # Features & Tech
+    "infotainment_screen": "infotainment touchscreen display size inch resolution",
+    "resolution": "screen resolution display quality clarity pixels HD",
+    "touch_response": "touchscreen response lag smooth interface speed",
+    "apple_carplay": "Apple CarPlay Android Auto wireless wired",
+    "digital_display": "digital cluster instrument display TFT screen",
+    "button": "physical buttons controls tactile knobs switches",
+
+    # Exterior & Lighting
+    "lighting": "headlights LED projector beam pattern throw range",
+    "led": "LED lights headlamp tail lamp DRL indicators",
+    "drl": "DRL daytime running lights LED signature design",
+    "tail_lamp": "tail lamp rear lights LED design signature",
+    "alloy_wheel": "alloy wheels size design inch 18 19 diamond cut",
+
+    # Convenience Features
+    "sunroof": "sunroof panoramic moonroof glass roof electric",
+    "irvm": "IRVM inside rear view mirror auto dimming electro",
+    "orvm": "ORVM outside mirror electric folding auto heated",
+    "window": "power windows one touch auto up down",
+    "wiper_control": "wiper rain sensing automatic intermittent",
+    "parking": "parking sensors camera 360 degree rear front",
+    "epb": "electronic parking brake EPB auto hold hill",
+    "door_effort": "door operation effort quality feel weight thud",
+
+    # Dimensions & Space
+    "boot_space": "boot space luggage capacity litres liters trunk",
+    "wheelbase": "wheelbase length dimensions mm millimeter",
+    "chasis": "chassis frame platform ladder monocoque construction",
+
+    # Other
+    "blower_noise": "AC blower noise fan sound cabin loud speed",
+    "response": "throttle response accelerator pickup lag turbo",
+    "sensitivity": "controls sensitivity steering throttle brake feel",
+    "seats_restraint": "seatbelt pretensioner ISOFIX child safety load limiter",
+}
+
+
+# Alternative keywords for Phase 3 retry
+ALT_KEYWORDS = {
+    # Basic Info
+    "price_range": "cost rupees lakh starting price base top variant",
+    "mileage": "fuel economy average real world city highway kmpl",
+    "user_rating": "owner review feedback satisfaction score rating percentage",
+    "seating_capacity": "5 seater passengers cabin space occupants legroom",
+
+    # Engine & Performance
+    "performance": "bhp ps horsepower kW engine output power specs",
+    "torque": "Nm pulling power diesel petrol engine torque figure",
+    "transmission": "gearbox automatic manual 6-speed AT MT DCT",
+    "acceleration": "0-100 sprint time seconds quick pickup fast",
+
+    # Braking & Safety
+    "braking": "disc drum brake system front rear ventilated",
+    "brakes": "ABS EBD brake assist hill hold emergency",
+    "brake_performance": "stopping distance 100-0 braking test meters",
+    "vehicle_safety_features": "airbags ADAS ESP NCAP rating safety features",
+    "impact": "crash test NCAP BNCAP safety rating stars adult child",
+
+    # Steering & Handling
+    "steering": "EPS electric power steering feel weight feedback",
+    "telescopic_steering": "tilt telescopic steering adjustment column reach height",
+    "turning_radius": "turning circle kerb meters minimum radius",
+    "stability": "high speed highway 120 kmph stability cruising",
+    "corner_stability": "cornering grip body roll handling curves bend",
+    "straight_ahead_stability": "straight line tracking highway stability lane",
+
+    # Ride & Suspension
+    "ride": "ride quality suspension comfort setup damping",
+    "ride_quality": "comfort smooth rough roads potholes absorption",
+    "stiff_on_pot_holes": "harsh stiff pothole impact suspension firm",
+    "bumps": "speed breaker bump absorption rough road cushioning",
+    "shocks": "FSD frequency selective dampers suspension tuning comfort",
+
+    # NVH
+    "nvh": "noise vibration harshness cabin insulation refinement quiet",
+    "powertrain_nvh": "engine noise vibration diesel clatter refinement idle",
+    "wind_nvh": "wind noise highway speeds cabin insulation sealing",
+    "road_nvh": "road noise tyre cabin insulation quiet highway",
+    "wind_noise": "wind noise 100 120 kmph highway aerodynamic",
+    "tire_noise": "tyre noise road surface pattern rubber cabin",
+    "turbo_noise": "turbo whistle boost sound diesel turbocharger whine",
+
+    # Transmission Feel
+    "manual_transmission_performance": "manual gearbox shift quality clutch notchy smooth throw",
+    "automatic_transmission_performance": "AT gearbox smooth shifts response kickdown torque converter",
+    "pedal_operation": "clutch pedal feel light heavy effort bite point",
+    "gear_shift": "gear shift throw quality notchy smooth slick",
+    "gear_selection": "gear lever slot gate feel rubbery precise",
+    "pedal_travel": "pedal stroke distance clutch brake accelerator travel",
+    "crawl": "low speed traffic creep first gear bumper crawling",
+
+    # Driving Dynamics
+    "driveability": "daily driving city traffic ease maneuverability",
+    "performance_feel": "driving feel sporty responsive quick agile dynamic",
+    "city_performance": "city driving urban mileage traffic fuel efficiency",
+    "highway_performance": "highway cruising overtaking 100 120 kmph stability",
+    "off_road": "4x4 4WD terrain modes ground clearance off-road capability",
+    "manoeuvring": "tight spaces parking u-turn turning ease maneuverability",
+
+    # Vibration & Feel Issues
+    "jerks": "smooth power delivery linear turbo lag hesitation jerk",
+    "pulsation": "brake pulsation vibration judder warped disc pedal",
+    "shakes": "steering vibration shimmy wheel wobble shake speed",
+    "shudder": "shudder vibration acceleration braking clutch judder",
+    "grabby": "brake initial bite progressive grabby feel confidence",
+    "spongy": "brake pedal feel firm soft spongy feedback",
+    "rattle": "rattle squeak creak cabin quality build noise plastic",
+
+    # Interior & Comfort
+    "interior": "interior quality materials fit finish dashboard plastics",
+    "climate_control": "AC automatic dual zone cooling heating rear vents",
+    "seats": "seat comfort cushioning support bolstering lumbar thigh",
+    "seat_cushion": "seat foam density soft firm thigh support cushion",
+    "visibility": "windshield pillars blind spots IRVM forward rear view",
+    "soft_trims": "soft touch dashboard materials premium quality feel",
+    "armrest": "center armrest console comfort storage elbow support",
+    "headrest": "headrest adjustable height angle cushion neck support",
+    "egress": "exit getting out door step down ease height",
+    "ingress": "entry getting in step height door ease access",
+
+    # Features & Tech
+    "infotainment_screen": "touchscreen display size inch resolution infotainment",
+    "resolution": "screen display quality pixels clarity HD sharpness",
+    "touch_response": "touchscreen response lag smooth interface speed",
+    "apple_carplay": "CarPlay Android Auto wireless wired connectivity",
+    "digital_display": "digital cluster instrument TFT screen display",
+    "button": "physical buttons knobs controls tactile switches",
+
+    # Exterior & Lighting
+    "lighting": "headlights LED projector beam throw brightness night",
+    "led": "LED headlamp tail lamp DRL indicators lights",
+    "drl": "DRL daytime running lights LED signature design",
+    "tail_lamp": "tail lamp rear lights LED design brake light",
+    "alloy_wheel": "alloy wheels size 18 19 inch design diamond cut",
+
+    # Convenience Features
+    "sunroof": "panoramic sunroof moonroof glass roof electric size",
+    "irvm": "IRVM inside rear view mirror auto dimming electro",
+    "orvm": "ORVM side mirror electric fold auto retract heated",
+    "window": "power windows one touch auto up down all",
+    "wiper_control": "wiper rain sensing automatic intermittent speed",
+    "parking": "parking sensors camera 360 degree rear front assist",
+    "epb": "electronic parking brake EPB auto hold hill assist",
+    "door_effort": "door closing thud sound quality weight feel slam",
+
+    # Dimensions & Space
+    "boot_space": "boot luggage trunk capacity litres liters space",
+    "wheelbase": "wheelbase length dimensions mm millimeters size",
+    "chasis": "chassis frame ladder monocoque platform construction body",
+
+    # Other
+    "blower_noise": "AC blower fan noise cabin loud speed sound",
+    "response": "throttle response accelerator pickup lag turbo quick",
+    "sensitivity": "controls sensitivity steering throttle brake feel light",
+    "seats_restraint": "seatbelt pretensioner ISOFIX child seat load limiter",
+}
+
+
+# The 87 specs list
+CAR_SPECS = list(SPEC_QUERIES.keys())
+
+
+def custom_search(query: str, spec_name: str) -> dict:
+    """Execute a single Custom Search API call with exponential backoff."""
     params = {
         "key": GOOGLE_API_KEY,
         "cx": SEARCH_ENGINE_ID,
         "q": query,
-        "num": min(num_results, 10)
+        "num": SEARCH_RESULTS_PER_SPEC,
     }
 
-    for attempt in range(retry_count):
+    last_error = None
+    for attempt in range(MAX_RETRIES):
         try:
-            async with session.get(CUSTOM_SEARCH_URL, params=params, timeout=10) as response:
-                if response.status == 200:
-                    data = await response.json()
+            response = requests.get(CUSTOM_SEARCH_URL, params=params, timeout=15)
 
-                    results = []
-                    for item in data.get("items", []):
-                        results.append({
-                            "title": item.get("title", ""),
-                            "snippet": item.get("snippet", ""),
-                            "link": item.get("link", "")
-                        })
+            if response.status_code == 200:
+                data = response.json()
+                items = data.get("items", [])
+                results = [{
+                    "title": item.get("title", ""),
+                    "snippet": item.get("snippet", ""),
+                    "domain": item.get("displayLink", ""),
+                    "url": item.get("link", ""),
+                } for item in items]
+                return {"spec": spec_name, "results": results, "query": query}
 
-                    return results
-
-                elif response.status == 429:  # Rate limit
-                    wait_time = (attempt + 1) * 2
-                    print(f"   ⚠ Rate limited, waiting {wait_time}s...")
-                    await asyncio.sleep(wait_time)
-                    continue
-
-                else:
-                    print(f"API error {response.status} for query '{query[:50]}...'")
-                    return []
-
-        except asyncio.TimeoutError:
-            print(f"Timeout for query '{query[:50]}...' (attempt {attempt + 1}/{retry_count})")
-            if attempt < retry_count - 1:
-                await asyncio.sleep(1)
+            elif response.status_code in [429, 500, 503]:
+                # Retryable errors
+                last_error = f"HTTP {response.status_code}"
+                if attempt < MAX_RETRIES - 1:
+                    delay = min(BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), MAX_DELAY)
+                    time.sleep(delay)
                 continue
-            return []
+            else:
+                return {"spec": spec_name, "results": [], "error": f"HTTP {response.status_code}"}
 
+        except requests.exceptions.Timeout:
+            last_error = "Timeout"
+            if attempt < MAX_RETRIES - 1:
+                delay = min(BASE_DELAY * (2 ** attempt), MAX_DELAY)
+                time.sleep(delay)
+            continue
         except Exception as e:
-            print(f"    Error for query '{query[:50]}...': {e}")
-            if attempt < retry_count - 1:
-                await asyncio.sleep(1)
-                continue
-            return []
+            last_error = str(e)
+            if attempt < MAX_RETRIES - 1:
+                delay = min(BASE_DELAY * (2 ** attempt), MAX_DELAY)
+                time.sleep(delay)
+            continue
 
-    return []
-
-
-async def call_custom_search_parallel(
-    queries: Dict[str, str],
-    num_results: int = 5,
-    max_concurrent: int = 15
-) -> Dict[str, List[Dict[str, str]]]:
-    """
-    Execute multiple Custom Search API calls in parallel.
-
-    Args:
-        queries: Dictionary mapping spec_name to query string
-        num_results: Number of results per query
-        max_concurrent: Max simultaneous API calls (adjust based on rate limits)
-
-    Returns:
-        Dictionary mapping spec_name to search results
-    """
-    semaphore = asyncio.Semaphore(max_concurrent)
-
-    async def fetch_with_limit(session, spec_name, query):
-        async with semaphore:
-            results = await call_custom_search_api_async(session, query, num_results)
-            return (spec_name, results)
-
-    connector = aiohttp.TCPConnector(limit=max_concurrent)
-    timeout = aiohttp.ClientTimeout(total=30)
-
-    async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
-        tasks = [fetch_with_limit(session, spec_name, query) for spec_name, query in queries.items()]
-        results = await asyncio.gather(*tasks)
-
-    return dict(results)
+    return {"spec": spec_name, "results": [], "error": last_error or "Max retries exceeded"}
 
 
-async def search_youtube_for_car(car_name: str) -> str:
-    """
-    Search YouTube for car reviews using Custom Search API.
-    Returns the first YouTube URL found.
-    """
-    query = f"{car_name} on youtube"
-    print(f"   → Searching YouTube: '{query}'")
+def extract_spec_value(spec_name: str, search_data: dict, car_name: str) -> dict:
+    """Extract spec value using Gemini with full citations."""
 
-    connector = aiohttp.TCPConnector(limit=5)
-    timeout = aiohttp.ClientTimeout(total=30)
+    results = search_data.get("results", [])
+    if not results:
+        return {"spec": spec_name, "value": "Not Available", "citations": []}
 
-    async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
-        results = await call_custom_search_api_async(session, query, num_results=3)
-
-        # Find first YouTube URL
-        for result in results:
-            url = result.get('link', '')
-            if 'youtube.com/watch' in url or 'youtu.be/' in url:
-                print(f"Found YouTube video: {url}")
-                return url
-
-        print(f"    No YouTube video found")
-        return None
-
-
-def extract_spec_from_search_results(
-    car_name: str,
-    spec_name: str,
-    search_results: List[Dict[str, str]]
-) -> Dict[str, Any]:
-    """
-    Use Gemini to intelligently select the best search result and extract the specification.
-
-    Args:
-        car_name: Name of the car
-        spec_name: Specification to extract (e.g., 'price_range', 'mileage')
-        search_results: List of search results from Custom Search API
-
-    Returns:
-        Dictionary with extracted value, citation text, and source URL (separate)
-    """
-    if not search_results:
-        return {
-            "value": "Not Available",
-            "citation": "No search results found",
-            "source_url": "N/A"
+    citations = [
+        {
+            "url": r.get("url", ""),
+            "domain": r["domain"],
+            "title": r["title"],
+            "snippet": r["snippet"][:200] + "..." if len(r["snippet"]) > 200 else r["snippet"]
         }
-
-    try:
-        model = GenerativeModel("gemini-2.5-flash")
-
-        # Format search results for Gemini
-        formatted_results = ""
-        for idx, result in enumerate(search_results, 1):
-            formatted_results += f"""
-RESULT {idx}:
-TITLE: {result['title']}
-SNIPPET: {result['snippet']}
-LINK: {result['link']}
-{'-'*80}
-"""
-
-        # Create extraction prompt
-        prompt = f"""
-You are analyzing search results to extract a specific car specification.
-
-CAR: {car_name}
-SPECIFICATION TO EXTRACT: {spec_name}
-
-SEARCH RESULTS:
-{formatted_results}
-
-YOUR TASK:
-1. Read ALL search results carefully
-2. Identify which result(s) contain information about "{spec_name}" for "{car_name}"
-3. Extract the EXACT value for this specification
-4. If NONE of the results contain this information, return "Not Available"
-
-IMPORTANT:
-- Only extract the specific value requested (e.g., for "price_range", extract the price, NOT sales data)
-- Be precise - don't extract unrelated information
-- Provide the exact text snippet where you found this information
-- For price_range ONLY: Always format as "₹Xlakhs–₹Y lakhs" (no decimals, no spaces); for single prices use "₹X lakh onwards"; convert crores to lakhs and dollars to Indian rupees in lakhs before formatting.
-
-Return your response as JSON:
-{{
-    "value": "extracted value or 'Not Available'",
-    "citation": "exact text snippet from the search result where you found this",
-    "result_number": "which result number (1, 2, 3, etc.) or 'none' if not found"
-}}
-
-Return ONLY valid JSON, no additional text.
-"""
-
-        response = model.generate_content(prompt)
-
-        # Parse Gemini response
-        response_text = response.text.strip()
-        if response_text.startswith("```json"):
-            response_text = response_text[7:]
-        if response_text.startswith("```"):
-            response_text = response_text[3:]
-        if response_text.endswith("```"):
-            response_text = response_text[:-3]
-
-        extracted = json.loads(response_text.strip())
-
-        source_url = "N/A"
-        if extracted.get("result_number") and extracted["result_number"] != "none":
-            try:
-                result_idx = int(extracted["result_number"]) - 1
-                if 0 <= result_idx < len(search_results):
-                    source_url = search_results[result_idx]["link"]
-            except:
-                pass
-
-        return {
-            "value": extracted.get("value", "Not Available"),
-            "citation": extracted.get("citation", "No citation available"),
-            "source_url": source_url
-        }
-
-    except Exception as e:
-        print(f"    Gemini extraction error: {e}")
-        return {
-            "value": "Not Available",
-            "citation": f"Extraction failed: {str(e)}",
-            "source_url": "N/A"
-        }
-
-
-async def scrape_car_data_with_custom_search_async(car_name: str) -> Dict[str, Any]:
-    """
-    OPTIMIZED: Direct CardDekho scraping first, then Custom Search fallback.
-
-    Strategy:
-    1. Generate CardDekho URL directly (no API call needed)
-    2. Extract ALL 91 specs from CardDekho using Gemini
-    3. If >= 86/91 fields populated, STOP (success)
-    4. Otherwise, make parallel Custom Search calls ONLY for missing fields
-
-    Args:
-        car_name: Name of the car to scrape
-
-    Returns:
-        Dictionary with all car specifications and citations
-    """
-    print(f"\n{'='*60}")
-    print(f"OPTIMIZED Scraping for: {car_name}")
-    print(f"Strategy: CardDekho → YouTube → Custom Search")
-    print(f"{'='*60}\n")
-
-    start_time = time.time()
-    THRESHOLD = 86  # Stop if we get 86/91 fields
-
-    car_data = {
-        "car_name": car_name,
-        "source_urls": [],
-        "method": "Optimized Custom Search (CardDekho First)"
-    }
-
-    # PHASE 1: Direct CardDekho URL scraping
-    print(f"\n→ PHASE 1: Generating CardDekho URL...")
-
-    brand = get_brand_name(car_name)
-    url_car_name = normalize_car_name_for_url(car_name)
-    cardekho_url = f"https://www.cardekho.com/{brand}/{url_car_name}"
-
-    print(f"    CardDekho URL: {cardekho_url}")
-    print(f"   → Extracting ALL specs from CardDekho using Gemini...")
-
-    # Use Gemini to scrape the CardDekho URL
-    loop = asyncio.get_event_loop()
-    url_data = await loop.run_in_executor(None, extract_car_data_from_url, cardekho_url, car_name, None)
-
-    if "error" not in url_data:
-        # Merge extracted data
-        for field in CAR_SPECS:
-            value = url_data.get(field)
-            if value and value not in ["Not Available", "N/A", None, ""]:
-                car_data[field] = value
-
-                # Store citation
-                citation_key = f"{field}_citation"
-                if citation_key in url_data:
-                    car_data[citation_key] = {
-                        "source_url": cardekho_url,
-                        "citation_text": url_data[citation_key]
-                    }
-
-        car_data["source_urls"].append(cardekho_url)
-
-        # Count populated fields
-        populated = count_populated_fields(car_data, CAR_SPECS)
-        print(f"    Extracted {populated}/{len(CAR_SPECS)} fields from CardDekho")
-
-        # Check threshold
-        if populated >= THRESHOLD:
-            elapsed = time.time() - start_time
-            print(f"\n{'='*60}")
-            print(f" SUCCESS! {populated}/{len(CAR_SPECS)} fields populated")
-            print(f" Threshold met ({THRESHOLD}+), stopping early")
-            print(f" Completed in {elapsed:.2f} seconds")
-            print(f"{'='*60}\n")
-
-            # Fill remaining fields with "Not Available"
-            for field in CAR_SPECS:
-                if field not in car_data or not car_data.get(field):
-                    car_data[field] = "Not Available"
-                    car_data[f"{field}_citation"] = {
-                        "source_url": "N/A",
-                        "citation_text": "Field not required after threshold met"
-                    }
-
-            return car_data
-    else:
-        print(f"    CardDekho scraping failed: {url_data.get('error', 'Unknown error')}")
-
-    # PHASE 2: Custom Search for missing fields (FULLY PARALLEL)
-
-    missing_fields = [
-        field for field in CAR_SPECS
-        if car_data.get(field) in [None, "Not Available", "N/A", ""]
+        for r in results
     ]
 
-    if missing_fields:
-        print(f"\n→ PHASE 2: Custom Search for {len(missing_fields)} missing fields...")
-        print(f"   Missing: {', '.join(missing_fields[:5])}{'...' if len(missing_fields) > 5 else ''}")
+    context = "\n".join([f"[{r['domain']}] {r['snippet']}" for r in results])
 
-        # Get queries only for missing fields
-        all_queries = get_spec_search_queries(car_name)
-        missing_queries = {k: v for k, v in all_queries.items() if k in missing_fields}
+    # Spec-specific format hints
+    format_hints = {
+        "price_range": "₹X.XX Lakh onwards OR ₹X-Y Lakh",
+        "mileage": "X.X kmpl",
+        "user_rating": "X.X/5",
+        "seating_capacity": "X Seater",
+        "performance": "XXX bhp / XXX Nm",
+        "torque": "XXX Nm",
+        "transmission": "Manual/Automatic/6-speed AT",
+        "acceleration": "X.X seconds (0-100)",
+        "turning_radius": "X.X meters",
+        "boot_space": "XXX litres",
+        "wheelbase": "XXXX mm",
+    }
 
-        print(f"   → Making {len(missing_queries)} parallel Custom Search API calls...")
+    format_hint = format_hints.get(spec_name, "short value with units")
 
-        # Execute parallel searches for missing fields
-        search_results = await call_custom_search_parallel(
-            missing_queries, num_results=3, max_concurrent=20
-        )
+    prompt = f"""Extract {spec_name.replace('_', ' ')} for {car_name}.
 
-        print(f"    API calls completed")
-        print(f"   → Processing ALL {len(search_results)} specs with Gemini in PARALLEL...")
+SEARCH RESULTS:
+{context}
 
-        # PARALLEL GEMINI EXTRACTION with semaphore
-        semaphore = asyncio.Semaphore(20)  # Max 20 concurrent Gemini calls
+CRITICAL - RETURN FORMAT:
+- Return ONLY the value, NO explanations
+- Maximum 10 words
+- Format: {format_hint}
+- Examples: "₹11.35 Lakh onwards", "15.2 kmpl", "4.5/5", "5 Seater", "150 bhp", "2750 mm"
+- If not found, return exactly: "Not found"
 
-        async def extract_with_limit(spec_name, results):
-            async with semaphore:
-                loop = asyncio.get_event_loop()
-                return await loop.run_in_executor(
-                    None,
-                    extract_spec_from_search_results,
-                    car_name,
-                    spec_name,
-                    results
-                )
+VALUE:"""
 
-        tasks = [
-            extract_with_limit(spec_name, results)
-            for spec_name, results in search_results.items()
-            if results
-        ]
+    try:
+        # Use retry logic for Gemini call
+        value = call_gemini_with_retry(prompt, "gemini-2.5-flash")
 
-        # Wait for ALL to complete in parallel
-        extracted_results = await asyncio.gather(*tasks)
+        # Clean up response
+        if value.startswith("VALUE:"):
+            value = value[6:].strip()
+        # Remove markdown formatting
+        value = value.replace("**", "").replace("*", "")
+        # Take only first line if multiple lines
+        if "\n" in value:
+            value = value.split("\n")[0].strip()
+        # Truncate if too long (more than 50 chars likely means explanation)
+        if len(value) > 80 and "Not" not in value:
+            # Try to extract just the key value
+            value = value[:80] + "..."
 
-        # Store results
-        spec_names = [name for name, results in search_results.items() if results]
-        for spec_name, extracted_data in zip(spec_names, extracted_results):
-            if extracted_data and extracted_data["value"] != "Not Available":
-                car_data[spec_name] = extracted_data["value"]
-                car_data[f"{spec_name}_citation"] = {
-                    "source_url": extracted_data["source_url"],
-                    "citation_text": extracted_data["citation"]
-                }
+        return {"spec": spec_name, "value": value, "citations": citations}
+    except Exception as e:
+        return {"spec": spec_name, "value": f"Error: {str(e)[:50]}", "citations": citations}
 
-                if extracted_data["source_url"] not in car_data["source_urls"] and extracted_data["source_url"] != "N/A":
-                    car_data["source_urls"].append(extracted_data["source_url"])
 
-        print(f"    Parallel Gemini extraction completed")
+def retry_extract_spec(car_name: str, spec_name: str, search_results: list) -> str:
+    """Retry extraction with more aggressive prompt - returns concise value."""
+    if not search_results:
+        return "Not Available"
 
-    # Fill any remaining empty fields
-    for field in CAR_SPECS:
-        if field not in car_data or not car_data.get(field):
-            car_data[field] = "Not Available"
-            car_data[f"{field}_citation"] = {
-                "source_url": "N/A",
-                "citation_text": "Data not available from any source"
-            }
+    context = "\n".join([f"[{r['domain']}] {r['snippet']}" for r in search_results])
 
-    final_populated = count_populated_fields(car_data, CAR_SPECS)
-    elapsed_time = time.time() - start_time
+    prompt = f"""Extract {spec_name.replace('_', ' ')} for {car_name}.
+
+SEARCH RESULTS:
+{context}
+
+CRITICAL RULES:
+- Return ONLY the value (max 10 words)
+- NO explanations, NO sentences
+- Include units (kmpl, mm, bhp, Nm, etc.)
+- Examples: "₹12.5 Lakh", "16.8 kmpl", "4.2/5", "6 Airbags, ABS, ESP"
+- If not found: "Not Available"
+
+VALUE:"""
+
+    try:
+        # Use retry logic for Gemini call
+        value = call_gemini_with_retry(prompt, "gemini-2.5-flash")
+        if value.startswith("VALUE:"):
+            value = value[6:].strip()
+        value = value.replace("**", "").replace("*", "")
+        if "\n" in value:
+            value = value.split("\n")[0].strip()
+        if len(value) > 80:
+            value = value[:80] + "..."
+        return value
+    except Exception as e:
+        return f"Error: {str(e)[:30]}"
+
+
+def parallel_search(car_name: str, specs_to_search: List[str] = None) -> dict:
+    """Run search queries in parallel."""
+    if specs_to_search is None:
+        specs_to_search = CAR_SPECS
 
     print(f"\n{'='*60}")
-    print(f" Scraping completed: {final_populated}/{len(CAR_SPECS)} fields")
-    print(f" Time taken: {elapsed_time:.2f} seconds")
+    print(f"PHASE 1: PARALLEL SEARCH ({len(specs_to_search)} queries)")
+    print(f"{'='*60}\n")
+
+    all_results = {}
+
+    def search_task(spec_name):
+        keywords = SPEC_QUERIES.get(spec_name, spec_name.replace('_', ' '))
+        query = f"{car_name} {keywords}"
+        return custom_search(query, spec_name)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=SEARCH_WORKERS) as executor:
+        futures = {executor.submit(search_task, spec): spec for spec in specs_to_search}
+        completed = 0
+        for future in concurrent.futures.as_completed(futures):
+            spec_name = futures[future]
+            completed += 1
+            try:
+                result = future.result()
+                all_results[spec_name] = result
+                if completed % 20 == 0:
+                    print(f"  Search: {completed}/{len(futures)}")
+            except Exception as e:
+                all_results[spec_name] = {"spec": spec_name, "results": []}
+
+    print(f"  Search complete: {len(all_results)} specs")
+    return all_results
+
+
+def parallel_extract(car_name: str, search_results: dict) -> dict:
+    """Run Gemini extractions in parallel."""
+    print(f"\n{'='*60}")
+    print(f"PHASE 2: PARALLEL EXTRACTION ({len(search_results)} specs)")
+    print(f"{'='*60}\n")
+
+    specs = {}
+    all_citations = {}
+
+    def extract_task(spec_name, search_data):
+        return extract_spec_value(spec_name, search_data, car_name)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=GEMINI_WORKERS) as executor:
+        futures = {executor.submit(extract_task, spec, data): spec for spec, data in search_results.items()}
+        completed = 0
+        found_count = 0
+        for future in concurrent.futures.as_completed(futures):
+            spec_name = futures[future]
+            completed += 1
+            try:
+                result = future.result()
+                value = result["value"]
+                citations = result.get("citations", [])
+                specs[spec_name] = value
+                if citations:
+                    all_citations[spec_name] = {
+                        "source_url": citations[0].get("url", "N/A"),
+                        "citation_text": citations[0].get("snippet", ""),
+                        "all_sources": citations
+                    }
+                if value and "Not" not in value and "Error" not in value:
+                    found_count += 1
+                if completed % 20 == 0:
+                    print(f"  Extract: {completed}/{len(futures)} ({found_count} found)")
+            except Exception:
+                specs[spec_name] = "Not Available"
+
+    print(f"  Extraction complete: {found_count}/{len(search_results)} found")
+    return {"specs": specs, "citations": all_citations}
+
+
+def retry_missing_specs(car_name: str, specs: dict, citations: dict, search_results: dict) -> tuple:
+    """Phase 3: Retry missing specs with alternative keywords."""
+    missing = [k for k, v in specs.items()
+               if "Not" in str(v) or "Error" in str(v)]
+
+    retry_specs = [s for s in missing if s in ALT_KEYWORDS]
+    if not retry_specs:
+        return specs, citations
+
+    print(f"\n{'='*60}")
+    print(f"PHASE 3: RETRY ({len(retry_specs)} specs)")
+    print(f"{'='*60}\n")
+
+    def retry_task(spec_name):
+        alt_keywords = ALT_KEYWORDS[spec_name]
+        query = f"{car_name} {alt_keywords}"
+        search_result = custom_search(query, spec_name)
+        results = search_result.get("results", [])
+        if not results:
+            original = search_results.get(spec_name, {})
+            results = original.get("results", [])
+        if not results:
+            return spec_name, "Not Available", []
+        new_citations = [
+            {"url": r.get("url", ""), "domain": r["domain"], "title": r["title"],
+             "snippet": r["snippet"][:200] + "..." if len(r["snippet"]) > 200 else r["snippet"]}
+            for r in results
+        ]
+        value = retry_extract_spec(car_name, spec_name, results)
+        return spec_name, value, new_citations
+
+    recovered = 0
+    with concurrent.futures.ThreadPoolExecutor(max_workers=GEMINI_WORKERS) as executor:
+        futures = {executor.submit(retry_task, spec): spec for spec in retry_specs}
+        for future in concurrent.futures.as_completed(futures):
+            spec_name = futures[future]
+            try:
+                spec_name, value, new_citations = future.result()
+                if value and "Not" not in value and "Error" not in value:
+                    recovered += 1
+                    specs[spec_name] = value
+                    if new_citations:
+                        citations[spec_name] = {
+                            "source_url": new_citations[0].get("url", "N/A"),
+                            "citation_text": new_citations[0].get("snippet", ""),
+                            "retry": True
+                        }
+            except Exception:
+                pass
+
+    print(f"  Recovered: {recovered}/{len(retry_specs)}")
+    return specs, citations
+
+
+def scrape_car_data_with_custom_search(car_name: str) -> Dict[str, Any]:
+    """Main scraping function with 3-phase pipeline."""
+    print(f"\n{'#'*60}")
+    print(f"SCRAPING: {car_name}")
+    print(f"{'#'*60}")
+
+    start_time = time.time()
+    car_data = {"car_name": car_name, "source_urls": [], "method": "Custom Search Pipeline"}
+
+    # Phase 1: Search
+    search_results = parallel_search(car_name)
+
+    # Phase 2: Extract
+    extraction = parallel_extract(car_name, search_results)
+    specs = extraction["specs"]
+    citations = extraction["citations"]
+
+    # Check accuracy
+    total = len(specs)
+    found = sum(1 for v in specs.values() if v and "Not" not in str(v) and "Error" not in str(v))
+    accuracy = (found / total * 100) if total > 0 else 0
+
+    print(f"\n  Accuracy: {found}/{total} ({accuracy:.1f}%)")
+
+    # Phase 3: Retry if < 80%
+    if accuracy < ACCURACY_THRESHOLD:
+        print(f"  Below {ACCURACY_THRESHOLD}% - running retry...")
+        specs, citations = retry_missing_specs(car_name, specs, citations, search_results)
+
+    # Build final car_data
+    all_urls = set()
+    for spec_name in CAR_SPECS:
+        car_data[spec_name] = specs.get(spec_name, "Not Available")
+        if spec_name in citations:
+            car_data[f"{spec_name}_citation"] = citations[spec_name]
+            url = citations[spec_name].get("source_url", "")
+            if url and url != "N/A":
+                all_urls.add(url)
+        else:
+            car_data[f"{spec_name}_citation"] = {"source_url": "N/A", "citation_text": ""}
+
+    car_data["source_urls"] = list(all_urls)
+
+    final_found = sum(1 for s in CAR_SPECS if car_data.get(s) and "Not" not in str(car_data.get(s, "")) and "Error" not in str(car_data.get(s, "")))
+    elapsed = time.time() - start_time
+
+    print(f"\n{'='*60}")
+    print(f"DONE: {final_found}/{len(CAR_SPECS)} specs | {elapsed:.1f}s")
     print(f"{'='*60}\n")
 
     return car_data
 
 
-def scrape_car_data_with_custom_search(car_name: str) -> Dict[str, Any]:
-    """
-    Smart wrapper that works in both sync and async contexts.
-    """
-    try:
-        # Check if there's already a running event loop
-        asyncio.get_running_loop()
-
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(
-                asyncio.run,
-                scrape_car_data_with_custom_search_async(car_name)
-            )
-            return future.result()
-
-    except RuntimeError:
-        return asyncio.run(scrape_car_data_with_custom_search_async(car_name))
-
-
-def extract_car_data_from_url(url: str, car_name: str, missing_fields: List[str] = None) -> Dict[str, Any]:
-    """
-    Send URL directly to Gemini for analysis - extracts all specifications.
-    """
-    # If missing_fields is provided, only extract those fields
-    if missing_fields is None:
-        missing_fields = CAR_SPECS
-        fields_to_extract = "all 19 fields"
-    else:
-        fields_to_extract = f"only these missing fields: {', '.join(missing_fields)}"
-
-    try:
-        model = GenerativeModel("gemini-2.5-flash")
-
-        prompt = f"""
-        You are visiting this car specifications webpage: {url}
-
-        Your task: Extract accurate specifications for "{car_name}" from this webpage.
-
-        FOCUS: Extract {"all 19 fields" if missing_fields is None else f"only these missing fields: {', '.join(missing_fields)}"}
-
-        CRITICAL INSTRUCTIONS:
-        1. Navigate through the ENTIRE webpage carefully
-        2. Look for actual data values, not generic placeholders
-        3. Search multiple sections: specs, features, reviews, pricing, dimensions
-        4. Be thorough - data might be in tables, lists, or text blocks
-        5. Only use "Not Available" if you absolutely cannot find the information
-        6. Do not provide me with ranges give a definite value for all fields where possible
-        7. FOR EACH FIELD: Provide the EXACT text snippet from the webpage and where you found it
-
-        Extract these 19 fields with citations:
-        {{
-            "car_name": "{car_name}",
-            "price_range": "Starting ex-showroom price (e.g., ₹13.66 Lakh onwards)",
-            "price_range_citation": "Exact text from webpage: 'Starting price ₹13.66 Lakh' - Found in: Pricing section",
-            "mileage": "Fuel efficiency (e.g., 16.5 kmpl)",
-            "mileage_citation": "Exact text from webpage: 'Mileage: 16.5 kmpl' - Found in: Specifications table",
-            "user_rating": "Average customer rating (e.g., 4.5/5, 4.3 out of 5 stars)",
-            "user_rating_citation": "Exact text from webpage: 'User Rating: 4.5/5' - Found in: Reviews section",
-            "review_ride_handling": "Complete expert review of ride quality, handling, suspension, comfort on various road conditions. Include opinions on highway stability, bump absorption, body roll, cornering. (e.g., 'Ride is firm especially at highway speeds. Praised off-road capability. Suspension is slightly stiffer than previous generation.')",
-            "review_ride_handling_citation": "Exact text: 'The ride is notably firm...' - Found in: Expert Review / Ride & Handling section",
-
-            "review_steering": "Expert review of steering feel, feedback, weight, precision, ease of use. (e.g., 'Steering lacks refinement, requires constant adjustment. Light at low speeds but vague at highway speeds.')",
-            "review_steering_citation": "Exact text: 'Steering feel is lacking...' - Found in: Driving Dynamics section",
-
-            "review_braking": "Review of braking performance, pedal feel, stopping distance, confidence. (e.g., 'Not up to par, needs longer to stop from 60 mph than rival SUVs. Brakes feel grabby at low speeds.')",
-            "review_braking_citation": "Exact text: 'Braking performance is below expectations...' - Found in: Safety & Braking review",
-
-            "review_performance": "Overall performance and drivability review including engine character, acceleration, responsiveness, ease of driving. (e.g., 'Much smoother to drive in town than previous model. Easy character and pleasant drivability. Competitively quick in this class.')",
-            "review_performance_citation": "Exact text: 'The engine delivers smooth performance...' - Found in: Performance Review section",
-
-            "review_4x4_operation": "Expert opinion on 4x4 capability, off-road performance, terrain handling. (e.g., 'More capable off-road than most rival SUVs. G.O.A.T modes improve off-road performance. 4x4 version is capable on light trails with decent grip.')",
-            "review_4x4_operation_citation": "Exact text: '4x4 system performs well...' - Found in: Off-road Review section",
-
-            "review_nvh": "Review of cabin noise, vibration, harshness - wind noise, road noise, engine noise at various speeds. (e.g., 'Noticeable wind/road noise. Perceivable wind noise at high speed. Cabin is quite noisy on the move with plenty of wind and road noise.')",
-            "review_nvh_citation": "Exact text: 'Wind noise becomes noticeable...' - Found in: Refinement/NVH Review",
-
-            "review_gsq": "Review of gear shift quality, transmission smoothness, clutch feel (if manual). (e.g., 'Transmission shifts are occasionally jerky at low speeds. Manual gearbox is smooth but clutch is heavy in traffic.')",
-            "review_gsq_citation": "Exact text: 'Gear changes can be jerky...' - Found in: Transmission Review section"
-            "seating_capacity": "Number of seats (e.g., 7 Seater, 5/7 Seater)",
-            "seating_capacity_citation": "Exact text from webpage: '7 Seater' - Found in: Features list",
-            "braking": "Braking system details (e.g., Disc/Drum, ABS, EBD)",
-            "braking_citation": "Exact text from webpage: 'ABS with EBD' - Found in: Safety features",
-            "steering": "Steering type (e.g., Power Steering, Electric Power Steering)",
-            "steering_citation": "Exact text from webpage: 'Electric Power Steering' - Found in: Comfort features",
-            "climate_control": "AC system (e.g., Manual AC, Automatic Climate Control, Dual Zone)",
-            "climate_control_citation": "Exact text from webpage: 'Dual Zone Climate Control' - Found in: Interior features",
-            "battery": "Battery capacity for EVs (e.g., 50 kWh, N/A for non-EVs)",
-            "battery_citation": "Exact text from webpage: '50 kWh battery' - Found in: EV specifications",
-            "transmission": "Transmission types (e.g., Manual & Automatic, Manual, Automatic)",
-            "transmission_citation": "Exact text from webpage: 'Manual & Automatic' - Found in: Transmission section",
-            "brakes": "Brake specifications (e.g., Front Disc/Rear Drum, All Disc)",
-            "brakes_citation": "Exact text from webpage: 'Front Disc, Rear Drum' - Found in: Brake specifications",
-            "wheels": "Wheel and tyre specs (e.g., 18-inch alloy wheels, 215/60 R17)",
-            "wheels_citation": "Exact text from webpage: '18-inch alloy wheels' - Found in: Wheel specifications",
-            "performance": "Acceleration and top speed (e.g., 0-100 kmph in 10.5s, Top speed 180 kmph)",
-            "performance_citation": "Exact text from webpage: '0-100 in 10.5s' - Found in: Performance data",
-            "body": "Body type and material (e.g., SUV, Monocoque, Ladder Frame)",
-            "body_citation": "Exact text from webpage: 'SUV with Monocoque' - Found in: Body specifications",
-            "vehicle_safety_features": "List 4-6 key safety features (e.g., 6 Airbags, ABS with EBD, ESP, Hill Hold Control, 360° Camera)",
-            "vehicle_safety_features_citation": "Exact text from webpage: '6 Airbags, ESP, Hill Hold' - Found in: Safety section",
-            "lighting": "Lighting features (e.g., LED Headlamps, LED DRLs, Auto Headlamps)",
-            "lighting_citation": "Exact text from webpage: 'LED Headlamps with DRLs' - Found in: Exterior features",
-            "audio_system": "Infotainment and audio (e.g., 9-inch touchscreen, 8-speaker system, Apple CarPlay)",
-            "audio_system_citation": "Exact text from webpage: '9-inch touchscreen with 8 speakers' - Found in: Infotainment section",
-            "off_road": "Off-road capabilities (e.g., 4x4, Hill Descent Control, Diff Lock)",
-            "off_road_citation": "Exact text from webpage: '4x4 with Hill Descent' - Found in: Off-road features",
-            "interior": "Interior features (e.g., Leather seats, Panoramic sunroof, Ambient lighting)",
-            "interior_citation": "Exact text from webpage: 'Leather seats, Panoramic sunroof' - Found in: Interior features",
-            "seat": "Seat details (e.g., Fabric/Leather, Ventilated front seats, 60:40 split rear)",
-            "seat_citation": "Exact text from webpage: 'Ventilated leather seats' - Found in: Seat specifications"
-        }}
-
-        SEARCH PATTERNS FOR REVIEWS:
-        Look for sections titled:
-        - "Expert Review", "Editorial Review", "Road Test", "Test Drive"
-        - "Ride Quality", "Handling", "Driving Dynamics", "Performance"
-        - "Refinement", "NVH", "Cabin Noise"
-        - "Pros and Cons", "Verdict", "What We Like/Don't Like"
-        - "Driving Experience", "On-Road Behavior"
-
-        SEARCH PATTERNS TO LOOK FOR:
-        - Price: "price", "ex-showroom", "starting at", "from ₹", "Rs", "Lakh", "onwards"
-        - Mileage: "mileage", "kmpl", "fuel efficiency", "km/l"
-        - Rating: "/5", "out of 5", "stars", "rating"
-        - Seating: "seater", "seats", "seating capacity"
-        - Braking: "braking", "ABS", "EBD", "brake assist"
-        - Steering: "steering", "power steering", "electric steering"
-        - Climate Control: "AC", "air conditioning", "climate control", "dual zone"
-        - Battery: "battery", "kWh", "battery capacity", "range"
-        - Transmission: "manual", "automatic", "AMT", "CVT", "DCT"
-        - Brakes: "disc brake", "drum brake", "braking system"
-        - Wheels: "wheel", "tyre", "alloy", "rim size"
-        - Performance: "acceleration", "0-100", "top speed", "bhp", "torque"
-        - Body: "body type", "SUV", "sedan", "monocoque", "ladder frame"
-        - Safety: "airbags", "ABS", "EBD", "ESP", "safety", "ADAS"
-        - Lighting: "LED", "headlamp", "DRL", "fog lamp", "tail lamp"
-        - Audio: "infotainment", "touchscreen", "speakers", "CarPlay", "Android Auto"
-        - Off-road: "4x4", "4WD", "AWD", "diff lock", "hill descent"
-        - Interior: "interior", "upholstery", "sunroof", "ambient lighting"
-        - Seat: "seats", "leather", "fabric", "ventilated", "heated"
-
-        CITATION FORMAT:
-        For each field's citation, provide:
-        1. The EXACT text snippet from the webpage (put in quotes)
-        2. The location/section where you found it (e.g., "Found in: Pricing section")
-
-        Return ONLY the JSON object with actual extracted values and citations, no additional text.
-        If you cannot find specific information after thorough search, use "Not Available" for both value and citation.
-        """
-
-        print(f"   Gemini is fetching and analyzing the webpage...")
-
-        response = model.generate_content([prompt])
-
-        # Parse response
-        response_text = response.text.strip()
-        if response_text.startswith("```json"):
-            response_text = response_text[7:]
-        if response_text.startswith("```"):
-            response_text = response_text[3:]
-        if response_text.endswith("```"):
-            response_text = response_text[:-3]
-
-        car_data = json.loads(response_text.strip())
-
-        # Count valid fields extracted
-        valid_fields = sum(1 for field in (missing_fields or CAR_SPECS)
-                          if car_data.get(field) not in ["Not Available", "N/A", None, ""]
-                          and str(car_data.get(field, "")).strip())
-
-        print(f"    Gemini extracted {valid_fields} valid fields")
-        return car_data
-
-    except json.JSONDecodeError as e:
-        print(f"   JSON parsing error: {e}")
-        print(f"  Raw response: {response.text[:300]}...")
-        return {
-            "car_name": car_name,
-            "error": "Failed to parse Gemini response as JSON"
-        }
-    except Exception as e:
-        print(f"  Gemini URL analysis failed: {e}")
-        return {
-            "car_name": car_name,
-            "error": f"Failed to analyze URL: {str(e)}"
-        }
-
-
-def extract_specs_from_youtube_video(url: str, car_name: str, missing_fields: List[str] = None) -> Dict[str, Any]:
-    """
-    Extract car specifications from YouTube video using Gemini's multimodal capabilities.
-
-    Args:
-        url: YouTube video URL
-        car_name: Name of the car
-        missing_fields: Specific fields to extract (if None, extracts all)
-
-    Returns:
-        Dictionary with extracted specs and citations
-    """
-    if missing_fields is None:
-        missing_fields = CAR_SPECS
-        fields_to_extract = "all specifications"
-    else:
-        fields_to_extract = f"only these fields: {', '.join(missing_fields)}"
-
-    try:
-        model = GenerativeModel("gemini-2.5-flash")
-
-        # Note: Gemini can analyze YouTube videos directly via URL
-        prompt = f"""
-        You are analyzing a YouTube video about the car: {car_name}
-        Video URL: {url}
-
-        Your task: Extract specifications for "{car_name}" from this video's content.
-        Focus on: {fields_to_extract}
-
-        CRITICAL INSTRUCTIONS:
-        1. Analyze the video description, title, and any visible specifications
-        2. Look for reviewer comments about performance, features, comfort, etc.
-        3. Extract user opinions, ratings, and real-world experiences
-        4. Be thorough - data might be in spoken content or on-screen text
-        5. Only use "Not Available" if information is genuinely not present
-        6. Provide EXACT quotes from the video as citations
-
-        Extract specifications with citations:
-        {{
-            "car_name": "{car_name}",
-            "price_range": "Price mentioned in video",
-            "price_range_citation": "Exact quote: 'Price is...' - From: Video timestamp XX:XX",
-            "mileage": "Mileage/fuel efficiency mentioned",
-            "mileage_citation": "Exact quote: 'Mileage is...' - From: Video description/timestamp",
-            "user_rating": "Rating or opinion expressed",
-            "user_rating_citation": "Exact quote: 'I rate it...' - From: Reviewer's opinion",
-            "review_ride_handling": "Complete review of ride quality, handling, suspension from video",
-            "review_ride_handling_citation": "Exact quote from reviewer about ride quality",
-            "review_steering": "Steering review from video",
-            "review_steering_citation": "Exact quote about steering feel",
-            "review_braking": "Braking review from video",
-            "review_braking_citation": "Exact quote about braking performance",
-            "review_performance": "Performance review from video",
-            "review_performance_citation": "Exact quote about performance",
-            "review_nvh": "NVH review from video",
-            "review_nvh_citation": "Exact quote about cabin noise",
-            ... (include all {len(missing_fields)} fields you need)
-        }}
-
-        SEARCH PATTERNS:
-        - Look in video title, description, and comments
-        - Pay attention to reviewer's spoken opinions
-        - Note timestamps where specs are mentioned
-        - Extract both factual specs AND subjective reviews
-
-        CITATION FORMAT:
-        For each field's citation, provide:
-        1. The EXACT quote from the video (in quotes)
-        2. The location: "Video title", "Video description", "Timestamp XX:XX", "Reviewer comment"
-
-        Return ONLY valid JSON with extracted values and citations.
-        If information not found, use "Not Available" for value and "No mention in video" for citation.
-        """
-
-        print(f"   → Gemini analyzing YouTube video...")
-
-        # Gemini can process YouTube URLs directly
-        response = model.generate_content([prompt, Part.from_uri(url, mime_type="video/*")])
-
-        # Parse response
-        response_text = response.text.strip()
-        if response_text.startswith("```json"):
-            response_text = response_text[7:]
-        if response_text.startswith("```"):
-            response_text = response_text[3:]
-        if response_text.endswith("```"):
-            response_text = response_text[:-3]
-
-        car_data = json.loads(response_text.strip())
-
-        # Count valid fields
-        valid_fields = sum(1 for field in missing_fields
-                          if car_data.get(field) not in ["Not Available", "N/A", None, ""]
-                          and str(car_data.get(field, "")).strip())
-
-        print(f"    Extracted {valid_fields} valid fields from YouTube video")
-        return car_data
-
-    except Exception as e:
-        print(f"    YouTube video analysis failed: {e}")
-        return {
-            "car_name": car_name,
-            "error": f"Failed to analyze YouTube video: {str(e)}"
-        }
-
-
 def scrape_car_data(car_name: str, manual_specs: Dict[str, Any] = None, use_custom_search: bool = True) -> Dict[str, Any]:
-    """
-    Use either Custom Search API or Gemini's direct URL analysis with smart field aggregation.
-
-    Args:
-        car_name: Name of the car to scrape
-        manual_specs: Optional manual specifications (for code cars)
-        use_custom_search: If True, use Custom Search API instead of Gemini URL parsing (DEFAULT: True)
-    """
-    print(f"\n{'='*60}")
-    print(f"Scraping data for: {car_name}")
-    if use_custom_search:
-        print(f"Method: Google Custom Search API")
-    else:
-        print(f"Method: Gemini URL Parsing (Legacy)")
-    print(f"{'='*60}")
-
-    # If manual specs provided for a code car, skip web scraping entirely
+    """Main entry point for car data scraping."""
     if manual_specs and manual_specs.get('is_code_car'):
-        print(f" CODE CAR detected with manual specs - SKIPPING web scraping")
-        manually_provided = sum(1 for k, v in manual_specs.items()
-                               if v and not k.endswith('_citation')
-                               and k not in ['car_name', 'is_code_car', 'manual_entry', 'source_urls', 'left_blank'])
-
-        print(f" Using {manually_provided}/19 manually entered fields")
-
-        # Fill any missing fields with "Not Available"
+        print(f"  CODE CAR - using manual specs")
         for field in CAR_SPECS:
             if field not in manual_specs or not manual_specs[field]:
                 manual_specs[field] = "Not Available"
-                manual_specs[f"{field}_citation"] = {
-                    "source_url": "Manual User Input",
-                    "citation_text": "User skipped this specification during manual entry"
-                }
-
-        print(f" CODE CAR processing complete: {manually_provided} provided, {19-manually_provided} marked as N/A")
+                manual_specs[f"{field}_citation"] = {"source_url": "Manual", "citation_text": "Skipped"}
         return manual_specs
 
-    if use_custom_search:
-        print("→ Using NEW Custom Search API method")
-        return scrape_car_data_with_custom_search(car_name)
+    return scrape_car_data_with_custom_search(car_name)
+
+
+# Backward compatibility functions
+def get_spec_search_queries(car_name: str) -> Dict[str, str]:
+    return {spec: f"{car_name} {keywords}" for spec, keywords in SPEC_QUERIES.items()}
+
+
+def extract_spec_from_search_results(car_name: str, spec_name: str, search_results: List[Dict[str, str]]) -> Dict[str, Any]:
+    result = extract_spec_value(spec_name, {"results": search_results}, car_name)
+    citations = result.get("citations", [])
+    return {
+        "value": result["value"],
+        "citation": citations[0].get("snippet", "") if citations else "",
+        "source_url": citations[0].get("url", "N/A") if citations else "N/A"
+    }
+
+
+async def call_custom_search_parallel(queries: Dict[str, str], num_results: int = 5, max_concurrent: int = 15) -> Dict[str, List[Dict[str, str]]]:
+    """Async wrapper for backward compatibility."""
+    results = {}
+    for spec_name, query in queries.items():
+        search_result = custom_search(query, spec_name)
+        results[spec_name] = search_result.get("results", [])
+    return results

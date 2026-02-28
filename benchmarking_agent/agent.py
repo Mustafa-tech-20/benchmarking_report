@@ -28,34 +28,55 @@ from benchmarking_agent.Reports_Frontend import create_comparison_chart_html
 
 
 def generate_comparison_summary(comparison_data: Dict[str, Any]) -> str:
-    """Use Gemini to generate a comparison summary."""
+    """Generate industry-standard benchmarks and pointers for product team reference."""
     try:
+        # Extract only key specs (no citations) to reduce token count
+        key_specs = [
+            "price_range", "mileage", "user_rating", "seating_capacity",
+            "performance", "torque", "transmission", "acceleration",
+            "vehicle_safety_features", "braking", "steering",
+            "ride_quality", "nvh", "off_road", "interior",
+            "infotainment_screen", "boot_space", "sunroof"
+        ]
+
+        # Build condensed data
+        condensed_data = {}
+        for car_name, car_data in comparison_data.items():
+            if isinstance(car_data, dict) and "error" not in car_data:
+                condensed_data[car_name] = {"car_name": car_data.get("car_name", car_name)}
+                for spec in key_specs:
+                    value = car_data.get(spec, "")
+                    if value and value not in ["Not Available", "Not found", "N/A"]:
+                        condensed_data[car_name][spec] = str(value)[:100]
+
         model = GenerativeModel("gemini-2.5-flash")
 
-        prompt = f"""
-        You are an automotive industry analyst.
-        Analyze the following car comparison data and provide **key industry-standard pointers** for each spec category.
+        prompt = f"""You are an automotive industry analyst providing strategic guidance for a product development team.
 
-        Focus on identifying what buyers should look for in each spec based on current industry trends - but **do not mention any specific car names**.
+Based on this competitor analysis data, provide focused recommendations for each category. Each category should be a 3-5 line paragraph explaining what to focus on and what to avoid.
 
-        Generate short, bullet-point insights highlighting what's ideal or desirable in each category.
+Data from competitor analysis:
+{json.dumps(condensed_data, indent=2)}
 
-        Specs to cover:
-        1. Price and value for money
-        2. Engine & Power (performance)
-        3. Mileage/Fuel efficiency
-        4. Seating capacity and practicality
-        5. Key features and technology
-        6. User ratings and satisfaction
+Write one paragraph (3-5 lines) for each of these categories:
 
-        Data:
-        {json.dumps(comparison_data, indent=2)}
+**Price Positioning**
+**Engine & Performance**
+**Fuel Efficiency**
+**Safety Standards**
+**NVH Levels**
+**Ride & Handling**
+**Interior & Features**
+**User Satisfaction**
 
-        Format your response as clear bullet points for each category, focusing on:
-        - What specifications or metrics are considered strong or industry-leading
-        - What aspects buyers should prioritize
-        - Keep it practical, objective, and concise (under 250 words total).
-        """
+CRITICAL FORMAT RULES:
+- NO intro line (do NOT start with "Here are..." or similar)
+- Each category gets a focused paragraph (3-5 lines)
+- Include specific numbers/ranges from the data
+- Explain what the product team SHOULD prioritize
+- Explain what they should AVOID or de-prioritize
+- Keep total response under 400 words
+- Start directly with the first category heading"""
 
         response = model.generate_content(prompt)
         return response.text

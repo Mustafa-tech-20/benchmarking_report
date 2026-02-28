@@ -1,9 +1,227 @@
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 import json
 import re
 
+
+# ============================================================================
+# ROBUST DATA EXTRACTION HELPERS
+# ============================================================================
+
+def extract_price(price_str: str) -> float:
+    """
+    Extract price value in Lakhs from various formats.
+
+    Handles:
+    - "₹11.35 Lakh onwards"
+    - "Rs 12.5 - 18.9 Lakh"
+    - "₹10.79 lakh to ₹20.05 lakh"
+    - "11.35"
+    - "Rs. 12,50,000"
+    """
+    if not price_str or price_str in ["Not Available", "Not found", "N/A"]:
+        return 0.0
+
+    try:
+        # Clean the string
+        s = str(price_str).lower()
+
+        # Handle crore to lakh conversion
+        if 'crore' in s:
+            crore_match = re.search(r'(\d+\.?\d*)\s*crore', s)
+            if crore_match:
+                return float(crore_match.group(1)) * 100
+
+        # Remove currency symbols and common words
+        s = re.sub(r'[₹$]', '', s)
+        s = re.sub(r'\b(rs\.?|rupees?|inr|lakh|lakhs?|onwards|starting|from|ex-showroom|approx\.?)\b', '', s, flags=re.IGNORECASE)
+        s = s.replace(',', '')
+
+        # Find all numbers (including decimals)
+        numbers = re.findall(r'\d+\.?\d*', s)
+
+        if not numbers:
+            return 0.0
+
+        # Convert to floats and filter valid prices
+        values = [float(n) for n in numbers if n]
+        values = [v for v in values if 1 <= v <= 500]  # Valid price range in lakhs
+
+        if not values:
+            return 0.0
+
+        # Return average if range, else first value
+        if len(values) >= 2:
+            return sum(values[:2]) / 2
+        return values[0]
+
+    except Exception:
+        return 0.0
+
+
+def extract_mileage(mileage_str: str) -> float:
+    """
+    Extract mileage value in kmpl from various formats.
+
+    Handles:
+    - "15.2 kmpl"
+    - "14.5 - 18.2 kmpl"
+    - "16 km/l"
+    - "15.2"
+    """
+    if not mileage_str or mileage_str in ["Not Available", "Not found", "N/A"]:
+        return 0.0
+
+    try:
+        s = str(mileage_str).lower()
+
+        # Skip EV range values
+        if any(x in s for x in ['km/charge', 'kwh', 'range', 'charge', 'electric']):
+            return 0.0
+
+        # Remove units
+        s = re.sub(r'\b(kmpl|km/l|kpl|mileage)\b', '', s, flags=re.IGNORECASE)
+
+        # Find all numbers
+        numbers = re.findall(r'\d+\.?\d*', s)
+
+        if not numbers:
+            return 0.0
+
+        values = [float(n) for n in numbers if n]
+        # Filter valid mileage values (typically 5-50 kmpl)
+        values = [v for v in values if 5 <= v <= 50]
+
+        if not values:
+            return 0.0
+
+        if len(values) >= 2:
+            return sum(values[:2]) / 2
+        return values[0]
+
+    except Exception:
+        return 0.0
+
+
+def extract_rating(rating_str: str) -> float:
+    """
+    Extract rating value (0-5 scale) from various formats.
+
+    Handles:
+    - "4.5/5"
+    - "4.2 out of 5"
+    - "4.3 stars"
+    - "4.5"
+    """
+    if not rating_str or rating_str in ["Not Available", "Not found", "N/A"]:
+        return 0.0
+
+    try:
+        s = str(rating_str).lower()
+
+        # Try to find X/5 or X out of 5 pattern
+        match = re.search(r'(\d+\.?\d*)\s*(?:/|out\s*of)\s*5', s)
+        if match:
+            val = float(match.group(1))
+            return val if 0 <= val <= 5 else 0.0
+
+        # Try to find X/10 pattern and convert
+        match = re.search(r'(\d+\.?\d*)\s*/\s*10', s)
+        if match:
+            val = float(match.group(1)) / 2
+            return val if 0 <= val <= 5 else 0.0
+
+        # Find first number that looks like a rating
+        numbers = re.findall(r'\d+\.?\d*', s)
+        for n in numbers:
+            val = float(n)
+            if 0 <= val <= 5:
+                return val
+
+        return 0.0
+
+    except Exception:
+        return 0.0
+
+
+def extract_seating(seating_str: str) -> int:
+    """
+    Extract seating capacity from various formats.
+
+    Handles:
+    - "5 Seater"
+    - "5/7 Seater"
+    - "5"
+    - "7-seater"
+    """
+    if not seating_str or seating_str in ["Not Available", "Not found", "N/A"]:
+        return 0
+
+    try:
+        s = str(seating_str).lower()
+
+        # Find all numbers
+        numbers = re.findall(r'\d+', s)
+
+        if not numbers:
+            return 0
+
+        # Take the first reasonable seating value (2-9)
+        for n in numbers:
+            val = int(n)
+            if 2 <= val <= 9:
+                return val
+
+        return 0
+
+    except Exception:
+        return 0
+
+
+def extract_sales(sales_str: str) -> int:
+    """
+    Extract monthly sales volume from various formats.
+
+    Handles:
+    - "18,522 units"
+    - "3853 units (January 2025)"
+    - "approximately 15000"
+    - "10,000 - 15,000 units"
+    """
+    if not sales_str or sales_str in ["Not Available", "Not found", "N/A"]:
+        return 0
+
+    try:
+        s = str(sales_str).lower()
+
+        # Remove common words
+        s = re.sub(r'\b(units?|approximately|approx\.?|around|about|between|monthly|sales)\b', '', s, flags=re.IGNORECASE)
+        s = s.replace(',', '')
+
+        # Find all numbers
+        numbers = re.findall(r'\d+', s)
+
+        if not numbers:
+            return 0
+
+        values = [int(n) for n in numbers]
+        # Filter valid sales values (typically 100 - 50000)
+        values = [v for v in values if 100 <= v <= 100000]
+
+        if not values:
+            return 0
+
+        # Return first value (usually the main figure)
+        return values[0]
+
+    except Exception:
+        return 0
+
+
+# ============================================================================
+# CITATIONS HTML GENERATION
+# ============================================================================
 
 def _generate_citations_html(comparison_data: Dict[str, Any]) -> str:
     """Generate HTML for citations section."""
@@ -116,13 +334,6 @@ def _generate_citations_html(comparison_data: Dict[str, Any]) -> str:
             ("acceleration", "Acceleration"),
             ("response", "Response"),
             ("door_effort", "Door Effort"),
-            ("review_ride_handling", "Review: Ride & Handling"),
-    ("review_steering", "Review: Steering"),
-    ("review_braking", "Review: Braking"),
-    ("review_performance", "Review: Performance"),
-    ("review_4x4_operation", "Review: 4x4 Operation"),
-    ("review_nvh", "Review: NVH"),
-    ("review_gsq", "Review: GSQ")
         ]
         
         for field, field_display in citation_fields:
@@ -163,24 +374,42 @@ def _generate_citations_html(comparison_data: Dict[str, Any]) -> str:
 
 def _generate_consolidated_review_html(comparison_data: Dict[str, Any]) -> str:
     """
-    Generate consolidated review summary table from scraped review data.
-    Now uses the actual review fields fetched from CardDekho and Custom Search.
-    Includes expandable "Read more" feature for long reviews (>50 words or >300 chars).
+    Generate consolidated review summary table from scraped spec data.
+    Combines multiple related specs into review categories.
+    Includes expandable "Read more" feature for long reviews.
     """
-    
+
     # Extract car names from comparison data
     car_names = list(comparison_data.keys())
-    
-    # Define review categories mapped to the NEW review fields
+
+    # Define review categories mapped to actual spec fields we extract
+    # Each category maps to a list of related specs to combine
     review_categories = [
-        ("Ride & Handling", "review_ride_handling"),
-        ("Steering", "review_steering"),
-        ("Braking", "review_braking"),
-        ("Performance & Drivability", "review_performance"),
-        ("4x4 Operation", "review_4x4_operation"),
-        ("NVH", "review_nvh"),
-        ("GSQ", "review_gsq")
+        ("Ride & Handling", ["ride", "ride_quality", "bumps", "stiff_on_pot_holes", "shocks"]),
+        ("Steering", ["steering", "telescopic_steering", "turning_radius"]),
+        ("Braking", ["braking", "brakes", "brake_performance", "grabby", "spongy"]),
+        ("Performance & Drivability", ["performance", "driveability", "performance_feel", "acceleration", "torque"]),
+        ("4x4 Operation", ["off_road", "manoeuvring"]),
+        ("NVH", ["nvh", "powertrain_nvh", "road_nvh", "wind_nvh", "wind_noise", "tire_noise"]),
+        ("GSQ", ["gear_shift", "gear_selection", "manual_transmission_performance", "automatic_transmission_performance", "transmission"])
     ]
+
+    def get_combined_review(car_data: Dict, spec_fields: list) -> str:
+        """Combine multiple spec values into a single review text."""
+        parts = []
+        for field in spec_fields:
+            value = car_data.get(field, "")
+            if value and value not in ["Not Available", "Not found", "N/A", "Error", ""]:
+                # Clean and add the value
+                clean_value = str(value).strip()
+                if clean_value and len(clean_value) > 3:
+                    # Add field name as context
+                    field_name = field.replace("_", " ").title()
+                    parts.append(f"{field_name}: {clean_value}")
+
+        if parts:
+            return " | ".join(parts)
+        return ""
     
     # Helper function to count words
     def count_words(text: str) -> int:
@@ -217,36 +446,36 @@ def _generate_consolidated_review_html(comparison_data: Dict[str, Any]) -> str:
     """
     
     # Add rows for each review category
-    for category_name, field_key in review_categories:
+    for category_name, spec_fields in review_categories:
         review_html += f"""
             <tr>
                 <td class="review-category">{category_name}:</td>
         """
-        
+
         for car_name in car_names:
-            car_data = comparison_data[car_name]
-            
-            # Get the review field value
-            field_value = car_data.get(field_key, "Not Available")
-            
-            if field_value and field_value != "Not Available":
-                display_value = str(field_value)
+            car_data = comparison_data.get(car_name, {})
+
+            # Get combined review from multiple spec fields
+            combined_review = get_combined_review(car_data, spec_fields)
+
+            if combined_review:
+                display_value = combined_review
                 word_count = count_words(display_value)
                 char_count = count_chars(display_value)
-                
+
                 review_html += "<td>"
-                
-                # Apply expandable content if text is long (>50 words OR >300 chars)
+
+                # Apply expandable content if text is long
                 if word_count > WORD_THRESHOLD or char_count > CHAR_THRESHOLD:
                     review_html += f'<div class="expandable-content">{display_value}</div>'
                     review_html += '<button onclick="toggleExpand(this)" class="read-more-btn">Read more</button>'
                 else:
                     review_html += display_value
-                
+
                 review_html += "</td>"
             else:
                 review_html += '<td style="color: #6c757d; font-style: italic;">Review not available</td>'
-        
+
         review_html += '</tr>\n'
     
     review_html += """
@@ -287,118 +516,27 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
         processed_text = processed_text.replace('\n', '<br>').replace('*','•')
         return processed_text
 
-    # Data Extraction
-    cars, prices, mileages, ratings, seating ,sales_volumes = [], [], [], [], [],[]
+    # Data Extraction using robust helper functions
+    cars, prices, mileages, ratings, seating, sales_volumes = [], [], [], [], [], []
+
     for car_name, car_data in comparison_data.items():
         if "error" not in car_data or car_data.get("price_range") != "Not Available":
             cars.append(car_data.get("car_name", car_name))
-            try:
-                price_str = car_data.get("price_range", "0")
-                price_str = price_str.replace('₹', '').replace('Rs.', '').replace('Rs', '').replace('Lakh', '').replace('lakh', '').strip()                
 
-                if '-' in price_str or ' to ' in price_str:
-                    
-                    parts = price_str.replace(' to ', '-').split('-')
+            # Extract price using robust helper
+            prices.append(extract_price(car_data.get("price_range", "")))
 
-                    if len(parts) >= 2:
-                        # Extract min and max values
-                        min_price = ''.join(c for c in parts[0].strip() if c.isdigit() or c == '.')
-                        max_price = ''.join(c for c in parts[1].strip().split()[0] if c.isdigit() or c == '.')
-                        
-                        if min_price and max_price:
-                            # Calculate average (middle value)
-                            avg_price = (float(min_price) + float(max_price)) / 2
-                            prices.append(avg_price)
-                        elif min_price:
-                            prices.append(float(min_price))
-                        else:
-                            prices.append(0)
-                    
-                    else:
-                        price_clean = ''.join(c for c in parts[0] if c.isdigit() or c == '.')
-                        prices.append(float(price_clean) if price_clean else 0)
-                
-                else:
-                    # Single value (no range)
-                    price_part = price_str.split('onwards')[0].strip()
-                    price_clean = ''.join(c for c in price_part if c.isdigit() or c == '.')
-                    prices.append(float(price_clean) if price_clean else 0)
-            
-            except: 
-                prices.append(0)
-            
-            try:
-                mileage_str = car_data.get("mileage", "0")
-                # Skip if it's EV range (contains 'km/charge' or 'charge')
-                if 'charge' in mileage_str.lower() or 'range' in mileage_str.lower():
-                    mileages.append(0)
-                
-                else:
-                    # Remove 'kmpl' and clean
-                    mileage_str = mileage_str.replace('kmpl', '').strip()
-                    
-                    # Check if it's a range (contains '-' or 'to')
-                    if ' to ' in mileage_str or '-' in mileage_str:
-                        parts = mileage_str.replace(' to ', '-').split('-')
-                        
-                        if len(parts) >= 2:
-                            min_mileage = ''.join(c for c in parts[0].strip() if c.isdigit() or c == '.')
-                            max_mileage = ''.join(c for c in parts[1].strip() if c.isdigit() or c == '.')
-                            
-                            if min_mileage and max_mileage:
-                                avg_mileage = (float(min_mileage) + float(max_mileage)) / 2
-                                if avg_mileage > 50:
-                                    avg_mileage = 0
-                                mileages.append(avg_mileage)
-                            elif min_mileage:
-                                mileages.append(float(min_mileage) if float(min_mileage) <= 50 else 0)
-                            else:
-                                mileages.append(0)
-                        
-                        else:
-                            mileage_clean = ''.join(c for c in parts[0] if c.isdigit() or c == '.')
-                            mileage_value = float(mileage_clean) if mileage_clean else 0
-                            mileages.append(mileage_value if mileage_value <= 50 else 0)
-                    
-                    else:
-                        # Single value
-                        mileage_clean = ''.join(c for c in mileage_str if c.isdigit() or c == '.')
-                        mileage_value = float(mileage_clean) if mileage_clean else 0
-                        mileages.append(mileage_value if mileage_value <= 50 else 0)
-            
-            except: 
-                mileages.append(0)
-            
-            
-            try:
-                rating_str = car_data.get("user_rating", "0")
-                rating_part = rating_str.split('/')[0].split('out')[0].strip()
-                rating_clean = ''.join(c for c in rating_part if c.isdigit() or c == '.')
-                ratings.append(float(rating_clean) if rating_clean else 0)
-            except: ratings.append(0)
-            
-            try:
-                seating_str = car_data.get("seating_capacity", "0")
-                first_part = seating_str.split('-')[0].split('to')[0].split('and')[0].strip()
-                seating_clean = ''.join(filter(str.isdigit, first_part.split()[0]))
-                seating.append(int(seating_clean) if seating_clean else 0)
-            except: seating.append(0)
-            
-            try:
-                sales_str = car_data.get("monthly_sales", "0")
-                sales_str = sales_str.lower().replace('units', '').replace('approximately', '').replace('around', '').replace('between', '')
-                if ' to ' in sales_str or '-' in sales_str or ' and ' in sales_str:
-                    parts = sales_str.replace(' to ', '|').replace('-', '|').replace(' and ', '|').split('|')
-                    sales_str = parts[0].strip()
-                sales_str = sales_str.replace(',', '')
-                sales_clean = ''.join(filter(str.isdigit, sales_str))
-                sales_value = int(sales_clean) if sales_clean else 0
+            # Extract mileage using robust helper
+            mileages.append(extract_mileage(car_data.get("mileage", "")))
 
-                if sales_value > 50000: sales_value = 0
-                sales_volumes.append(sales_value)
-            
-            except Exception as e:
-                sales_volumes.append(0)
+            # Extract rating using robust helper
+            ratings.append(extract_rating(car_data.get("user_rating", "")))
+
+            # Extract seating using robust helper
+            seating.append(extract_seating(car_data.get("seating_capacity", "")))
+
+            # Extract sales using robust helper
+            sales_volumes.append(extract_sales(car_data.get("monthly_sales", "")))
 
     formatted_summary = format_summary(summary)
     citations_html = _generate_citations_html(comparison_data)

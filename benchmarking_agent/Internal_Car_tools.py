@@ -7,106 +7,124 @@ import vertexai
 from vertexai.preview import rag
 from vertexai.generative_models import GenerativeModel
 
+# 87 car specifications (matching car_search.py)
 CAR_SPECS = [
-
+    # Basic Info
     "price_range",
     "mileage",
     "user_rating",
     "seating_capacity",
-    "braking",
-    "steering",
-    "climate_control",
-    "battery",
-    "transmission",
-    "brakes",
-    "wheels",
+
+    # Engine & Performance
     "performance",
-    "body",
+    "torque",
+    "transmission",
+    "acceleration",
+
+    # Braking & Safety
+    "braking",
+    "brakes",
+    "brake_performance",
     "vehicle_safety_features",
-    "lighting",
-    "audio_system",
-    "off_road",
-    "interior",
-    "seat",
+    "impact",
+
+    # Steering & Handling
+    "steering",
+    "telescopic_steering",
+    "turning_radius",
+    "stability",
+    "corner_stability",
+    "straight_ahead_stability",
+
+    # Ride & Suspension
     "ride",
-    "performance_feel",
-    "driveability",
-    "manual_transmission_performance",
-    "pedal_operation",
-    "automatic_transmission_performance",
+    "ride_quality",
+    "stiff_on_pot_holes",
+    "bumps",
+    "shocks",
+
+    # NVH
+    "nvh",
     "powertrain_nvh",
     "wind_nvh",
     "road_nvh",
-    "visibility",
-    "seats_restraint",
-    "impact",
-    "seat_cushion",
-    "turning_radius",
-    "epb",
-    "brake_performance",
-    "stiff_on_pot_holes",
-    "bumps",
-    "jerks",
-    "pulsation",
-    "stability",
-    "shakes",
-    "shudder",
-    "shocks",
-    "grabby",
-    "spongy",
-    "telescopic_steering",
-    "torque",
-    "nvh",
     "wind_noise",
     "tire_noise",
-    "crawl",
-    "gear_shift",
-    "pedal_travel",
-    "gear_selection",
     "turbo_noise",
-    "resolution",
-    "touch_response",
-    "button",
-    "apple_carplay",
-    "digital_display",
-    "blower_noise",
+
+    # Transmission Feel
+    "manual_transmission_performance",
+    "automatic_transmission_performance",
+    "pedal_operation",
+    "gear_shift",
+    "gear_selection",
+    "pedal_travel",
+    "crawl",
+
+    # Driving Dynamics
+    "driveability",
+    "performance_feel",
+    "city_performance",
+    "highway_performance",
+    "off_road",
+    "manoeuvring",
+
+    # Vibration & Feel Issues
+    "jerks",
+    "pulsation",
+    "shakes",
+    "shudder",
+    "grabby",
+    "spongy",
+    "rattle",
+
+    # Interior & Comfort
+    "interior",
+    "climate_control",
+    "seats",
+    "seat_cushion",
+    "visibility",
     "soft_trims",
     "armrest",
+    "headrest",
+    "egress",
+    "ingress",
+
+    # Features & Tech
+    "infotainment_screen",
+    "resolution",
+    "touch_response",
+    "apple_carplay",
+    "digital_display",
+    "button",
+
+    # Exterior & Lighting
+    "lighting",
+    "led",
+    "drl",
+    "tail_lamp",
+    "alloy_wheel",
+
+    # Convenience Features
     "sunroof",
     "irvm",
     "orvm",
     "window",
-    "alloy_wheel",
-    "tail_lamp",
-    "boot_space",
-    "led",
-    "drl",
-    "ride_quality",
-    "infotainment_screen",
-    "chasis",
-    "straight_ahead_stability",
-    "wheelbase",
-    "egress",
-    "ingress",
-    "corner_stability",
-    "parking",
-    "manoeuvring",
-    "city_performance",
-    "highway_performance",
     "wiper_control",
-    "sensitivity",
-    "rattle",
-    "headrest",
-    "acceleration",
-    "response",
+    "parking",
+    "epb",
     "door_effort",
-    "review_ride_handling",      
-    "review_steering",            
-    "review_braking",             
-    "review_performance",         
-    "review_4x4_operation",      
-    "review_nvh",                 
-    "review_gsq"                  
+
+    # Dimensions & Space
+    "boot_space",
+    "wheelbase",
+    "chasis",
+
+    # Other
+    "blower_noise",
+    "response",
+    "sensitivity",
+    "seats_restraint",
 ]
 
 def create_blank_specs_for_code_car(car_name: str) -> Dict[str, Any]:
