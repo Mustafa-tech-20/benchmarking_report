@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Header
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.datastructures import UploadFile as StarletteUploadFile
 from google.adk.runners import Runner, InMemorySessionService
 from google.genai import types
 from typing import Union
@@ -106,6 +107,8 @@ async def compare_cars(
         logger.info("[COMPARE] New request received")
         logger.info(f"[COMPARE] Query: {query[:100]}")
         logger.info(f"[COMPARE] PDF: {pdf_file is not None}")
+        logger.info(f"[COMPARE] PDF type: {type(pdf_file)}")
+        logger.info(f"[COMPARE] PDF value: {pdf_file}")
         logger.info("=" * 60)
 
         # Get session IDs from headers (secure method)
@@ -147,8 +150,11 @@ async def compare_cars(
         parts = []
 
         # Treat empty/unset file upload as no file (Swagger sends garbage string when no file selected)
-        if not isinstance(pdf_file, UploadFile):
+        if not isinstance(pdf_file, (UploadFile, StarletteUploadFile)):
+            logger.warning(f"[PDF] Not an UploadFile! Type: {type(pdf_file)}, Value: {pdf_file}")
             pdf_file = None
+        else:
+            logger.info(f"[PDF] Valid UploadFile received: {pdf_file.filename}")
 
         if pdf_file:
             logger.info(f"[PDF] Processing: {pdf_file.filename}")
