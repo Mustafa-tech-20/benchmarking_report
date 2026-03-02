@@ -553,16 +553,19 @@ infotainment_screen, apple_carplay, sunroof, boot_space, wheelbase, parking, off
 
 ## OUTPUT FORMAT
 
-After comparison:
+**IMPORTANT: After comparison, return ONLY these 3 items (no summary, no additional text):**
+
 ```
-✓ Compared: [Cars]
+✓ Compared: [Car1, Car2, Car3]
 ⏱ Time: Xs
 
 🔗 VIEW REPORT
 [HTML_REPORT_URL]
 ```
 
-Keep responses concise. Focus on actionable insights.""",
+**DO NOT include the summary in your response** - it's already in the HTML report.
+
+For follow-up questions (CODE car handling), keep responses brief and focused.""",
 
     tools=[
         scrape_cars_tool,

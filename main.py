@@ -9,11 +9,12 @@ from typing import Optional
 
 import uvicorn
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Header
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from google.adk.runners import Runner, InMemorySessionService
 from google.genai import types
+from typing import Union
 
 # Force unbuffered output
 sys.stdout.reconfigure(line_buffering=True)
@@ -40,7 +41,7 @@ runner = Runner(
     agent=root_agent,
     app_name=APP_NAME,
     session_service=session_service,
-    auto_create_session=True
+    auto_create_session=False  # We manage sessions explicitly in the endpoint
 )
 
 @asynccontextmanager
@@ -81,7 +82,9 @@ app.add_middleware(
 @app.post("/compare")
 async def compare_cars(
     query: str = Form(..., description="Your query (e.g., 'Summarize this', 'Compare cars in this with Thar', 'Compare Thar and Swift')"),
-    pdf_file: Optional[UploadFile] = File(None, description="Optional PDF with car specifications or reviews")
+    pdf_file: Optional[Union[UploadFile, str]] = File(None, description="Optional PDF with car specifications or reviews"),
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id", description="User ID from previous response. Pass to continue conversation."),
+    x_session_id: Optional[str] = Header(None, alias="X-Session-Id", description="Session ID from previous response. Pass to continue conversation."),
 ):
     """
     Send a query to the car benchmarking agent. Optionally attach a PDF.
@@ -93,6 +96,10 @@ async def compare_cars(
 
     **Without PDF:**
     - `"Compare Mahindra Thar, Maruti Swift, Tata Nexon"` → runs full comparison
+
+    **Multi-turn conversation (e.g. CODE car flow):**
+    - First response returns `user_id` and `session_id`
+    - Pass them in headers `X-User-Id` and `X-Session-Id` to continue the conversation
     """
     try:
         logger.info("=" * 60)
@@ -101,13 +108,47 @@ async def compare_cars(
         logger.info(f"[COMPARE] PDF: {pdf_file is not None}")
         logger.info("=" * 60)
 
-        # Unique user + session per request
-        user_id = f"user_{uuid.uuid4().hex[:8]}"
-        session_id = f"session_{uuid.uuid4().hex[:8]}"
-        logger.info(f"[SESSION] user={user_id}  session={session_id}")
+        # Get session IDs from headers (secure method)
+        user_id = x_user_id
+        session_id = x_session_id
+
+        # Session management: create new session or continue existing one
+        if user_id and session_id:
+            # Try to retrieve existing session to verify it exists
+            try:
+                existing_session = await session_service.get_session(
+                    app_name=APP_NAME,
+                    user_id=user_id,
+                    session_id=session_id
+                )
+                logger.info(f"[SESSION] Continuing existing session")
+                logger.info(f"[SESSION] user={user_id}  session={session_id}  events={len(existing_session.events) if existing_session else 0}")
+            except Exception as e:
+                # Session doesn't exist, create new one
+                logger.warning(f"[SESSION] Provided session not found, creating new session: {e}")
+                user_id = f"user_{uuid.uuid4().hex[:8]}"
+                session = await session_service.create_session(
+                    app_name=APP_NAME,
+                    user_id=user_id
+                )
+                session_id = session.id
+                logger.info(f"[SESSION] Created new session: user={user_id}  session={session_id}")
+        else:
+            # No session provided, create a new one
+            user_id = f"user_{uuid.uuid4().hex[:8]}"
+            session = await session_service.create_session(
+                app_name=APP_NAME,
+                user_id=user_id
+            )
+            session_id = session.id
+            logger.info(f"[SESSION] Created new session: user={user_id}  session={session_id}")
 
         # Build content parts — PDF first, then user text
         parts = []
+
+        # Treat empty/unset file upload as no file (Swagger sends garbage string when no file selected)
+        if not isinstance(pdf_file, UploadFile):
+            pdf_file = None
 
         if pdf_file:
             logger.info(f"[PDF] Processing: {pdf_file.filename}")
@@ -168,12 +209,25 @@ async def compare_cars(
             logger.error("[ERROR] No response from agent")
             raise HTTPException(status_code=500, detail="No response from agent")
 
+        # Log session state after agent run
+        try:
+            final_session = await session_service.get_session(
+                app_name=APP_NAME,
+                user_id=user_id,
+                session_id=session_id
+            )
+            logger.info(f"[SESSION] History now contains {len(final_session.events)} total events")
+        except Exception as e:
+            logger.warning(f"[SESSION] Could not retrieve final session state: {e}")
+
         logger.info("[SUCCESS] Returning response")
         return JSONResponse(content={
             "status": "success",
             "query": query,
-            "has_pdf": pdf_file is not None,
-            "response": full_response
+            "has_pdf": pdf_file is not None and bool(pdf_file.filename),
+            "response": full_response,
+            "user_id": user_id,
+            "session_id": session_id
         })
 
     except HTTPException:
