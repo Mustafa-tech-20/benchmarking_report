@@ -38,7 +38,7 @@ def extract_sales_data_from_url(url: str, car_name: str) -> Dict[str, Any]:
         - Numbers: "5,000 units", "60K sales", "5000 units/month"
         - Market: "market share", "segment share", "% of market"
         - Trends: "YoY", "year-over-year", "growth", "decline", "increase", "decrease"
-        - Time periods: "in 2024", "last month", "Q1 2025", "FY2024"
+        - Time periods: "in 2026", "last month", "Q1 2025", "FY2026"
 
         CITATION FORMAT:
         For each field's citation, provide:

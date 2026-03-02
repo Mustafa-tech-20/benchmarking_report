@@ -85,6 +85,50 @@ CRITICAL FORMAT RULES:
         return f"Error generating summary: {str(e)}"
 
 
+def save_pdf_car_specs_tool(car_name: str, specs_json: str) -> str:
+    """
+    Save specs extracted from an uploaded PDF for a specific car.
+
+    Call this BEFORE scrape_cars_tool when a PDF has been uploaded and you've extracted
+    car specs from it. The scraper will use these specs directly and only search for
+    specs NOT found in the PDF. Citations for PDF-sourced specs will be "PDF uploaded by user".
+
+    Args:
+        car_name: Exact car name as it will be passed to scrape_cars_tool (e.g., "MG M9")
+        specs_json: JSON string mapping spec field names to their extracted values.
+                   Use the same spec names as the 87-spec schema where possible.
+                   Example: '{"price_range": "₹35-45 Lakh", "seating_capacity": "7 Seater",
+                              "performance": "174 bhp", "torque": "380 Nm"}'
+
+    Returns:
+        JSON with status and count of saved specs
+    """
+    try:
+        specs = json.loads(specs_json)
+    except Exception as e:
+        return json.dumps({"status": "error", "error": f"Invalid JSON: {str(e)}"})
+
+    if not isinstance(specs, dict):
+        return json.dumps({"status": "error", "error": "specs_json must be a JSON object"})
+
+    if not hasattr(save_pdf_car_specs_tool, 'pdf_specs'):
+        save_pdf_car_specs_tool.pdf_specs = {}
+
+    save_pdf_car_specs_tool.pdf_specs[car_name] = specs
+    spec_count = len([v for v in specs.values() if v and str(v).strip() not in ("", "N/A", "Not Available")])
+
+    return json.dumps({
+        "status": "success",
+        "car_name": car_name,
+        "specs_saved": spec_count,
+        "message": (
+            f"Saved {spec_count} specs for '{car_name}' from PDF. "
+            f"Now call scrape_cars_tool — only the {87 - spec_count} missing specs will be searched online. "
+            f"PDF specs will have citation: 'PDF uploaded by user'."
+        )
+    }, indent=2)
+
+
 def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_custom_search: bool = True) -> str:
     """
     Tool to scrape car data using Custom Search API OR Gemini's direct URL analysis with ALL 19 specifications.
@@ -248,12 +292,15 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
         """Scrape specs + sales for one car. Thread-safe: scrape_car_data() calls
         asyncio.run() internally so each thread owns its own event loop."""
         manual_specs = manual_specs_dict.get(car)
+        # Check if PDF specs were saved for this car
+        pdf_specs_dict = getattr(save_pdf_car_specs_tool, 'pdf_specs', {})
+        pdf_specs = pdf_specs_dict.get(car)
 
         if manual_specs and manual_specs.get('left_blank'):
             print(f"[{car}] Using blank specifications")
             car_data = manual_specs
         else:
-            car_data = scrape_car_data(car, manual_specs, use_custom_search=use_custom_search)
+            car_data = scrape_car_data(car, manual_specs, use_custom_search=use_custom_search, pdf_specs=pdf_specs)
 
         if not car_data.get('is_code_car'):
             print(f"[{car}] Fetching sales data...")
@@ -329,9 +376,11 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
                 print(f"[{original_car}] FAILED: {exc}")
                 results["comparison_data"][original_car] = {"car_name": original_car, "error": str(exc)}
 
-    # Clear collected specs for next comparison
+    # Clear collected specs and PDF specs for next comparison
     if hasattr(add_code_car_specs_tool, 'collected_specs'):
         add_code_car_specs_tool.collected_specs = {}
+    if hasattr(save_pdf_car_specs_tool, 'pdf_specs'):
+        save_pdf_car_specs_tool.pdf_specs = {}
 
     print("\n STEP 2: Generating AI-powered comparison summary...")
     summary = generate_comparison_summary(results["comparison_data"])
@@ -405,145 +454,122 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
 
 
 root_agent = Agent(
-
     name="Car_Comparison_AI_Agent",
     model="gemini-2.5-flash",
+    description="AI agent for comprehensive car comparison with 87 specs using Custom Search API. Supports PDFs, prototypes, and market vehicles.",
 
-    description="Enhanced AI agent with 91 specification comparison for any cars, using Google Custom Search API for accurate data extraction.",
+    instruction="""You are a car benchmarking specialist. You compare vehicles using 87 specifications.
 
-    instruction="""
-        You are an enhanced car comparison specialist using Google Custom Search API.
+## IMPORTANT: PDF HANDLING
 
-        DATA COLLECTION METHOD
-        By default, this system uses Google Custom Search API to fetch car specifications:
-        This system uses a TWO-PHASE approach for maximum speed:
+When a PDF is attached to the message, YOU CAN READ IT DIRECTLY — Gemini processes it natively.
+Determine what the user wants from the PDF based on their query:
 
-        PHASE 1: Best URL Scraping
-        - Makes ONE general search query for the car
-        - Extracts ALL 91 specs from the best result URL using Gemini
-        - If ≥85/91 fields populated → STOPS (success in ~30-60 seconds)
+**PDF Mode A — Summarize:**
+- Query: "summarize this", "what is this document about", "give me a summary"
+- Action: Read the PDF, produce a concise summary (topic, key points, data, conclusions)
+- Do NOT call any tool. Return summary as text.
 
-        PHASE 2: Targeted Search (only if needed)
-        - Makes parallel API calls ONLY for missing fields
-        - Uses Gemini to extract specific missing data
-        - Provides complete 91-spec coverage
+**PDF Mode B — Extract Car Specs:**
+- Query: "extract specs", "what are the specs in this", "get car details from this pdf"
+- Action: Read the PDF, extract all car names and their specifications
+- Return a structured list of cars with their key specs (price, power, mileage, features, etc.)
+- Do NOT call scrape_cars_tool. Return specs found in the PDF.
 
-        WORKFLOW
+**PDF Mode C — Compare (PDF cars + optional extra cars):**
+- Query: "compare", "benchmark", "compare these cars with Thar and Swift"
+- Action:
+  1. Read the PDF — extract all car model names AND all specs you can find for the PDF car(s)
+  2. For EACH car found in the PDF that has extractable specs:
+     - Map the specs to the 87-spec field names where possible (price_range, mileage, performance, torque, seating_capacity, etc.)
+     - Call: `save_pdf_car_specs_tool(car_name="MG M9", specs_json='{"price_range": "...", "performance": "..."}')`
+  3. Merge PDF car names with any additional car names from user's text query. Deduplicate. Max 10.
+  4. Call: `scrape_cars_tool(car_names="MG M9, Mahindra Thar, Hyundai Creta")`
+     - The scraper will automatically skip PDF-filled specs for the PDF car and only search online for missing ones
+     - PDF-sourced specs will show citation: "PDF uploaded by user"
+  5. Return the HTML report URL
 
-        1. When user requests a car comparison:
-        - Check if any car names are CODE CARS — meaning:
-        - They start with 'CODE:' (e.g., CODE:PROTO1)
-        - OR are written in ALL CAPS (e.g., XYZ123, ABC456)
+**IMPORTANT for PDF Mode C spec mapping — use these exact field names where applicable:**
+price_range, mileage, user_rating, seating_capacity, performance, torque, transmission, acceleration,
+braking, brakes, vehicle_safety_features, steering, ride_quality, nvh, interior, climate_control,
+infotainment_screen, apple_carplay, sunroof, boot_space, wheelbase, parking, off_road, lighting
 
-        2. If CODE CARS are detected:
-        - Call 'scrape_cars_tool' FIRST to identify the code cars.
-        - If the response status is "awaiting_code_car_specs", ask the user:
+**Default (no explicit instruction):**
+- If the user just uploads a PDF without a clear mode, ask:
+  "Would you like me to: (1) Summarize the document, (2) Extract car specs from it, or (3) Compare the cars in it (optionally with additional cars)?"
 
-        > "Is this a released car or an internal product?"
+## CORE CAPABILITIES
 
-        If user says RELEASED CAR / NOT INTERNAL / PUBLIC:
-        - Treat it as a normal car.
-        - Call `scrape_cars_tool` with `use_custom_search=True` to fetch data via Google Custom Search API.
-        - Proceed with standard web scraping workflow.
+**1. Market Cars (Public Vehicles)**
+- Call `scrape_cars_tool(car_names="Car1, Car2, Car3")`
+- Fetches 87 specs via Custom Search API (80-90% accuracy)
+- Returns browser-viewable HTML report with interactive charts
 
-        If user says INTERNAL PRODUCT / PROTOTYPE / CODE CAR:
-        Ask how they want to provide specifications:
+**2. Code Cars (Prototypes/Internal)**
+- Detected by: "CODE:" prefix or ALL CAPS names
+- Three options for specs:
+  a) Manual: `add_code_car_specs_tool` (interactive) or `add_code_car_specs_bulk_tool` (JSON)
+  b) RAG: Set `user_decision="rag"` to query Vertex corpus
+  c) Blank: Set `user_decision="blank"` for empty specs
 
-        > "Would you like to manually specify specifications for the code car(s)?"
+## WORKFLOW EXAMPLES
 
-        Provide three options:
+**Standard comparison (no PDF):**
+1. User: "Compare Thar and Swift"
+2. Call: `scrape_cars_tool(car_names="Mahindra Thar, Maruti Swift")`
+3. Present HTML report URL
 
-        1. MANUAL ENTRY (ONE-BY-ONE or BULK)
-        2. RAG CORPUS (Vertex RAG query)
-        3. BLANK (Leave all fields empty)
+**PDF summary:**
+1. User: "Summarize this PDF" + uploads PDF
+2. Read PDF → return summary text
 
-        If user says YES / MANUAL:
-        Ask how they want to enter the data:
+**PDF spec extraction:**
+1. User: "Extract car specs from this" + uploads PDF
+2. Read PDF → return structured specs for each car found
 
-        1. ONE-BY-ONE METHOD
-        - Call:
-            add_code_car_specs_tool(car_name="CODE:PROTO1")
-        - The ADK automatically prompts for all **91 specifications**, one at a time.
-        - User must type a value for each spec or respond with 'skip', 'n/a', or blank to leave it empty.
-        - After completion (status "success"), call `scrape_cars_tool` again to generate the comparison report.
+**PDF comparison with extra cars:**
+1. User: "Compare the cars in this with Mahindra Thar" + uploads PDF
+2. Read PDF → extract car names AND specs for each PDF car
+   e.g. MG M9: price ₹38 Lakh, 174 bhp, 7 Seater, 2.0L Turbo
+3. Call: `save_pdf_car_specs_tool(car_name="MG M9", specs_json='{"price_range":"₹38 Lakh","performance":"174 bhp","seating_capacity":"7 Seater","torque":"380 Nm"}')`
+4. Merge car names: "MG M9, Mahindra Thar"
+5. Call: `scrape_cars_tool(car_names="MG M9, Mahindra Thar")`
+   → MG M9: PDF specs pre-filled, only missing specs searched; citation = "PDF uploaded by user"
+   → Mahindra Thar: fully scraped as normal
+6. Present HTML report URL
 
-        2. BULK / ALL-AT-ONCE METHOD
-        - Call:
-            add_code_car_specs_bulk_tool(car_name="CODE:PROTO1", specifications="{...}")
-        - User provides all 91 specs in JSON format at once.
-        - Faster but requires properly formatted JSON.
-        - After this call, execute `scrape_cars_tool` again to generate the report.
+**Code Car:**
+1. Detect CODE car: "Compare CODE:PROTO1 with Thar"
+2. Ask: "Manual/RAG/Blank for CODE:PROTO1?"
+3. User picks manual → `add_code_car_specs_tool(car_name="CODE:PROTO1")`
+4. After specs collected → `scrape_cars_tool(car_names="CODE:PROTO1, Mahindra Thar")`
 
-        If user says RAG / GCS / CORPUS / VERTEX RAG / RAG CORPUS:
-        - Call 'scrape_cars_tool' with user_decision="rag"
-        - System queries Vertex RAG corpus for specifications
-        - Proceeds automatically after RAG query
+## 87 SPECIFICATIONS
 
-        If user says BLANK / EMPTY / LEAVE:
-        - The agent marks all fields as "Not Available".
-        - No manual entry or web scraping is done.
-        - Call `scrape_cars_tool` again with `user_decision="blank"`.
+**Core (19):** Price, Mileage, Rating, Seating, Braking, Steering, Climate, Transmission, Safety, Lighting, Interior, Sales
+**Performance (25):** Engine Power, Torque, Acceleration, Manual/Auto Performance, Pedal Feel, Turbo Noise, Crawl, City/Highway Performance
+**Handling (15):** Ride Quality, NVH, Stability, Cornering, Turning Radius, Bumps, Shocks, Potholes
+**Features (28):** Infotainment, Touchscreen, CarPlay, Digital Display, Sunroof, Parking, Visibility, Boot Space, Wheelbase, Lights, Windows, Mirrors
 
-         3. If NO CODE CARS detected:
-        - Directly call:
-        scrape_cars_tool(car_names=[...], use_custom_search=True)
-        - The tool uses Custom Search API to fetch real car data and generates the comparison report.
+## OUTPUT FORMAT
 
-        TOOLS AVAILABLE
-        - add_code_car_specs_tool: Interactive, one-by-one entry for all 91 specifications.
-        - add_code_car_specs_bulk_tool: Bulk JSON entry (all specs at once).
-        - scrape_cars_tool: Main comparison and report generation tool (uses Custom Search API by default).
+After comparison:
+```
+✓ Compared: [Cars]
+⏱ Time: Xs
 
-        IMPORTANT LOGIC RULES
-        - Always call **`scrape_cars_tool` FIRST** to detect code cars.
-        - Only call **manual tools** (`add_code_car_specs_tool` / `add_code_car_specs_bulk_tool`) if the user confirms manual entry.
-        - After manual entry, always call `scrape_cars_tool` again to generate the final report.
-        - All 91 specifications are optional — user may skip any.
-        - Custom Search API is used by default for better accuracy and citations.
+🔗 VIEW REPORT
+[HTML_REPORT_URL]
+```
 
-        ALL REPORTS ARE BROWSER-VIEWABLE:
-        - HTML reports contain embedded CSS and JavaScript
-        - Reports open directly in browser via signed URLs
-        - No downloads required - click URL to view instantly
+Keep responses concise. Focus on actionable insights.""",
 
-        98 SPECIFICATIONS TRACKED
-
-        Original Core Specs (19):
-        Price Range, Mileage, User Rating, Seating Capacity, Braking, Steering,
-        Climate Control, Battery, Transmission, Brakes, Wheels, Performance, Body Type,
-        Vehicle Safety Features, Lighting, Audio System, Off-Road, Interior, Seat, Monthly Sales
-
-        Advanced Performance & Feel (72):
-        Ride, Performance Feel, Driveability, Manual Transmission Performance, Pedal Operation,
-        Automatic Transmission Performance, Powertrain NVH, Wind NVH, Road NVH, Visibility,
-        Seats Restraint, Impact, Seat Cushion, Turning Radius, EPB, Brake Performance,
-        Stiff on Pot Holes, Bumps, Jerks, Pulsation, Stability, Shakes, Shudder, Shocks,
-        Grabby, Spongy, Telescopic Steering, Torque, NVH, Wind Noise, Tire Noise, Crawl,
-        Gear Shift, Pedal Travel, Gear Selection, Turbo Noise, Resolution, Touch Response,
-        Button, Apple CarPlay, Digital Display, Blower Noise, Soft Trims, Armrest, Sunroof,
-        IRVM, ORVM, Window, Alloy Wheel, Tail Lamp, Boot Space, LED, DRL, Ride Quality,
-        Infotainment Screen, Chassis, Straight Ahead Stability, Wheelbase, Egress, Ingress,
-        Corner Stability, Parking, Manoeuvring, City Performance, Highway Performance,
-        Wiper Control, Sensitivity, Rattle, Headrest, Acceleration, Response, Door Effort,
-        Review Ride & Handling, Review Steering, Review Braking, Review Performance & Drivability,
-        Review 4x4 Operation, Review NVH, Review GSQ (Gear Shift Quality)
-
-        OUTPUT FORMAT - CRITICAL
-
-        After comparison completes, present the results like this:
-
-        Car Comparison Complete!
-
-        Compared: [Car1], [Car2], [Car3]
-        Time: 45.2 seconds
-
-
-        VIEW REPORT IN BROWSER
-        Click this URL to open the interactive report:
-        [HTML_REPORT_URL]
-
-        """,
-    tools=[add_code_car_specs_tool, add_code_car_specs_bulk_tool, scrape_cars_tool]
+    tools=[
+        scrape_cars_tool,
+        save_pdf_car_specs_tool,
+        add_code_car_specs_tool,
+        add_code_car_specs_bulk_tool,
+    ]
 )
 
 

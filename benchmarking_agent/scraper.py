@@ -535,7 +535,7 @@ def broad_search(car_name: str) -> dict:
     broad_queries = [
         f"{car_name} full review specifications price mileage features",
         f"{car_name} expert review test drive pros cons verdict",
-        f"{car_name} owner review real world experience 2024",
+        f"{car_name} owner review real world experience 2026",
         f"{car_name} variants comparison specifications price list",
         f"{car_name} interior exterior features safety rating",
         f"{car_name} ride handling steering NVH comfort review",
@@ -877,6 +877,19 @@ def scrape_car_data_with_custom_search(car_name: str) -> Dict[str, Any]:
     accuracy_p1 = (found_p1 / len(CAR_SPECS) * 100) if CAR_SPECS else 0
     print(f"\n  Phase 1 Accuracy: {found_p1}/{len(CAR_SPECS)} ({accuracy_p1:.1f}%)")
 
+    # Create citations for Phase 1 extracted specs using broad search results
+    if broad_snippets:
+        # Use first few broad search results as citations for bulk extracted specs
+        for spec_name, value in specs.items():
+            if value and "Not" not in str(value) and "Error" not in str(value):
+                # Assign citation from broad search results
+                if broad_snippets:
+                    citations[spec_name] = {
+                        "source_url": broad_snippets[0].get("url", "N/A"),
+                        "citation_text": broad_snippets[0].get("snippet", "")[:200],
+                        "bulk_extracted": True
+                    }
+
     # Find missing specs after Phase 1
     missing_specs = [k for k, v in specs.items() if "Not" in str(v) or "Error" in str(v) or not v]
 
@@ -898,7 +911,9 @@ def scrape_car_data_with_custom_search(car_name: str) -> Dict[str, Any]:
         for spec, value in targeted_specs.items():
             if value and "Not" not in str(value) and "Error" not in str(value):
                 specs[spec] = value
+                # Update citation if we have one from targeted search
                 if spec in targeted_citations:
+                    # Override bulk_extracted citation with more specific one
                     citations[spec] = targeted_citations[spec]
 
     # Check accuracy after Phase 2
@@ -941,13 +956,136 @@ def scrape_car_data_with_custom_search(car_name: str) -> Dict[str, Any]:
     return car_data
 
 
-def scrape_car_data(car_name: str, manual_specs: Dict[str, Any] = None, use_custom_search: bool = True) -> Dict[str, Any]:  # noqa: ARG001
+def scrape_car_data_with_pdf_prefill(car_name: str, pdf_specs: Dict[str, str]) -> Dict[str, Any]:
+    """
+    Scrape car data using PDF-extracted specs as a starting point.
+    Only searches for specs NOT found in the PDF.
+    Citations for PDF-sourced specs are set to 'PDF uploaded by user'.
+    """
+    print(f"\n{'#'*60}")
+    print(f"SCRAPING (PDF prefill): {car_name}")
+    print(f"{'#'*60}")
+
+    start_time = time.time()
+    car_data = {"car_name": car_name, "source_urls": [], "method": "Custom Search Pipeline v2 (PDF prefilled)"}
+    citations = {}
+    specs = {}
+
+    # Pre-fill specs from PDF with "PDF uploaded by user" citation
+    pdf_citation = {
+        "source_url": "PDF uploaded by user",
+        "citation_text": "Extracted from PDF uploaded by user",
+        "from_pdf": True
+    }
+    for spec_name in CAR_SPECS:
+        pdf_value = pdf_specs.get(spec_name, "")
+        if pdf_value and str(pdf_value).strip() not in ["", "N/A", "Not Available", "Not found", "None"]:
+            specs[spec_name] = str(pdf_value).strip()
+            citations[spec_name] = pdf_citation
+
+    pdf_filled = sum(1 for s in CAR_SPECS if s in specs)
+    missing_specs = [s for s in CAR_SPECS if s not in specs]
+    print(f"  PDF pre-filled: {pdf_filled}/{len(CAR_SPECS)} specs")
+    print(f"  Searching for:  {len(missing_specs)} missing specs")
+
+    if not missing_specs:
+        # All specs found in PDF — no scraping needed
+        for spec_name in CAR_SPECS:
+            car_data[spec_name] = specs.get(spec_name, "Not Available")
+            car_data[f"{spec_name}_citation"] = citations.get(spec_name, {"source_url": "N/A", "citation_text": ""})
+        return car_data
+
+    # PHASE 0: Broad search (only needed for missing specs)
+    broad_results = broad_search(car_name)
+    broad_snippets = broad_results.get("results", [])
+    for r in broad_snippets[:20]:
+        url = r.get("url", "")
+        if url:
+            car_data["source_urls"].append(url)
+
+    # PHASE 1: Bulk extraction for missing specs only
+    print(f"\n{'='*60}")
+    print(f"PHASE 1: BULK EXTRACTION ({len(missing_specs)} missing specs)")
+    print(f"{'='*60}\n")
+
+    spec_groups = [
+        [s for s in CAR_SPECS[:20] if s in missing_specs],
+        [s for s in CAR_SPECS[20:45] if s in missing_specs],
+        [s for s in CAR_SPECS[45:70] if s in missing_specs],
+        [s for s in CAR_SPECS[70:] if s in missing_specs],
+    ]
+    spec_groups = [g for g in spec_groups if g]
+
+    for i, group in enumerate(spec_groups):
+        print(f"  Extracting group {i+1}/{len(spec_groups)} ({len(group)} specs)...")
+        group_specs = bulk_extract_specs(car_name, broad_snippets, group)
+        for spec, value in group_specs.items():
+            if value and "Not" not in str(value) and "Error" not in str(value):
+                specs[spec] = value
+                citations[spec] = {
+                    "source_url": broad_snippets[0].get("url", "N/A") if broad_snippets else "N/A",
+                    "citation_text": broad_snippets[0].get("snippet", "")[:200] if broad_snippets else "",
+                    "bulk_extracted": True
+                }
+        time.sleep(0.5)
+
+    # PHASE 2: Targeted search for still-missing specs
+    still_missing = [
+        s for s in missing_specs
+        if s not in specs or "Not" in str(specs.get(s, "")) or "Error" in str(specs.get(s, "")) or not specs.get(s)
+    ]
+    if len(still_missing) > 10:
+        print(f"\n{'='*60}")
+        print(f"PHASE 2: TARGETED SEARCH ({len(still_missing)} specs)")
+        print(f"{'='*60}\n")
+        search_results = parallel_search(car_name, still_missing)
+        extraction = parallel_extract(car_name, search_results)
+        for spec, value in extraction["specs"].items():
+            if value and "Not" not in str(value) and "Error" not in str(value):
+                specs[spec] = value
+        for spec, cit in extraction["citations"].items():
+            if spec not in citations or not citations[spec].get("from_pdf"):
+                citations[spec] = cit
+
+    # PHASE 3: Retry with alternative keywords
+    still_missing_2 = [
+        s for s in missing_specs
+        if "Not" in str(specs.get(s, "Not")) or "Error" in str(specs.get(s, "")) or not specs.get(s)
+    ]
+    if still_missing_2:
+        retry_search = {spec: {"spec": spec, "results": []} for spec in still_missing_2}
+        specs, citations = retry_missing_specs(car_name, specs, citations, retry_search)
+
+    # Build final car_data
+    all_urls = set(car_data.get("source_urls", []))
+    for spec_name in CAR_SPECS:
+        car_data[spec_name] = specs.get(spec_name, "Not Available")
+        cit = citations.get(spec_name, {"source_url": "N/A", "citation_text": ""})
+        car_data[f"{spec_name}_citation"] = cit
+        url = cit.get("source_url", "")
+        if url and url not in ("N/A", "PDF uploaded by user"):
+            all_urls.add(url)
+
+    car_data["source_urls"] = list(all_urls)
+
+    final_found = sum(1 for s in CAR_SPECS if car_data.get(s) and "Not" not in str(car_data.get(s, "")) and "Error" not in str(car_data.get(s, "")))
+    elapsed = time.time() - start_time
+    print(f"\n{'='*60}")
+    print(f"DONE: {final_found}/{len(CAR_SPECS)} specs ({final_found/len(CAR_SPECS)*100:.1f}%) | {elapsed:.1f}s")
+    print(f"  PDF contributed: {pdf_filled} specs")
+    print(f"{'='*60}\n")
+
+    return car_data
+
+
+def scrape_car_data(car_name: str, manual_specs: Dict[str, Any] = None, use_custom_search: bool = True, pdf_specs: Dict[str, str] = None) -> Dict[str, Any]:  # noqa: ARG001
     """Main entry point for car data scraping.
 
     Args:
         car_name: Name of the car to scrape
         manual_specs: Optional manual specs for code cars
         use_custom_search: Kept for backward compatibility (always uses custom search now)
+        pdf_specs: Optional specs pre-extracted from a PDF. Only missing specs will be searched.
     """
     _ = use_custom_search  # Always uses custom search in v2
 
@@ -958,6 +1096,9 @@ def scrape_car_data(car_name: str, manual_specs: Dict[str, Any] = None, use_cust
                 manual_specs[field] = "Not Available"
                 manual_specs[f"{field}_citation"] = {"source_url": "Manual", "citation_text": "Skipped"}
         return manual_specs
+
+    if pdf_specs:
+        return scrape_car_data_with_pdf_prefill(car_name, pdf_specs)
 
     return scrape_car_data_with_custom_search(car_name)
 

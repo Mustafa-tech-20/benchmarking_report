@@ -67,9 +67,6 @@ def count_populated_fields(car_data: Dict[str, Any], field_list: List[str]) -> i
 def is_code_car(car_name: str) -> bool:
     """
     Check if a car name is a code/custom car.
-    Code cars are identified by 'CODE:' prefix or all uppercase format.
+    Code cars are identified ONLY by the 'CODE:' prefix (case-insensitive).
     """
-    car_name_upper = car_name.strip().upper()
-    return (car_name.startswith("CODE:") or
-            car_name.startswith("code:") or
-            (car_name_upper == car_name and len(car_name.split()) <= 2))
+    return car_name.strip().upper().startswith("CODE:")
