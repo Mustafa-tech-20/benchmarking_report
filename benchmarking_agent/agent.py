@@ -356,10 +356,15 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
                 "citation_text": "Code car - sales data not applicable",
             }
 
+        # Count actually found specs (exclude all empty/not-found variations)
+        empty_values = ("Not Available", "N/A", "Not found", "not found", None, "", "—", "-", "None")
         populated = sum(
-            1 for f in CAR_SPECS if car_data.get(f) not in ("Not Available", "N/A", None, "")
+            1 for f in CAR_SPECS
+            if car_data.get(f) not in empty_values and str(car_data.get(f, "")).strip() not in empty_values
         )
-        print(f"[{car}] Done: {populated}/{len(CAR_SPECS)} specs populated")
+        total = len(CAR_SPECS)
+        percentage = (populated / total * 100) if total > 0 else 0
+        print(f"[{car}] Done: {populated}/{total} specs found ({percentage:.1f}%)")
         return car, car_data
 
     # Parallel processing — main thread aggregates results via as_completed
@@ -381,6 +386,22 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
         add_code_car_specs_tool.collected_specs = {}
     if hasattr(save_pdf_car_specs_tool, 'pdf_specs'):
         save_pdf_car_specs_tool.pdf_specs = {}
+
+    # Print data quality summary
+    print("\n" + "=" * 60)
+    print("DATA EXTRACTION SUMMARY")
+    print("=" * 60)
+    empty_values = ("Not Available", "N/A", "Not found", "not found", None, "", "—", "-", "None")
+    for car_name, car_data in results["comparison_data"].items():
+        if "error" not in car_data:
+            found = sum(
+                1 for f in CAR_SPECS
+                if car_data.get(f) not in empty_values and str(car_data.get(f, "")).strip() not in empty_values
+            )
+            total = len(CAR_SPECS)
+            percentage = (found / total * 100) if total > 0 else 0
+            print(f"  {car_name}: {found}/{total} specs ({percentage:.1f}%)")
+    print("=" * 60)
 
     print("\n STEP 2: Generating AI-powered comparison summary...")
     summary = generate_comparison_summary(results["comparison_data"])

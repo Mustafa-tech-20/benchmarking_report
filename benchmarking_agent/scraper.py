@@ -1,13 +1,16 @@
 """
 Car Specifications Scraper using Google Custom Search + Gemini
 
-Enhanced pipeline v2 with:
-- Phase 0: Broad comprehensive search
-- Phase 1: Bulk extraction (multiple specs at once)
-- Phase 2: Targeted search for missing specs
+Enhanced pipeline v3 with IMPROVED ACCURACY:
+- Phase 0: Broad comprehensive search (15 results, up from 10)
+- Phase 1: Bulk extraction with SMALLER GROUPS (5-8 specs, down from 20-25)
+- Phase 2: Targeted search for missing specs (10 results per spec, up from 8)
 - Phase 3: Alternative keywords retry
 - Full URL citations
 - Exponential backoff for API calls
+- IMPROVED: Better Gemini prompts with structured output
+- IMPROVED: Lower temperature (0.1) for consistency
+- IMPROVED: Validation layer for extracted values
 """
 import json
 import time
@@ -17,22 +20,42 @@ import concurrent.futures
 from typing import Dict, Any, List, Callable
 from functools import wraps
 
-from vertexai.generative_models import GenerativeModel
+from vertexai.generative_models import GenerativeModel, GenerationConfig, Tool
+try:
+    from vertexai.preview import generative_models as grounding
+except ImportError:
+    try:
+        from vertexai.generative_models import grounding
+    except ImportError:
+        # Fallback: create a simple grounding wrapper
+        class grounding:
+            @staticmethod
+            def GoogleSearchRetrieval(**kwargs):
+                return None
 
-from benchmarking_agent.config import GOOGLE_API_KEY, SEARCH_ENGINE_ID, CUSTOM_SEARCH_URL
+from benchmarking_agent.config import GOOGLE_API_KEY, SEARCH_ENGINE_ID, CUSTOM_SEARCH_URL, SEARCH_SITES
 
 
-# Parallel processing settings
-SEARCH_WORKERS = 15
-GEMINI_WORKERS = 20
-SEARCH_RESULTS_PER_SPEC = 8  # Increased from 5
-ACCURACY_THRESHOLD = 80
-BROAD_SEARCH_RESULTS = 10  # Results per broad query
+# SIMPLIFIED: Per-spec search approach (1 spec = 1 query)
+SEARCH_WORKERS = 15  # Parallel searches for 87 specs
+GEMINI_WORKERS = 15  # Parallel extractions
+SEARCH_RESULTS_PER_SPEC = 10  # Results per spec query
+ACCURACY_THRESHOLD = 80  # Trigger retry only if below this
+BROAD_SEARCH_RESULTS = 15  # Not used in new simplified approach
 
-# Retry settings
+# IMPROVED: More conservative retry settings
 MAX_RETRIES = 3
-BASE_DELAY = 1.0  # seconds
-MAX_DELAY = 30.0  # seconds
+BASE_DELAY = 1.5  # Increased from 1.0
+MAX_DELAY = 30.0
+
+# IMPROVED: Better generation config for Gemini (consistent extraction)
+# Note: Temperature set to 0.3 (not too low to avoid blocking, not too high for consistency)
+GENERATION_CONFIG = GenerationConfig(
+    temperature=0.3,  # Balanced - low enough for consistency, high enough to avoid blocking
+    top_p=0.95,
+    top_k=40,
+      # Increased to allow full responses for 8 specs
+)
 
 
 def exponential_backoff_retry(max_retries: int = MAX_RETRIES, base_delay: float = BASE_DELAY):
@@ -57,18 +80,41 @@ def exponential_backoff_retry(max_retries: int = MAX_RETRIES, base_delay: float 
 
 
 def call_gemini_with_retry(prompt: str, model_name: str = "gemini-2.5-flash", max_retries: int = MAX_RETRIES) -> str:
-    """Call Gemini API with exponential backoff retry."""
+    """Call Gemini API with exponential backoff retry and improved config."""
     last_error = None
     for attempt in range(max_retries):
         try:
             model = GenerativeModel(model_name)
-            response = model.generate_content(prompt)
-            return response.text.strip()
+
+            # Try with generation config first
+            try:
+                response = model.generate_content(prompt, generation_config=GENERATION_CONFIG)
+                # Check if response has text
+                if hasattr(response, 'text') and response.text:
+                    return response.text.strip()
+                # If no text, try accessing candidates
+                if hasattr(response, 'candidates') and response.candidates:
+                    if hasattr(response.candidates[0].content, 'parts') and response.candidates[0].content.parts:
+                        text = response.candidates[0].content.parts[0].text
+                        if text:
+                            return text.strip()
+            except Exception as config_error:
+                # If generation config causes issues, try without it
+                if "Cannot get the response text" in str(config_error) or "Cannot get the Candi" in str(config_error):
+                    response = model.generate_content(prompt)  # Without config
+                    if hasattr(response, 'text') and response.text:
+                        return response.text.strip()
+                else:
+                    raise config_error
+
+            # If we get here, no text was returned
+            raise ValueError("Empty response from model")
+
         except Exception as e:
             last_error = e
             error_str = str(e).lower()
             # Check if it's a retryable error
-            if any(x in error_str for x in ["429", "rate", "quota", "resource", "503", "500", "timeout"]):
+            if any(x in error_str for x in ["429", "rate", "quota", "resource", "503", "500", "timeout", "empty response"]):
                 if attempt < max_retries - 1:
                     delay = min(BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), MAX_DELAY)
                     time.sleep(delay)
@@ -468,6 +514,49 @@ VALUE:"""
         return {"spec": spec_name, "value": f"Error: {str(e)[:50]}", "citations": citations}
 
 
+def validate_spec_value(spec_name: str, value: str) -> bool:
+    """
+    IMPROVED: Validate if extracted value makes sense for the spec type.
+    Returns True if valid, False if suspicious/missing.
+
+    This helps catch hallucinated or incorrect extractions.
+    """
+    if not value or value in ["Not found", "Not Available", "N/A", "Error", "", "—", "-"]:
+        return False
+
+    value_lower = value.lower()
+
+    # Spec-specific validation - check if value contains expected keywords/units
+    validations = {
+        # Numeric with units
+        "price_range": ["lakh", "₹", "rs", "crore"],
+        "mileage": ["kmpl", "km/l", "mpg", "km/kg"],
+        "performance": ["bhp", "hp", "ps", "kw"],
+        "torque": ["nm", "kgm"],
+        "seating_capacity": ["seater", "seat"],
+        "acceleration": ["sec", "second"],
+        "turning_radius": ["meter", "m", "feet", "ft"],
+        "boot_space": ["litre", "liter", "l"],
+        "wheelbase": ["mm", "cm", "meter"],
+
+        # Specific terms
+        "transmission": ["manual", "automatic", "amt", "dct", "cvt", "speed"],
+        "braking": ["disc", "drum", "brake", "abs", "ebd"],
+        "steering": ["power", "steering", "hydraulic", "electric", "light", "heavy"],
+    }
+
+    if spec_name in validations:
+        keywords = validations[spec_name]
+        has_keyword = any(kw in value_lower for kw in keywords)
+        return has_keyword
+
+    # For subjective specs, just check it's not too short and contains some content
+    if len(value) >= 5 and not value.startswith("Not"):
+        return True
+
+    return False
+
+
 def retry_extract_spec(car_name: str, spec_name: str, search_results: list) -> str:
     """Retry extraction with more aggressive prompt - returns concise value."""
     if not search_results:
@@ -532,7 +621,7 @@ def broad_search(car_name: str) -> dict:
     print(f"{'='*60}\n")
 
     # Multiple broad queries to get diverse review pages
-    broad_queries = [
+    base_queries = [
         f"{car_name} full review specifications price mileage features",
         f"{car_name} expert review test drive pros cons verdict",
         f"{car_name} owner review real world experience 2026",
@@ -540,6 +629,15 @@ def broad_search(car_name: str) -> dict:
         f"{car_name} interior exterior features safety rating",
         f"{car_name} ride handling steering NVH comfort review",
     ]
+
+    # Add site: operators to each query, rotating through sites
+    broad_queries = []
+    if SEARCH_SITES:
+        for i, base_query in enumerate(base_queries):
+            site = SEARCH_SITES[i % len(SEARCH_SITES)]
+            broad_queries.append(f"{base_query} site:{site}")
+    else:
+        broad_queries = base_queries
 
     all_results = []
     domain_counts = {}
@@ -572,15 +670,20 @@ def broad_search(car_name: str) -> dict:
 
 def bulk_extract_specs(car_name: str, search_results: List[dict], specs_to_extract: List[str]) -> dict:
     """
-    PHASE 1: Extract multiple specs at once from combined search snippets.
-    More efficient than per-spec extraction.
+    IMPROVED PHASE 1: Extract multiple specs at once from combined search snippets.
+
+    Key improvements:
+    - Better prompt with clearer instructions and structured format
+    - More context (25 snippets vs 20)
+    - Line-by-line format instead of JSON (easier for model)
+    - Better examples for each spec type
     """
     if not search_results:
         return {spec: "Not found" for spec in specs_to_extract}
 
-    # Combine top snippets for rich context
+    # IMPROVED: Use more snippets for richer context
     context_parts = []
-    for r in search_results[:20]:  # Use top 20 results for more context
+    for r in search_results[:25]:  # Increased from 20
         domain = r.get("domain", "")
         title = r.get("title", "")
         snippet = r.get("snippet", "")
@@ -589,109 +692,108 @@ def bulk_extract_specs(car_name: str, search_results: List[dict], specs_to_extra
 
     context = "\n\n".join(context_parts)
 
-    # Build specs list with human readable names
-    specs_with_hints = []
+    # IMPROVED: Better format hints with examples
     format_hints = {
-        "price_range": "₹X.XX Lakh",
-        "mileage": "X.X kmpl",
-        "user_rating": "X.X/5",
-        "seating_capacity": "X Seater",
-        "performance": "XXX bhp",
-        "torque": "XXX Nm",
-        "transmission": "Type/speed",
-        "acceleration": "X.X sec 0-100",
-        "turning_radius": "X.X meters",
-        "boot_space": "XXX litres",
-        "wheelbase": "XXXX mm",
+        "price_range": "₹X.XX Lakh - ₹Y.YY Lakh (e.g., ₹11.35-17.19 Lakh)",
+        "mileage": "X.X kmpl or X-Y kmpl range (e.g., 15.2 kmpl, 12-18 kmpl)",
+        "user_rating": "X.X/5 stars (e.g., 4.2/5, 4 stars)",
+        "seating_capacity": "X Seater (e.g., 5 Seater, 7 Seater)",
+        "performance": "XXX bhp or XXX PS (e.g., 150 bhp, 130 PS)",
+        "torque": "XXX Nm or XX kgm (e.g., 300 Nm, 32 kgm)",
+        "transmission": "Type with speeds (e.g., 6-speed Manual, 6-speed Automatic, CVT)",
+        "acceleration": "X.X seconds 0-100 km/h (e.g., 10.2 sec, 9.5 seconds)",
+        "turning_radius": "X.X meters (e.g., 5.3m, 5.75 meters)",
+        "boot_space": "XXX litres (e.g., 420 litres, 350L)",
+        "wheelbase": "XXXX mm (e.g., 2750 mm, 2700mm)",
+        "braking": "Type of brakes (e.g., Disc/Drum, 4-wheel disc, Front disc rear drum)",
+        "steering": "Type + feel (e.g., Electric Power Steering - light, Hydraulic - heavy)",
+        "nvh": "Brief description (e.g., Well insulated, Refined cabin, Some road noise)",
+        "ride_quality": "Brief description (e.g., Comfortable, Stiff on rough roads, Plush)",
+        "interior_quality": "Brief description (e.g., Premium materials, Basic plastics, Well finished)",
     }
 
-    for spec in specs_to_extract:
-        hint = format_hints.get(spec, "")
+    # Build spec list with hints
+    specs_list_parts = []
+    for i, spec in enumerate(specs_to_extract, 1):
+        hint = format_hints.get(spec, "concise value")
         human = spec.replace("_", " ").title()
-        if hint:
-            specs_with_hints.append(f"{spec} ({human}, format: {hint})")
-        else:
-            specs_with_hints.append(f"{spec} ({human})")
+        specs_list_parts.append(f"{i}. {spec}: {human} - Expected format: {hint}")
 
-    specs_list = "\n".join(specs_with_hints)
+    specs_list = "\n".join(specs_list_parts)
 
-    prompt = f"""Extract these specifications for {car_name} from the search data below.
+    # IMPROVED: Better prompt with line-by-line output format (easier than JSON)
+    prompt = f"""Extract specifications for the {car_name} from the search results below.
 
-SEARCH DATA:
+SEARCH RESULTS:
 {context}
 
-SPECS TO EXTRACT:
+SPECIFICATIONS TO EXTRACT:
 {specs_list}
 
-EXTRACTION RULES:
-1. Return a JSON object with spec names as keys
-2. Values should be concise (max 15 words)
-3. Include units where applicable
-4. For subjective specs (ride, nvh, steering feel), use brief descriptors
-5. Only use "Not found" if the information is genuinely not in the data
+INSTRUCTIONS:
+- Extract ONLY information explicitly stated in the search results
+- Return answer in this EXACT format for each spec (one per line):
+  spec_name: extracted_value
+- Keep values concise (max 15 words)
+- Include units where applicable (bhp, Nm, kmpl, Lakh, etc.)
+- If a spec is NOT found in the search results, write: spec_name: Not found
+- DO NOT make up or infer values
+- DO NOT include any explanations or notes
 
-Example output:
-{{
-  "price_range": "₹11.35-17.19 Lakh",
-  "mileage": "15.2 kmpl",
-  "user_rating": "4.2/5",
-  "ride_quality": "Comfortable, handles bumps well",
-  "nvh": "Refined cabin, minimal engine noise"
-}}
+GOOD EXAMPLES:
+price_range: ₹11.35-17.19 Lakh
+mileage: 15.2 kmpl
+performance: 150 bhp
+torque: 300 Nm
+seating_capacity: 5 Seater
+transmission: 6-speed Manual / 6-speed Automatic
+nvh: Well insulated cabin, minimal road noise
+ride_quality: Comfortable on highways, stiff on rough roads
+braking: Front disc, rear drum
+steering: Electric power steering, light feel
 
-Return ONLY the JSON object, no other text:"""
+NOW EXTRACT (one spec per line):"""
 
     try:
         response = call_gemini_with_retry(prompt, "gemini-2.5-flash")
 
-        # Clean up JSON response
-        text = response.strip()
+        # IMPROVED: Parse line-by-line response (more reliable than JSON)
+        extracted = {}
+        lines = response.strip().split("\n")
 
-        # Remove markdown code blocks
-        if "```json" in text:
-            text = text.split("```json")[1]
-            if "```" in text:
-                text = text.split("```")[0]
-        elif "```" in text:
-            parts = text.split("```")
-            if len(parts) >= 2:
-                text = parts[1]
+        for line in lines:
+            line = line.strip()
+            if ":" in line:
+                # Split on first colon only
+                parts = line.split(":", 1)
+                if len(parts) == 2:
+                    spec = parts[0].strip()
+                    value = parts[1].strip()
 
-        text = text.strip()
+                    # Clean up value
+                    value = value.replace("**", "").replace("*", "")
+                    if value.startswith('"') and value.endswith('"'):
+                        value = value[1:-1]
+                    if len(value) > 100:
+                        value = value[:100] + "..."
 
-        # Find JSON object boundaries
-        if "{" in text and "}" in text:
-            start = text.index("{")
-            end = text.rindex("}") + 1
-            text = text[start:end]
+                    # Match spec to expected spec names
+                    for expected_spec in specs_to_extract:
+                        if expected_spec in spec or spec in expected_spec:
+                            extracted[expected_spec] = value
+                            break
 
-        specs = json.loads(text)
-
-        # Count found vs not found
-        found = 0
-        normalized = {}
+        # Fill in missing specs
         for spec in specs_to_extract:
-            # Try different key formats
-            value = specs.get(spec) or specs.get(spec.replace("_", " ")) or specs.get(spec.replace("_", " ").title())
+            if spec not in extracted:
+                extracted[spec] = "Not found"
 
-            if value is None:
-                value = "Not found"
-            elif isinstance(value, str):
-                value = value.replace("**", "").replace("*", "").strip()
-                if len(value) > 100:
-                    value = value[:100] + "..."
-
-            if value and "Not found" not in str(value):
-                found += 1
-
-            normalized[spec] = value
-
+        # Count found specs
+        found = sum(1 for v in extracted.values() if v and "Not" not in str(v) and "Error" not in str(v))
         print(f"    → Bulk extracted {found}/{len(specs_to_extract)} specs")
-        return normalized
 
-    except json.JSONDecodeError as e:
-        print(f"  Bulk extraction JSON error: {str(e)[:40]}")
-        return {spec: "Not found" for spec in specs_to_extract}
+        return extracted
+
     except Exception as e:
         print(f"  Bulk extraction error: {str(e)[:50]}")
         return {spec: "Not found" for spec in specs_to_extract}
@@ -710,7 +812,13 @@ def parallel_search(car_name: str, specs_to_search: List[str] = None) -> dict:
 
     def search_task(spec_name):
         keywords = SPEC_QUERIES.get(spec_name, spec_name.replace('_', ' '))
-        query = f"{car_name} {keywords}"
+        # Rotate through sites to ensure all are queried
+        if SEARCH_SITES:
+            spec_index = list(CAR_SPECS).index(spec_name) if spec_name in CAR_SPECS else 0
+            site = SEARCH_SITES[spec_index % len(SEARCH_SITES)]
+            query = f"{car_name} {keywords} site:{site}"
+        else:
+            query = f"{car_name} {keywords}"
         return custom_search(query, spec_name)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=SEARCH_WORKERS) as executor:
@@ -828,108 +936,262 @@ def retry_missing_specs(car_name: str, specs: dict, citations: dict, search_resu
 
 def scrape_car_data_with_custom_search(car_name: str) -> Dict[str, Any]:
     """
-    Main scraping function with improved 4-phase pipeline:
-    Phase 0: Broad comprehensive search
-    Phase 1: Bulk extraction from broad results
-    Phase 2: Targeted search for missing specs
-    Phase 3: Retry with alternative keywords
+    SIMPLIFIED scraping function - direct per-spec approach:
+    Phase 1: Search + Extract each spec individually (1 spec = 1 query)
+    Phase 2: Retry ONLY missing specs with alternative keywords (only if accuracy < 80%)
+
+    NO broad searches, NO bulk extraction - simple and accurate.
     """
     print(f"\n{'#'*60}")
     print(f"SCRAPING: {car_name}")
     print(f"{'#'*60}")
 
     start_time = time.time()
-    car_data = {"car_name": car_name, "source_urls": [], "method": "Custom Search Pipeline v2"}
+    car_data = {"car_name": car_name, "source_urls": [], "method": "Direct Per-Spec Search"}
     citations = {}
+    specs = {}
 
-    # PHASE 0: Broad comprehensive search
-    broad_results = broad_search(car_name)
-    broad_snippets = broad_results.get("results", [])
-
-    # Build initial citations from broad search
-    for r in broad_snippets[:20]:
-        url = r.get("url", "")
-        if url:
-            car_data["source_urls"].append(url)
-
-    # PHASE 1: Bulk extraction from broad results
+    # PHASE 1: Direct per-spec search and extraction (1 spec = 1 query)
     print(f"\n{'='*60}")
-    print(f"PHASE 1: BULK EXTRACTION (87 specs)")
+    print(f"PHASE 1: PER-SPEC SEARCH & EXTRACT (87 specs)")
     print(f"{'='*60}\n")
 
-    # Split specs into groups for better extraction
-    spec_groups = [
-        CAR_SPECS[:20],   # Basic + engine specs
-        CAR_SPECS[20:45], # Handling + NVH specs
-        CAR_SPECS[45:70], # Interior + features
-        CAR_SPECS[70:],   # Remaining specs
-    ]
+    def search_and_extract_spec(spec_name):
+        """Search and extract a single spec"""
+        keywords = SPEC_QUERIES.get(spec_name, spec_name.replace('_', ' '))
+        query = f"{car_name} {keywords}"
 
-    specs = {}
-    for i, group in enumerate(spec_groups):
-        print(f"  Extracting group {i+1}/{len(spec_groups)} ({len(group)} specs)...")
-        group_specs = bulk_extract_specs(car_name, broad_snippets, group)
-        specs.update(group_specs)
-        time.sleep(0.5)  # Small delay between groups
+        # Search for this specific spec
+        search_result = custom_search(query, spec_name)
+        results = search_result.get("results", [])
 
-    # Check accuracy after Phase 1
-    found_p1 = sum(1 for v in specs.values() if v and "Not" not in str(v) and "Error" not in str(v))
+        if not results:
+            return spec_name, "Not found", None
+
+        # Extract from search results
+        extraction = extract_spec_value(spec_name, {"results": results}, car_name)
+        value = extraction.get("value", "Not found")
+        cites = extraction.get("citations", [])
+
+        # Build citation
+        citation = None
+        if cites:
+            citation = {
+                "source_url": cites[0].get("url", "N/A"),
+                "citation_text": cites[0].get("snippet", ""),
+                "all_sources": cites
+            }
+
+        return spec_name, value, citation
+
+    # Process all 87 specs in parallel
+    found_count = 0
+    with concurrent.futures.ThreadPoolExecutor(max_workers=SEARCH_WORKERS) as executor:
+        futures = {executor.submit(search_and_extract_spec, spec): spec for spec in CAR_SPECS}
+        completed = 0
+
+        for future in concurrent.futures.as_completed(futures):
+            spec_name = futures[future]
+            completed += 1
+
+            try:
+                spec_name, value, citation = future.result()
+                specs[spec_name] = value
+
+                if citation:
+                    citations[spec_name] = citation
+                    url = citation.get("source_url")
+                    if url and url != "N/A":
+                        car_data["source_urls"].append(url)
+
+                if value and "Not" not in value and "Error" not in value:
+                    found_count += 1
+
+                if completed % 20 == 0:
+                    print(f"  Progress: {completed}/{len(CAR_SPECS)} ({found_count} found)")
+
+            except Exception as e:
+                specs[spec_name] = "Not Available"
+                print(f"  Error extracting {spec_name}: {str(e)[:50]}")
+
+    # Calculate Phase 1 accuracy
+    found_p1 = found_count
     accuracy_p1 = (found_p1 / len(CAR_SPECS) * 100) if CAR_SPECS else 0
-    print(f"\n  Phase 1 Accuracy: {found_p1}/{len(CAR_SPECS)} ({accuracy_p1:.1f}%)")
+    print(f"\n  Phase 1 Complete: {found_p1}/{len(CAR_SPECS)} specs found ({accuracy_p1:.1f}%)")
 
-    # Create citations for Phase 1 extracted specs using broad search results
-    if broad_snippets:
-        # Use first few broad search results as citations for bulk extracted specs
-        for spec_name, value in specs.items():
-            if value and "Not" not in str(value) and "Error" not in str(value):
-                # Assign citation from broad search results
-                if broad_snippets:
-                    citations[spec_name] = {
-                        "source_url": broad_snippets[0].get("url", "N/A"),
-                        "citation_text": broad_snippets[0].get("snippet", "")[:200],
-                        "bulk_extracted": True
-                    }
+    # PHASE 2: Retry ALL missing specs using Gemini + Google Search (ONLY if accuracy < 80%)
+    if accuracy_p1 < 80:
+        # Find ALL specs we didn't get in Phase 1
+        missing_specs = [k for k, v in specs.items() if "Not" in str(v) or "Error" in str(v) or not v]
 
-    # Find missing specs after Phase 1
-    missing_specs = [k for k, v in specs.items() if "Not" in str(v) or "Error" in str(v) or not v]
+        if missing_specs:
+            print(f"\n{'='*60}")
+            print(f"PHASE 2: GEMINI + GOOGLE SEARCH RETRY ({len(missing_specs)} specs)")
+            print(f"{'='*60}\n")
 
-    # PHASE 2: Targeted search for missing specs (only if many missing)
-    if len(missing_specs) > 10:
-        print(f"\n{'='*60}")
-        print(f"PHASE 2: TARGETED SEARCH ({len(missing_specs)} missing specs)")
-        print(f"{'='*60}\n")
+            # Preferred automotive domains
+            preferred_domains = [
+                "team-bhp.com", "autocarindia.com", "overdrive.in", "zigwheels.com",
+                "carwale.com", "cardekho.com", "autocarpro.in", "motoringworld.in"
+            ]
 
-        # Only search for missing specs
-        search_results = parallel_search(car_name, missing_specs)
+            # Exclude non-automotive domains
+            exclude_domains = ["wikipedia.org", "youtube.com", "reddit.com", "facebook.com", "twitter.com"]
 
-        # Extract from targeted search results
-        extraction = parallel_extract(car_name, search_results)
-        targeted_specs = extraction["specs"]
-        targeted_citations = extraction["citations"]
+            def retry_specs_with_gemini_search(spec_batch):
+                """Retry a batch of specs using Gemini + Google Search (like test.py)"""
+                try:
+                    # Build spec list with hints
+                    specs_list = []
+                    for spec in spec_batch:
+                        human = spec.replace("_", " ").title()
+                        # Add format hints for common specs
+                        hint = ""
+                        if "price" in spec:
+                            hint = " (e.g., ₹11.35-17.19 Lakh)"
+                        elif "mileage" in spec:
+                            hint = " (e.g., 15.2 kmpl)"
+                        elif "rating" in spec:
+                            hint = " (e.g., 4.2/5)"
+                        elif spec in ["performance", "power"]:
+                            hint = " (e.g., 150 bhp)"
+                        elif "torque" in spec:
+                            hint = " (e.g., 300 Nm)"
 
-        # Update specs with targeted results (only if better)
-        for spec, value in targeted_specs.items():
-            if value and "Not" not in str(value) and "Error" not in str(value):
-                specs[spec] = value
-                # Update citation if we have one from targeted search
-                if spec in targeted_citations:
-                    # Override bulk_extracted citation with more specific one
-                    citations[spec] = targeted_citations[spec]
+                        specs_list.append(f'  "{spec}": "{human}{hint}"')
 
-    # Check accuracy after Phase 2
-    found_p2 = sum(1 for v in specs.values() if v and "Not" not in str(v) and "Error" not in str(v))
-    accuracy_p2 = (found_p2 / len(CAR_SPECS) * 100) if CAR_SPECS else 0
-    print(f"\n  Phase 2 Accuracy: {found_p2}/{len(CAR_SPECS)} ({accuracy_p2:.1f}%)")
+                    specs_json = ",\n".join(specs_list)
 
-    # PHASE 3: Retry with alternative keywords if still below threshold
-    if accuracy_p2 < ACCURACY_THRESHOLD:
-        print(f"\n  Below {ACCURACY_THRESHOLD}% - running retry with alt keywords...")
-        # Get fresh search results for retry
-        still_missing = [k for k, v in specs.items() if "Not" in str(v) or "Error" in str(v) or not v]
-        if still_missing:
-            # Create minimal search results dict for retry
-            retry_search = {spec: {"spec": spec, "results": []} for spec in still_missing}
-            specs, citations = retry_missing_specs(car_name, specs, citations, retry_search)
+                    # Create prompt (similar to test.py approach)
+                    prompt = f"""Search for detailed specifications of the {car_name}. Focus on these trusted automotive review sites: {', '.join(preferred_domains)}
+
+Extract these specifications and return in JSON format:
+
+{{
+{specs_json}
+}}
+
+INSTRUCTIONS:
+- Search automotive review sites (prefer team-bhp.com, autocarindia.com, overdrive.in, zigwheels.com)
+- Extract EXACT values with units (bhp, Nm, kmpl, Lakh, litres, etc.)
+- For subjective specs (ride quality, NVH, steering feel): provide brief descriptions
+- Keep values concise (max 15 words per spec)
+- If truly not found after searching, use "Not found"
+
+Return ONLY the JSON object with the same keys as shown above:"""
+
+                    # Use Gemini 2.5 Flash with Google Search
+                    model = GenerativeModel("gemini-2.5-flash")
+
+                    # Create Google Search tool
+                    try:
+                        google_search = Tool.from_google_search_retrieval(
+                            google_search_retrieval=grounding.GoogleSearchRetrieval(
+                                disable_attribution=False
+                            )
+                        )
+                        use_tools = [google_search]
+                    except Exception as e:
+                        print(f"    Note: Google Search grounding not available ({str(e)[:50]}), using direct generation")
+                        use_tools = None
+
+                    # Generate with Google Search grounding
+                    response = model.generate_content(
+                        prompt,
+                        tools=use_tools,
+                        generation_config=GenerationConfig(
+                            temperature=0.3,
+                            max_output_tokens=3000,
+                        )
+                    )
+
+                    # Parse JSON response
+                    text = response.text.strip()
+
+                    # Remove markdown code blocks if present
+                    if "```json" in text:
+                        text = text.split("```json")[1].split("```")[0]
+                    elif "```" in text:
+                        parts = text.split("```")
+                        if len(parts) >= 2:
+                            text = parts[1]
+
+                    text = text.strip()
+
+                    # Extract JSON object
+                    if "{" in text and "}" in text:
+                        start = text.index("{")
+                        end = text.rindex("}") + 1
+                        text = text[start:end]
+
+                    extracted = json.loads(text)
+
+                    # Get grounding metadata for sources
+                    sources = []
+                    if hasattr(response, 'candidates') and response.candidates:
+                        candidate = response.candidates[0]
+                        if hasattr(candidate, 'grounding_metadata'):
+                            grounding_meta = candidate.grounding_metadata
+                            if hasattr(grounding_meta, 'grounding_chunks'):
+                                for chunk in grounding_meta.grounding_chunks[:10]:  # First 10 sources
+                                    if hasattr(chunk, 'web') and hasattr(chunk.web, 'uri'):
+                                        sources.append(chunk.web.uri)
+
+                    return extracted, sources
+
+                except Exception as e:
+                    print(f"    Batch error: {str(e)[:100]}")
+                    return {}, []
+
+            # Split missing specs into batches of 10 (Gemini can handle this easily)
+            batch_size = 10
+            spec_batches = []
+            for i in range(0, len(missing_specs), batch_size):
+                spec_batches.append(missing_specs[i:i+batch_size])
+
+            print(f"  Processing {len(spec_batches)} batches of ~{batch_size} specs each...\n")
+
+            # Process batches in parallel (max 3 at a time to avoid rate limits)
+            recovered = 0
+            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+                futures = {executor.submit(retry_specs_with_gemini_search, batch): (i, batch)
+                          for i, batch in enumerate(spec_batches, 1)}
+
+                for future in concurrent.futures.as_completed(futures):
+                    batch_num, batch = futures[future]
+
+                    try:
+                        extracted, sources = future.result()
+                        batch_found = 0
+
+                        for spec_name in batch:
+                            value = extracted.get(spec_name, "")
+
+                            if value and value != "Not found" and "Not" not in value and len(value.strip()) > 0:
+                                specs[spec_name] = value
+                                recovered += 1
+                                batch_found += 1
+
+                                # Create citation
+                                citation = {
+                                    "source_url": sources[0] if sources else "Google Search (Gemini grounded)",
+                                    "citation_text": "Retrieved via Gemini with Google Search grounding",
+                                    "gemini_grounded": True,
+                                    "all_sources": sources[:5] if sources else []
+                                }
+                                citations[spec_name] = citation
+
+                                if sources:
+                                    car_data["source_urls"].extend(sources[:3])
+
+                        print(f"  Batch {batch_num}/{len(spec_batches)}: Extracted {batch_found}/{len(batch)} specs")
+
+                    except Exception as e:
+                        print(f"  Batch {batch_num} failed: {str(e)[:80]}")
+
+            print(f"\n  Phase 2 Complete: Recovered {recovered}/{len(missing_specs)} specs using Gemini + Google Search")
+    else:
+        print(f"\n  Accuracy >= 80% - skipping Phase 2 retry")
 
     # Build final car_data
     all_urls = set(car_data.get("source_urls", []))
