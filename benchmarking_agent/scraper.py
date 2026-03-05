@@ -75,7 +75,8 @@ OFFICIAL_SITE_PRIORITY_SPECS = [
 # Official brand website URL patterns
 # Format: "brand": ("base_url", "path_pattern")
 BRAND_OFFICIAL_URLS = {
-    "mahindra": ("https://auto.mahindra.com", "/suv/{model}.html"),
+    "mahindra": ("https://auto.mahindra.com", "/suv/{model}/"),
+    "mahindra_electric": ("https://www.mahindraelectricsuv.com", "/"),
     "tata": ("https://cars.tatamotors.com", "/{model}/ice/specifications.html"),
     "maruti": ("https://www.marutisuzuki.com", "/{model}/specifications"),
     "suzuki": ("https://www.marutisuzuki.com", "/{model}/specifications"),
@@ -394,11 +395,20 @@ def build_official_brand_url(car_name: str) -> tuple:
         brand = "rolls"
         model_parts = model_parts[1:] if model_parts else []
 
-    # Get URL pattern
-    if brand not in BRAND_OFFICIAL_URLS:
-        return None, None
-
-    base_url, path_pattern = BRAND_OFFICIAL_URLS[brand]
+    # Handle Mahindra electric vehicles separately
+    if brand == "mahindra" and model_parts:
+        model_str = " ".join(model_parts).lower()
+        if "ev" in model_str or "electric" in model_str or "xe" in model_str or "xev" in model_str:
+            base_url, path_pattern = BRAND_OFFICIAL_URLS.get("mahindra_electric", (None, None))
+            if not base_url:
+                return None, None
+        else:
+            base_url, path_pattern = BRAND_OFFICIAL_URLS[brand]
+    else:
+        # Get URL pattern
+        if brand not in BRAND_OFFICIAL_URLS:
+            return None, None
+        base_url, path_pattern = BRAND_OFFICIAL_URLS[brand]
 
     # Build model string with brand-specific formatting
     if brand == "mg":
