@@ -25,12 +25,18 @@ def generate_hero_section(comparison_data: Dict[str, Any]) -> str:
             images = car_data.get("images", {})
             hero_imgs = images.get("hero", [])
             if hero_imgs:
-                # hero_imgs is now [(url, caption), ...]
+                # Handle multiple formats: list, tuple, or string
                 first_img = hero_imgs[0]
-                if isinstance(first_img, tuple):
-                    hero_images.append(first_img[0])  # Extract URL from tuple
+                if isinstance(first_img, (list, tuple)) and len(first_img) >= 1:
+                    img_url = first_img[0]
+                    if img_url and isinstance(img_url, str):
+                        hero_images.append(img_url)
+                    else:
+                        hero_images.append("")
+                elif isinstance(first_img, str):
+                    hero_images.append(first_img)
                 else:
-                    hero_images.append(first_img)  # Old format compatibility
+                    hero_images.append("")
             else:
                 hero_images.append("")  # Placeholder
 
@@ -99,24 +105,27 @@ def generate_image_gallery_section(
             images = car_data.get("images", {})
             category_images = images.get(image_category, [])
 
-            # Handle (url, caption) tuple format from autocar_images
+            # Handle multiple formats: list, tuple, or string
             for img_item in category_images:
-                if isinstance(img_item, tuple) and len(img_item) == 2:
-                    img_url, feature_caption = img_item
-                    if img_url:
-                        all_images.append({
-                            "url": img_url,
-                            "feature": feature_caption,  # e.g., "Headlights"
-                            "car_name": car_name,        # e.g., "Mahindra Thar"
-                            "alt": f"{car_name} {feature_caption}"
-                        })
+                img_url = None
+                feature_caption = image_category.title()
+
+                if isinstance(img_item, (list, tuple)) and len(img_item) >= 1:
+                    # Format: [url, caption] or (url, caption)
+                    img_url = img_item[0]
+                    if len(img_item) >= 2:
+                        feature_caption = img_item[1]
                 elif isinstance(img_item, str):
                     # Fallback for simple URL format
+                    img_url = img_item
+
+                # Add all valid image URLs
+                if img_url and isinstance(img_url, str):
                     all_images.append({
-                        "url": img_item,
-                        "feature": image_category.title(),
-                        "car_name": car_name,
-                        "alt": f"{car_name} {image_category}"
+                        "url": img_url,
+                        "feature": feature_caption,  # e.g., "Headlights"
+                        "car_name": car_name,        # e.g., "Mahindra Thar"
+                        "alt": f"{car_name} {feature_caption}"
                     })
 
     if not all_images:
@@ -325,30 +334,43 @@ def get_image_section_styles() -> str:
         }
 
         .hero-car-card img {
-            height: 180px;
-            max-height: 180px;
-            width: 100%;
-            object-fit: cover;
+            width: 100% !important;
+            height: auto !important;
+            max-height: 200px !important;
+            object-fit: contain !important;
+            display: block;
+            margin: 0 auto;
         }
 
         .image-gallery {
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            page-break-inside: auto;
+            display: grid !important;
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 10px !important;
+            page-break-inside: auto !important;
         }
 
         .gallery-item {
-            page-break-inside: avoid;
-            break-inside: avoid;
-            margin-bottom: 15px;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            margin-bottom: 10px !important;
+            box-shadow: none !important;
+            border: 1px solid #ddd !important;
+        }
+
+        /* Force page break after every 6 items (2x3 grid) */
+        .gallery-item:nth-child(6n) {
+            page-break-after: always !important;
+            break-after: page !important;
         }
 
         .gallery-item img {
-            height: 150px;
-            max-height: 150px;
-            width: 100%;
-            object-fit: cover;
+            width: 100% !important;
+            height: 180px !important;
+            max-height: 180px !important;
+            object-fit: contain !important;
             display: block;
+            margin: 0 auto;
+            background: #f8f9fa;
         }
 
         .image-gallery-section {
@@ -358,7 +380,7 @@ def get_image_section_styles() -> str:
             break-before: auto;
             break-after: auto;
             break-inside: auto;
-            margin-bottom: 30px;
+            margin-bottom: 0;
         }
 
         .section-header {
@@ -366,10 +388,13 @@ def get_image_section_styles() -> str:
             break-after: avoid;
         }
 
-        .gallery-caption,
+        .gallery-feature,
         .gallery-car-name {
-            page-break-inside: avoid;
-            break-inside: avoid;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            text-align: center;
+            font-size: 10px !important;
+            padding: 6px 8px !important;
         }
     }
 
