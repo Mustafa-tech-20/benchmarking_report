@@ -198,7 +198,7 @@ function App() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && (input.trim() || selectedFile)) {
       e.preventDefault();
       sendMessage();
     }

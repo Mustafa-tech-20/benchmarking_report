@@ -368,19 +368,15 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
         print(f"[{car}] Done: {populated}/{total} specs found ({percentage:.1f}%)")
         return car, car_data
 
-    # Parallel processing — main thread aggregates results via as_completed
-    max_workers = min(len(car_list), 5)
-    print(f"\nProcessing {len(car_list)} cars in parallel (max_workers={max_workers})...")
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
-        future_to_car = {pool.submit(_process_single_car, car): car for car in car_list}
-        for future in concurrent.futures.as_completed(future_to_car):
-            original_car = future_to_car[future]
-            try:
-                car_key, car_data = future.result()
-                results["comparison_data"][car_key] = car_data
-            except Exception as exc:
-                print(f"[{original_car}] FAILED: {exc}")
-                results["comparison_data"][original_car] = {"car_name": original_car, "error": str(exc)}
+    # Sequential processing to avoid rate limits
+    print(f"\nProcessing {len(car_list)} cars sequentially (one at a time to avoid rate limits)...")
+    for car in car_list:
+        try:
+            car_key, car_data = _process_single_car(car)
+            results["comparison_data"][car_key] = car_data
+        except Exception as exc:
+            print(f"[{car}] FAILED: {exc}")
+            results["comparison_data"][car] = {"car_name": car, "error": str(exc)}
 
     # Clear collected specs and PDF specs for next comparison
     if hasattr(add_code_car_specs_tool, 'collected_specs'):

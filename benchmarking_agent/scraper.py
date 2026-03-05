@@ -43,6 +43,18 @@ EXTRACTION_CONFIG = GenerationConfig(
     response_mime_type="application/json",
 )
 
+# Track Gemini model and rate limit failures
+_gemini_model = "gemini-2.5-flash"
+_rate_limit_count = 0
+_RATE_LIMIT_THRESHOLD = 10  # Switch to Pro after 10 rate limits
+
+
+def reset_gemini_model():
+    """Reset to Flash model at the start of each scraping session."""
+    global _gemini_model, _rate_limit_count
+    _gemini_model = "gemini-2.5-flash"
+    _rate_limit_count = 0
+
 
 # ============================================================================
 # 87 CAR SPECIFICATIONS
@@ -344,11 +356,20 @@ def exponential_backoff_retry(max_retries: int = MAX_RETRIES, base_delay: float 
 
 
 def call_gemini_simple(prompt: str) -> str:
-    """Simple Gemini call with retry."""
+    """
+    Simple Gemini call with retry and automatic model fallback.
+    Switches from Flash to Pro after repeated rate limits.
+    """
+    global _gemini_model, _rate_limit_count
+
     for attempt in range(MAX_RETRIES):
         try:
-            model = GenerativeModel("gemini-2.5-flash")
-            response = model.generate_content(prompt, generation_config=GenerationConfig(temperature=0.1))
+            # Use current model (Flash or Pro based on rate limit history)
+            model = GenerativeModel(_gemini_model)
+            response = model.generate_content(
+                prompt,
+                generation_config=GenerationConfig(temperature=0.1)
+            )
 
             if hasattr(response, 'text') and response.text:
                 return response.text.strip()
@@ -362,10 +383,37 @@ def call_gemini_simple(prompt: str) -> str:
                     return text.strip()
 
         except Exception as e:
-            if attempt < MAX_RETRIES - 1:
-                time.sleep(BASE_DELAY * (2 ** attempt))
+            error_str = str(e).lower()
+
+            # Check if rate limit error
+            is_rate_limit = any(x in error_str for x in [
+                "429", "rate limit", "quota", "resource exhausted",
+                "too many requests"
+            ])
+
+            if is_rate_limit:
+                _rate_limit_count += 1
+
+                # Switch to Pro model after threshold
+                if (_rate_limit_count >= _RATE_LIMIT_THRESHOLD and
+                    _gemini_model == "gemini-2.5-flash"):
+                    _gemini_model = "gemini-2.5-pro"
+                    print(f"\n  ⚠️  Switching to Gemini Pro after {_rate_limit_count} rate limits")
+
+                # Exponential backoff for rate limits
+                if attempt < MAX_RETRIES - 1:
+                    delay = min(BASE_DELAY * (3 ** attempt) + random.uniform(2, 5), MAX_DELAY)
+                    time.sleep(delay)
+                else:
+                    # Failed after all retries
+                    return ""
             else:
-                return ""
+                # Non-rate-limit error - shorter retry
+                if attempt < MAX_RETRIES - 1:
+                    time.sleep(BASE_DELAY * (2 ** attempt))
+                else:
+                    return ""
+
     return ""
 
 
@@ -886,6 +934,9 @@ def scrape_car_data_with_custom_search(car_name: str) -> Dict[str, Any]:
     Phase 1: Per-spec search for remaining specs
     Phase 2: AutoCarIndia fallback for missing specs
     """
+    # Reset Gemini model to Flash at start of each car
+    reset_gemini_model()
+
     print(f"\n{'#'*60}")
     print(f"SCRAPING: {car_name}")
     print(f"{'#'*60}")

@@ -86,48 +86,80 @@ FEATURE_QUERIES = {
 
 def search_feature_image(
     car_name: str,
-    feature_query: str
-) -> Tuple[str, str]:
+    feature_query: str,
+    max_retries: int = 3
+) -> Tuple[str, str, str]:
     """
-    Search for a specific feature image using COMPANY_SEARCH_ID.
+    Search for a specific feature image using COMPANY_SEARCH_ID with retry logic.
 
     Args:
         car_name: Car name (e.g., "Mahindra Thar")
         feature_query: Feature to search for (e.g., "headlights", "dashboard")
+        max_retries: Maximum number of retry attempts
 
     Returns:
-        (image_url, caption) tuple
+        (image_url, caption, status) tuple where status is:
+        - "success": Image found
+        - "no_results": CSE returned no images
+        - "rate_limited": Hit CSE rate limit
+        - "error": Other error occurred
     """
-    try:
-        # Simple query without site: filter
-        # COMPANY_SEARCH_ID should already target automotive websites
-        query = f"{car_name} {feature_query}"
+    import time
+    import random
 
-        params = {
-            "key": GOOGLE_API_KEY,
-            "cx": COMPANY_SEARCH_ID,  # Use company search engine
-            "q": query,
-            "searchType": "image",
-            "num": 3,
-            "imgSize": "medium",
-            "safe": "active",
-            "imgType": "photo",
-        }
+    query = f"{car_name} {feature_query}"
 
-        response = requests.get(CUSTOM_SEARCH_URL, params=params, timeout=10)
+    for attempt in range(max_retries):
+        try:
+            params = {
+                "key": GOOGLE_API_KEY,
+                "cx": COMPANY_SEARCH_ID,
+                "q": query,
+                "searchType": "image",
+                "num": 3,
+                "imgSize": "medium",
+                "safe": "active",
+                "imgType": "photo",
+            }
 
-        if response.status_code == 200:
-            items = response.json().get("items", [])
+            response = requests.get(CUSTOM_SEARCH_URL, params=params, timeout=10)
 
-            if items:
-                img_url = items[0].get("link", "")
-                caption = feature_query.title()
-                return img_url, caption
+            if response.status_code == 200:
+                items = response.json().get("items", [])
+                if items:
+                    img_url = items[0].get("link", "")
+                    if img_url:
+                        return img_url, feature_query.title(), "success"
 
-        return None, feature_query.title()
+                # No results found
+                return None, feature_query.title(), "no_results"
 
-    except Exception as e:
-        return None, feature_query.title()
+            elif response.status_code == 429:
+                # Rate limited - retry with exponential backoff
+                if attempt < max_retries - 1:
+                    delay = min(5 * (2 ** attempt) + random.uniform(1, 3), 30)
+                    time.sleep(delay)
+                    continue
+                else:
+                    return None, feature_query.title(), "rate_limited"
+
+            else:
+                # Other HTTP error
+                return None, feature_query.title(), f"http_{response.status_code}"
+
+        except requests.Timeout:
+            if attempt < max_retries - 1:
+                time.sleep(2)
+                continue
+            return None, feature_query.title(), "timeout"
+
+        except Exception as e:
+            if attempt < max_retries - 1:
+                time.sleep(1)
+                continue
+            return None, feature_query.title(), f"error"
+
+    return None, feature_query.title(), "max_retries_exceeded"
 
 
 def extract_autocar_images(car_name: str) -> Dict[str, List[Tuple[str, str]]]:
@@ -184,8 +216,16 @@ def extract_autocar_images(car_name: str) -> Dict[str, List[Tuple[str, str]]]:
 
     def search_task(task):
         category, feature = task
-        url, caption = search_feature_image(car_name, feature)
-        return category, url, caption
+        url, caption, status = search_feature_image(car_name, feature)
+        return category, url, caption, status
+
+    # Track failure reasons
+    failure_stats = {
+        "duplicates": 0,
+        "no_results": 0,
+        "rate_limited": 0,
+        "errors": 0
+    }
 
     # Execute searches in parallel (limit to 6 workers)
     with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
@@ -193,15 +233,25 @@ def extract_autocar_images(car_name: str) -> Dict[str, List[Tuple[str, str]]]:
 
         for future in concurrent.futures.as_completed(futures):
             try:
-                category, url, caption = future.result()
-                # Only add if URL exists and hasn't been used before
+                category, url, caption, status = future.result()
+
                 if url and url not in used_urls:
                     results[category].append((url, caption))
-                    used_urls.add(url)  # Mark this URL as used
-            except Exception:
-                pass
+                    used_urls.add(url)
+                elif url and url in used_urls:
+                    failure_stats["duplicates"] += 1
+                elif status == "no_results":
+                    failure_stats["no_results"] += 1
+                elif status == "rate_limited":
+                    failure_stats["rate_limited"] += 1
+                else:
+                    failure_stats["errors"] += 1
 
-    duplicates_skipped = len([f for f in futures]) - sum(len(v) for v in results.values())
+            except Exception:
+                failure_stats["errors"] += 1
+
+    total_found = sum(len(v) for v in results.values())
+    total_failed = sum(failure_stats.values())
 
     print(f"    Found: Hero={len(results['hero'])}, "
           f"Ext={len(results['exterior'])}, "
@@ -209,7 +259,18 @@ def extract_autocar_images(car_name: str) -> Dict[str, List[Tuple[str, str]]]:
           f"Tech={len(results['technology'])}, "
           f"Comfort={len(results['comfort'])}, "
           f"Safety={len(results['safety'])}")
-    if duplicates_skipped > 0:
-        print(f"    Skipped {duplicates_skipped} duplicate images")
+
+    if total_failed > 0:
+        failure_details = []
+        if failure_stats["rate_limited"] > 0:
+            failure_details.append(f"{failure_stats['rate_limited']} rate limited")
+        if failure_stats["no_results"] > 0:
+            failure_details.append(f"{failure_stats['no_results']} no results")
+        if failure_stats["duplicates"] > 0:
+            failure_details.append(f"{failure_stats['duplicates']} duplicates")
+        if failure_stats["errors"] > 0:
+            failure_details.append(f"{failure_stats['errors']} errors")
+
+        print(f"    Skipped {total_failed} images: {', '.join(failure_details)}")
 
     return results
