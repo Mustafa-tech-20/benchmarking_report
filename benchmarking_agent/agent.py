@@ -9,22 +9,22 @@ from google.adk.agents import Agent
 from vertexai.generative_models import GenerativeModel
 
 from benchmarking_agent.config import SIGNED_URL_EXPIRATION_HOURS
-from benchmarking_agent.utils import is_code_car
-from benchmarking_agent.scraper import (
+from benchmarking_agent.utils.helpers import is_code_car
+from benchmarking_agent.core.scraper import (
     scrape_car_data,
     call_custom_search_parallel,
     extract_spec_from_search_results,
 )
-# from benchmarking_agent.sales import scrape_sales_data
-from benchmarking_agent.gcs import save_chart_to_gcs, save_json_to_gcs
-from benchmarking_agent.Internal_Car_tools import (
+# from benchmarking_agent.extraction.sales import scrape_sales_data
+from benchmarking_agent.utils.gcs import save_chart_to_gcs, save_json_to_gcs
+from benchmarking_agent.core.internal_car_tools import (
     add_code_car_specs_tool,
     query_rag_for_code_car_specs,
     create_blank_specs_for_code_car,
     add_code_car_specs_bulk_tool,
     CAR_SPECS,
 )
-from benchmarking_agent.Reports_Frontend import create_comparison_chart_html
+from benchmarking_agent.reports.html_generator import create_comparison_chart_html
 
 
 def generate_comparison_summary(comparison_data: Dict[str, Any]) -> str:
@@ -369,7 +369,7 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
         return car, car_data
 
     # Sequential processing to avoid rate limits
-    print(f"\nProcessing {len(car_list)} cars sequentially (one at a time to avoid rate limits)...")
+    print(f"\nProcessing {len(car_list)} cars sequentially")
     for car in car_list:
         try:
             car_key, car_data = _process_single_car(car)

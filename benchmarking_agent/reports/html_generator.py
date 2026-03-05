@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional
 import json
 import re
 
-from benchmarking_agent.image_sections import (
+from benchmarking_agent.reports.image_sections import (
     generate_hero_section,
     generate_image_gallery_section,
     get_image_section_styles

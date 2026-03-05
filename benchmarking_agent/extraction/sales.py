@@ -4,7 +4,7 @@ from typing import Dict, Any
 
 from vertexai.generative_models import GenerativeModel
 
-from benchmarking_agent.utils import generate_sales_data_urls
+from benchmarking_agent.utils.helpers import generate_sales_data_urls
 
 
 def extract_sales_data_from_url(url: str, car_name: str) -> Dict[str, Any]:

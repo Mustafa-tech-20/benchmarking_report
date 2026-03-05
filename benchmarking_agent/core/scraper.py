@@ -972,7 +972,7 @@ def scrape_car_data_with_custom_search(car_name: str) -> Dict[str, Any]:
 
     # Phase 3: Extract feature-specific images from AutoCarIndia
     try:
-        from benchmarking_agent.autocar_images import extract_autocar_images
+        from benchmarking_agent.extraction.images import extract_autocar_images
         images = extract_autocar_images(car_name)
     except Exception as e:
         print(f"\n  Warning: Image extraction failed - {str(e)}")

@@ -1,6 +1,6 @@
 from typing import Dict, Any, List
 
-from benchmarking_agent.Internal_Car_tools import CAR_SPECS
+from benchmarking_agent.core.internal_car_tools import CAR_SPECS
 
 
 def normalize_car_name_for_url(car_name: str) -> str:

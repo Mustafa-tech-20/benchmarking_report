@@ -192,7 +192,7 @@ def extract_autocar_images(car_name: str) -> Dict[str, List[Tuple[str, str]]]:
         params = {
             "key": GOOGLE_API_KEY,
             "cx": COMPANY_SEARCH_ID,
-            "q": f"{car_name} official exterior",
+            "q": f"{car_name} front three quarter official press image",
             "searchType": "image",
             "num": 2,
             "imgSize": "large",
