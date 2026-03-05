@@ -4,6 +4,12 @@ from typing import Dict, Any, Optional
 import json
 import re
 
+from benchmarking_agent.image_sections import (
+    generate_hero_section,
+    generate_image_gallery_section,
+    get_image_section_styles
+)
+
 
 # ============================================================================
 # ROBUST DATA EXTRACTION HELPERS
@@ -2001,6 +2007,9 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
                 max-width: 100%;
             }}
                 }}
+
+            /* Image Section Styles */
+            {get_image_section_styles()}
             </style>
 </head>
 <body>
@@ -2008,7 +2017,10 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
         <a href="#"><img src="https://www.mahindra.com//sites/default/files/2025-07/mahindra-red-logo.webp" alt="Logo" class="logo"></a>
         <div class="header-actions">
             <nav class="main-nav">
-                <a href="#comparison-section">Comparison</a>
+                <a href="#comparison-section">Specs</a>
+                <a href="#exterior-section">Exterior</a>
+                <a href="#interior-section">Interior</a>
+                <a href="#technology-section">Technology</a>
                 <a href="#analytics-section">Analytics</a>
                 <a href="#review-section">Reviews</a>
                 <a href="#summary-section">Summary</a>
@@ -2017,6 +2029,7 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
             <button class="print-btn" onclick="printReport()">Save as PDF</button>
         </div>
     </header>
+    {generate_hero_section(comparison_data)}
     <div class="container">
         <div class="content">
             <div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M18 18h-2c-1.1 0-2-.9-2-2v-3c0-1.1.9-2 2-2h2c1.1 0 2 .9 2 2v3c0 1.1-.9 2-2 2zM6 18H4c-1.1 0-2-.9-2-2v-3c0-1.1.9-2 2-2h2c1.1 0 2 .9 2 2v3c0 1.1-.9 2-2 2zM17 11V9c0-1.1-.9-2-2-2h-2V5c0-1.1-.9-2-2-2h-2c-1.1 0-2 .9-2 2v2H5c-1.1 0-2 .9-2 2v2h18v-2c0-1.1-.9-2-2-2h-2z"/></svg></div><h2 id="comparison-section">Detailed Specifications</h2></div>
@@ -2030,6 +2043,11 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
                 </div>{features_table}
             </div>
         </div>
+        {generate_image_gallery_section("Exterior Highlights", comparison_data, "exterior", "exterior-section")}
+        {generate_image_gallery_section("Interior Highlights", comparison_data, "interior", "interior-section")}
+        {generate_image_gallery_section("Technology Highlights", comparison_data, "technology", "technology-section")}
+        {generate_image_gallery_section("Comfort Highlights", comparison_data, "comfort", "comfort-section")}
+        {generate_image_gallery_section("Safety Highlights", comparison_data, "safety", "safety-section")}
         <div class="content">
             <div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3v9H3zM9 8h3v13H9zM15 4h3v17h-3zM21 20h-3"/></svg></div><h2 id="analytics-section">Visual Analytics</h2></div>
             <div class="charts-grid">

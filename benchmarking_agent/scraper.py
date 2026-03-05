@@ -131,7 +131,7 @@ BRAND_OFFICIAL_URLS = {
 
 CAR_SPECS = [
     # Basic Info
-    "price_range", "mileage", "user_rating", "seating_capacity",
+    "price_range", "mileage", "user_rating", "seating_capacity", "body_type",
 
     # Engine & Performance
     "performance", "torque", "transmission", "acceleration",
@@ -168,7 +168,7 @@ CAR_SPECS = [
     # Interior & Comfort
     "interior", "climate_control", "seats", "seat_cushion",
     "seat_material", "ventilated_seats", "visibility", "soft_trims",
-    "armrest", "headrest", "egress", "ingress",
+    "armrest", "headrest", "egress", "ingress", "audio_system",
 
     # Features & Tech
     "infotainment_screen", "resolution", "touch_response", "apple_carplay",
@@ -197,6 +197,7 @@ SPEC_KEYWORDS = {
     "mileage": "mileage",
     "user_rating": "rating",
     "seating_capacity": "seating capacity",
+    "body_type": "body type",
     "performance": "power bhp",
     "torque": "torque",
     "transmission": "transmission",
@@ -265,6 +266,7 @@ SPEC_KEYWORDS = {
     "headrest": "headrest",
     "egress": "getting out",
     "ingress": "getting in",
+    "audio_system": "audio system speakers",
     "infotainment_screen": "infotainment screen",
     "resolution": "screen resolution",
     "touch_response": "touchscreen response",
@@ -917,11 +919,27 @@ def scrape_car_data_with_custom_search(car_name: str) -> Dict[str, Any]:
     for spec_name, citation in phase2_result["citations"].items():
         citations[spec_name] = citation
 
+    # Phase 3: Extract feature-specific images from AutoCarIndia
+    try:
+        from benchmarking_agent.autocar_images import extract_autocar_images
+        images = extract_autocar_images(car_name)
+    except Exception as e:
+        print(f"\n  Warning: Image extraction failed - {str(e)}")
+        images = {
+            "hero": [],
+            "exterior": [],
+            "interior": [],
+            "technology": [],
+            "comfort": [],
+            "safety": []
+        }
+
     # Build final car_data
     car_data = {
         "car_name": car_name,
         "method": "Per-Spec Search + AutoCarIndia Fallback",
         "source_urls": [],
+        "images": images,  # Add extracted images
     }
 
     # Collect source URLs
@@ -966,6 +984,84 @@ def scrape_car_data_with_custom_search(car_name: str) -> Dict[str, Any]:
     print(f"{'='*60}\n")
 
     return car_data
+
+
+# ============================================================================
+# IMAGE EXTRACTION
+# ============================================================================
+
+def extract_car_images(car_name: str) -> Dict[str, List[str]]:
+    """
+    Extract car images for different sections using Google Custom Search.
+
+    Returns: {
+        "hero": [url1, url2],  # Main exterior images
+        "exterior": [url1, url2, ...],  # Exterior detail images
+        "interior": [url1, url2, ...],  # Interior images
+        "technology": [url1, url2, ...],  # Tech feature images
+        "comfort": [url1, url2, ...],  # Comfort feature images
+        "safety": [url1, url2, ...]  # Safety feature images
+    }
+    """
+    print(f"\n{'='*60}")
+    print(f"EXTRACTING IMAGES FOR: {car_name}")
+    print(f"{'='*60}\n")
+
+    image_categories = {
+        "hero": f"{car_name} official exterior",
+        "exterior": f"{car_name} exterior details wheels headlights",
+        "interior": f"{car_name} interior dashboard seats",
+        "technology": f"{car_name} infotainment screen digital cluster technology",
+        "comfort": f"{car_name} comfort features seats sunroof",
+        "safety": f"{car_name} safety features airbags ADAS"
+    }
+
+    results = {}
+
+    def search_images(category, query):
+        """Search for images in a specific category."""
+        try:
+            # Add searchType=image for Google Image Search
+            params = {
+                "key": GOOGLE_API_KEY,
+                "cx": SEARCH_ENGINE_ID,
+                "q": query,
+                "searchType": "image",
+                "num": 5,
+                "imgSize": "large",
+                "safe": "active"
+            }
+
+            response = requests.get(CUSTOM_SEARCH_URL, params=params, timeout=15)
+
+            if response.status_code == 200:
+                items = response.json().get("items", [])
+                urls = [item.get("link", "") for item in items if item.get("link")]
+                print(f"  {category.title()}: Found {len(urls)} images")
+                return category, urls[:3]  # Return top 3 images per category
+
+            return category, []
+
+        except Exception as e:
+            print(f"  {category.title()}: Error - {str(e)[:50]}")
+            return category, []
+
+    # Extract images in parallel
+    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+        futures = {
+            executor.submit(search_images, cat, query): cat
+            for cat, query in image_categories.items()
+        }
+
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                category, urls = future.result()
+                results[category] = urls
+            except Exception:
+                pass
+
+    print(f"\n  Image extraction complete!")
+    return results
 
 
 # ============================================================================
