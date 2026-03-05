@@ -126,137 +126,219 @@ def call_gemini_with_retry(prompt: str, model_name: str = "gemini-2.5-flash", ma
 
 
 # Specs that benefit from the official brand/company search engine (precise spec pages)
-# Test results: COMPANY_SEARCH_ID (auto.mahindra.com style) gives better numeric data for these
+# EXPANDED: all specs where official brand/spec sites carry reliable numeric data
 COMPANY_SEARCH_SPECS = {
+    # Objective numeric / feature specs — official sites carry these accurately
     "price_range", "seating_capacity", "infotainment_screen", "boot_space",
-    "braking", "brakes", "vehicle_safety_features", "impact", "telescopic_steering",
-    "turning_radius", "wheelbase", "chasis", "epb", "sunroof", "irvm", "orvm",
-    "window", "alloy_wheel", "tail_lamp", "led", "drl", "lighting",
-    "apple_carplay", "digital_display", "button", "seats_restraint",
+    "braking", "brakes", "vehicle_safety_features", "impact",
+    "telescopic_steering", "turning_radius", "wheelbase", "chasis",
+    "epb", "sunroof", "irvm", "orvm", "window", "alloy_wheel",
+    "tail_lamp", "led", "drl", "lighting", "apple_carplay",
+    "digital_display", "button", "seats_restraint",
     "performance", "torque", "transmission", "acceleration",
+    # Newly added — confirmed present on official spec pages
+    "mileage", "ground_clearance", "fuel_tank", "engine_displacement",
+    "tyre_size", "wheel_size", "suspension_front", "suspension_rear",
+    "kerb_weight", "airbags", "adas", "ncap_rating",
+    "cruise_control", "parking_sensors", "parking_camera",
+    "climate_control", "ventilated_seats", "seat_material",
+    "fuel_type", "drive_type", "number_of_gears",
 }
 
-# 87 specs with targeted search keywords.
-# Kept concise — Google Custom Search degrades with very long queries (>6-7 words).
-# COMPANY_SEARCH_SPECS use these against the official brand site first (best for objective data).
-# All other specs use SEARCH_ENGINE_ID directly (review/subjective content).
+# OPTIMISED QUERIES: match exact terminology on official spec pages
+# Rule: ≤6 words; use labels that appear verbatim on brand/spec sites
 SPEC_QUERIES = {
     # Basic Info
-    "price_range":          "price on-road all variants",
-    "mileage":              "ARAI mileage fuel efficiency kmpl",
-    "user_rating":          "user rating owner review score",
-    "seating_capacity":     "seating capacity specifications",
+    "price_range":          "price variants ex-showroom lakh",
+    "mileage":              "mileage kmpl fuel economy",
+    "user_rating":          "user rating owner review",
+    "seating_capacity":     "seating capacity passengers",
 
     # Engine & Performance
-    "performance":          "engine power bhp specifications",
-    "torque":               "torque Nm engine specifications",
-    "transmission":         "gearbox manual automatic specifications",
-    "acceleration":         "0-100 kmph acceleration performance",
+    "performance":          "max engine power bhp kW",
+    "torque":               "max engine torque Nm",
+    "transmission":         "gearbox type manual automatic",
+    "acceleration":         "0-100 kmph seconds performance",
+
+    "engine_displacement":  "engine displacement cc cubic",
+    "fuel_type":            "fuel type petrol diesel",
+    "number_of_gears":      "number gears forward",
+    "drive_type":           "drive layout 4WD AWD FWD",
 
     # Braking & Safety
-    "braking":              "disc brake specifications front rear",
+    "braking":              "front rear disc brakes specifications",
     "brakes":               "ABS EBD brake assist safety",
     "brake_performance":    "braking distance stopping test",
-    "vehicle_safety_features": "safety features airbags ADAS NCAP",
-    "impact":               "crash test NCAP safety rating stars",
+    "vehicle_safety_features": "airbags ADAS safety features",
+    "impact":               "NCAP BNCAP crash rating stars",
+    "airbags":              "number airbags safety",
+    "adas":                 "ADAS driver assist features",
+    "ncap_rating":          "NCAP BNCAP safety rating stars",
 
     # Steering & Handling
-    "steering":             "steering feel EPS review",
-    "telescopic_steering":  "tilt telescopic steering specifications",
-    "turning_radius":       "turning radius meters specifications",
-    "stability":            "high speed stability highway review",
-    "corner_stability":     "cornering handling body roll review",
-    "straight_ahead_stability": "straight line stability highway review",
+    "steering":             "steering EPS electric power",
+    "telescopic_steering":  "tilt telescopic steering column",
+    "turning_radius":       "turning radius circle meters",
+    "stability":            "high speed stability highway",
+    "corner_stability":     "cornering handling body roll",
+    "straight_ahead_stability": "straight line stability tracking",
 
     # Ride & Suspension
     "ride":                 "ride quality suspension review",
-    "ride_quality":         "ride quality road test review",
-    "stiff_on_pot_holes":   "pothole ride stiffness suspension review",
-    "bumps":                "bump absorption suspension review",
-    "shocks":               "suspension dampers ride review",
+    "ride_quality":         "ride comfort suspension road test",
+    "stiff_on_pot_holes":   "suspension pothole stiffness review",
+    "bumps":                "bump absorption rough road review",
+    "shocks":               "dampers suspension setup review",
+    "suspension_front":     "front suspension type wishbone",
+    "suspension_rear":      "rear suspension type multilink",
 
-    # NVH (Noise Vibration Harshness)
-    "nvh":                  "cabin refinement noise vibration review",
-    "powertrain_nvh":       "engine noise vibration refinement review",
-    "wind_nvh":             "wind noise cabin highway review",
+    # NVH
+    "nvh":                  "cabin noise vibration refinement review",
+    "powertrain_nvh":       "engine noise vibration refinement",
+    "wind_nvh":             "wind noise highway cabin review",
     "road_nvh":             "road tyre noise cabin review",
     "wind_noise":           "wind noise highway speed review",
     "tire_noise":           "tyre road noise cabin review",
-    "turbo_noise":          "turbo whistle diesel noise review",
+    "turbo_noise":          "turbo noise diesel review",
 
     # Transmission Feel
-    "manual_transmission_performance": "manual gearbox shift quality review",
-    "automatic_transmission_performance": "automatic gearbox smooth shifts review",
+    "manual_transmission_performance": "manual gearbox shift quality",
+    "automatic_transmission_performance": "automatic gearbox smooth shifts",
     "pedal_operation":      "clutch pedal feel review",
-    "gear_shift":           "gear shift quality smooth review",
-    "gear_selection":       "gear lever feel precision review",
+    "gear_shift":           "gear shift quality review",
+    "gear_selection":       "gear lever feel review",
     "pedal_travel":         "pedal travel stroke review",
     "crawl":                "low speed crawl traffic review",
 
     # Driving Dynamics
-    "driveability":         "daily driving city ease review",
-    "performance_feel":     "driving feel sporty responsive review",
-    "city_performance":     "city driving urban mileage review",
-    "highway_performance":  "highway cruising stability overtaking review",
-    "off_road":             "off-road 4x4 ground clearance capability",
-    "manoeuvring":          "parking manoeuvring u-turn ease review",
+    "driveability":         "city driving ease review",
+    "performance_feel":     "driving feel responsive sporty",
+    "city_performance":     "city driving urban review",
+    "highway_performance":  "highway cruising stability review",
+    "off_road":             "off-road 4x4 capability ground",
+    "manoeuvring":          "parking manoeuvring u-turn review",
 
-    # Vibration & Feel Issues
-    "jerks":                "jerky acceleration power delivery review",
-    "pulsation":            "brake pulsation vibration pedal review",
+    # Vibration Issues
+    "jerks":                "jerky acceleration delivery review",
+    "pulsation":            "brake pulsation pedal review",
     "shakes":               "steering vibration shimmy review",
-    "shudder":              "shudder vibration acceleration review",
-    "grabby":               "brake grab feel progressive review",
-    "spongy":               "brake pedal spongy firm review",
-    "rattle":               "rattle squeak creak cabin review",
+    "shudder":              "shudder vibration review",
+    "grabby":               "brake grab feel review",
+    "spongy":               "brake pedal spongy review",
+    "rattle":               "rattle squeak cabin review",
 
     # Interior & Comfort
-    "interior":             "interior quality materials fit finish",
-    "climate_control":      "AC climate control cooling features",
-    "seats":                "seat comfort cushioning support review",
-    "seat_cushion":         "seat cushion comfort thigh support review",
-    "visibility":           "visibility pillars blind spots review",
-    "soft_trims":           "soft touch dashboard materials review",
-    "armrest":              "armrest console comfort review",
-    "headrest":             "headrest adjustable comfort review",
+    "interior":             "interior quality materials finish",
+    "climate_control":      "climate control AC specifications",
+    "seats":                "seat comfort support review",
+    "seat_cushion":         "seat cushion thigh support review",
+    "seat_material":        "seat material leatherette leather",
+    "ventilated_seats":     "ventilated cooled seats specifications",
+    "visibility":           "visibility pillars blind spots",
+    "soft_trims":           "dashboard soft touch materials",
+    "armrest":              "armrest console review",
+    "headrest":             "headrest adjustable specifications",
     "egress":               "getting out exit ease review",
     "ingress":              "getting in entry ease review",
 
     # Features & Tech
-    "infotainment_screen":  "infotainment touchscreen size specifications",
-    "resolution":           "screen display resolution quality",
-    "touch_response":       "touchscreen response interface review",
-    "apple_carplay":        "Apple CarPlay Android Auto features",
-    "digital_display":      "digital cluster instrument display",
-    "button":               "physical buttons controls features",
+    "infotainment_screen":  "infotainment touchscreen inch size",
+    "resolution":           "display screen resolution",
+    "touch_response":       "touchscreen response review",
+    "apple_carplay":        "Apple CarPlay Android Auto",
+    "digital_display":      "digital instrument cluster display",
+    "button":               "physical buttons controls",
+    "cruise_control":       "cruise control adaptive specifications",
+    "parking_sensors":      "parking sensors front rear",
+    "parking_camera":       "parking camera 360 degree",
 
     # Exterior & Lighting
-    "lighting":             "headlights LED beam specifications",
-    "led":                  "LED headlamp tail lamp specifications",
+    "lighting":             "LED headlamp projector specifications",
+    "led":                  "LED headlamp tail lamp",
     "drl":                  "DRL daytime running lights",
-    "tail_lamp":            "tail lamp LED design specifications",
+    "tail_lamp":            "tail lamp LED design",
     "alloy_wheel":          "alloy wheels size specifications",
+    "tyre_size":            "tyre size front rear specifications",
+    "wheel_size":           "wheel size inch specifications",
 
     # Convenience Features
-    "sunroof":              "sunroof panoramic specifications features",
+    "sunroof":              "sunroof panoramic specifications",
     "irvm":                 "IRVM auto dimming specifications",
-    "orvm":                 "ORVM electric folding specifications",
-    "window":               "power windows one touch specifications",
-    "wiper_control":        "rain sensing wiper features",
-    "parking":              "parking sensors camera 360 degree",
-    "epb":                  "electronic parking brake auto hold",
+    "orvm":                 "ORVM electric fold adjust",
+    "window":               "power windows one touch",
+    "wiper_control":        "rain sensing wiper",
+    "parking":              "parking sensors camera 360",
+    "epb":                  "electronic parking brake hold",
     "door_effort":          "door quality feel review",
 
     # Dimensions & Space
-    "boot_space":           "boot space litres specifications",
-    "wheelbase":            "wheelbase dimensions mm specifications",
-    "chasis":               "chassis frame platform specifications",
+    "boot_space":           "boot capacity litres specifications",
+    "wheelbase":            "wheelbase mm specifications",
+    "chasis":               "chassis platform specifications",
+    "ground_clearance":     "ground clearance mm specifications",
+    "fuel_tank":            "fuel tank capacity litres",
+    "kerb_weight":          "kerb weight kg specifications",
 
     # Other
     "blower_noise":         "AC blower noise fan review",
     "response":             "throttle response pickup review",
     "sensitivity":          "steering throttle sensitivity review",
-    "seats_restraint":      "seatbelt ISOFIX safety specifications",
+    "seats_restraint":      "seatbelt ISOFIX specifications",
+}
+
+
+# COMPREHENSIVE FORMAT HINTS for extraction prompts
+FORMAT_HINTS = {
+    "price_range":          "₹X.XX–Y.YY Lakh (e.g. ₹12.39–22.25 Lakh)",
+    "mileage":              "X.X kmpl (e.g. 15.2 kmpl)",
+    "user_rating":          "X.X/5 (e.g. 4.2/5)",
+    "seating_capacity":     "X Seater (e.g. 5 Seater)",
+    "performance":          "XXX bhp @ XXXX rpm (e.g. 175 bhp @ 3500 rpm)",
+    "torque":               "XXX Nm (e.g. 370 Nm)",
+    "transmission":         "X-speed type (e.g. 6-speed MT / 6-speed AT)",
+    "acceleration":         "X.X sec 0–100 (e.g. 11.2 sec)",
+    "engine_displacement":  "XXXX cc (e.g. 2198 cc)",
+    "fuel_type":            "Petrol / Diesel / Petrol+Diesel",
+    "number_of_gears":      "X-speed (e.g. 6-speed)",
+    "drive_type":           "FWD / RWD / AWD / 4WD",
+    "braking":              "Front disc rear disc/drum (e.g. front ventilated disc, rear disc)",
+    "brakes":               "ABS + EBD + BA (e.g. ABS, EBD, Brake Assist)",
+    "brake_performance":    "XX m stopping from 100 (e.g. 38.5 m)",
+    "vehicle_safety_features": "X airbags, ADAS, NCAP stars (e.g. 6 airbags, BNCAP 5-star)",
+    "impact":               "X-star NCAP/BNCAP (e.g. 5-star BNCAP)",
+    "airbags":              "X airbags (e.g. 6 airbags)",
+    "adas":                 "Features list (e.g. AEB, FCW, BSM, LDW)",
+    "ncap_rating":          "X stars BNCAP/GNCAP (e.g. 5-star BNCAP)",
+    "steering":             "Type + feel (e.g. EPS, light and precise)",
+    "telescopic_steering":  "Tilt + telescopic / Tilt only",
+    "turning_radius":       "X.X m (e.g. 5.3 m)",
+    "suspension_front":     "Type (e.g. Independent Double Wishbone)",
+    "suspension_rear":      "Type (e.g. Multi-link, Torsion beam)",
+    "boot_space":           "XXX litres (e.g. 447 litres)",
+    "wheelbase":            "XXXX mm (e.g. 2850 mm)",
+    "ground_clearance":     "XXX mm (e.g. 235 mm)",
+    "fuel_tank":            "XX litres (e.g. 57 litres)",
+    "kerb_weight":          "XXXX kg (e.g. 1750 kg)",
+    "tyre_size":            "XXX/XX RXX (e.g. 255/60 R19)",
+    "wheel_size":           "XX inch (e.g. 19 inch)",
+    "alloy_wheel":          "XX inch alloys (e.g. 19-inch alloy wheels)",
+    "infotainment_screen":  "X.XX inch touchscreen (e.g. 10.25 inch)",
+    "digital_display":      "X.XX inch cluster (e.g. 10.25 inch digital cluster)",
+    "apple_carplay":        "Yes/No (e.g. Wireless CarPlay + Android Auto)",
+    "sunroof":              "Type (e.g. Panoramic sunroof / Sunroof)",
+    "climate_control":      "Type (e.g. Auto climate control / Dual zone)",
+    "ventilated_seats":     "Yes/No + details (e.g. Front ventilated seats)",
+    "seat_material":        "Material (e.g. Leatherette / Leather / Fabric)",
+    "parking_sensors":      "Position (e.g. Front and Rear)",
+    "parking_camera":       "Type (e.g. 360-degree camera)",
+    "cruise_control":       "Type (e.g. Adaptive Cruise Control / Cruise Control)",
+    "epb":                  "Yes/No + auto hold (e.g. EPB with Auto Hold)",
+    "orvm":                 "Electric fold + adjust (e.g. Electric ORVM with auto fold)",
+    "irvm":                 "Auto-dimming / Manual (e.g. Auto-dimming IRVM)",
+    "led":                  "Yes/No + type (e.g. Full LED headlamps + tail lamps)",
+    "drl":                  "Yes/No + type (e.g. C-shaped LED DRL)",
+    "nvh":                  "Short description (e.g. Well-insulated, minimal road noise)",
+    "ride_quality":         "Short description (e.g. Comfortable highway, stiff on potholes)",
 }
 
 
@@ -467,28 +549,9 @@ def extract_spec_value(spec_name: str, search_data: dict, car_name: str) -> dict
     ]
 
     # Combine all snippets for richer context
-    context = "\n\n".join([f"[{r.get('domain', '')}] {r.get('title', '')}\n{r.get('snippet', '')}" for r in results])
+    context = "\n\n".join([f"[{r.get('domain', '')}] {r.get('title', '')}\n{r.get('snippet', '')}" for r in results[:8]])
 
-    # Spec-specific format hints with examples
-    format_hints = {
-        "price_range": "₹X.XX Lakh onwards OR ₹X-Y Lakh (e.g., ₹11.35-17.19 Lakh)",
-        "mileage": "X.X kmpl (e.g., 15.2 kmpl, 12-18 kmpl)",
-        "user_rating": "X.X/5 or X stars (e.g., 4.2/5)",
-        "seating_capacity": "X Seater (e.g., 5 Seater)",
-        "performance": "XXX bhp (e.g., 150 bhp, 130 bhp / 300 Nm)",
-        "torque": "XXX Nm (e.g., 300 Nm)",
-        "transmission": "Type + speed (e.g., 6-speed Manual, Automatic CVT)",
-        "acceleration": "X.X seconds (0-100) (e.g., 10.2 seconds)",
-        "turning_radius": "X.X meters (e.g., 5.3 meters)",
-        "boot_space": "XXX litres (e.g., 420 litres)",
-        "wheelbase": "XXXX mm (e.g., 2750 mm)",
-        "nvh": "Description (e.g., well insulated, refined cabin, noticeable engine noise)",
-        "ride_quality": "Description (e.g., comfortable, stiff on rough roads, plush ride)",
-        "steering": "Type + feel (e.g., electric power steering, light and precise)",
-        "braking": "Type (e.g., disc/drum, front disc rear drum, 4-wheel disc)",
-    }
-
-    format_hint = format_hints.get(spec_name, "concise value with units if applicable")
+    format_hint = FORMAT_HINTS.get(spec_name, "concise value with units")
     human_name = spec_name.replace('_', ' ').title()
 
     prompt = f"""Extract "{human_name}" for {car_name} from these search results.
@@ -497,22 +560,12 @@ SEARCH RESULTS:
 {context}
 
 INSTRUCTIONS:
-1. Find information about {human_name} for {car_name}
-2. Return ONLY the extracted value
-3. Maximum 15 words
-4. Include units where applicable
-5. Format hint: {format_hint}
-
-EXAMPLES of good responses:
-- "₹11.35-17.19 Lakh"
-- "15.2 kmpl"
-- "4.2/5"
-- "6-speed Manual / 6-speed AT"
-- "150 bhp / 300 Nm"
-- "Well insulated cabin, minimal NVH"
-- "Comfortable on highways, stiff on rough roads"
-
-If information is genuinely NOT in the search results, return: "Not found"
+- Return ONLY the extracted value (≤15 words, include units)
+- Format: {format_hint}
+- Official spec pages use labels like: "Max Engine Power", "Boot Capacity",
+  "Ground Clearance", "Wheelbase", "Mileage", "Fuel Tank Capacity",
+  "Front Suspension Type", "Kerb Weight", "Tyre Size"
+- If the value is not present in the results, return exactly: Not found
 
 VALUE:"""
 
@@ -747,7 +800,7 @@ def bulk_extract_specs(car_name: str, search_results: List[dict], specs_to_extra
 
     specs_list = "\n".join(specs_list_parts)
 
-    # IMPROVED: Better prompt with line-by-line output format (easier than JSON)
+    # IMPROVED: Better prompt with official spec page terminology
     prompt = f"""Extract specifications for the {car_name} from the search results below.
 
 SEARCH RESULTS:
@@ -758,10 +811,13 @@ SPECIFICATIONS TO EXTRACT:
 
 INSTRUCTIONS:
 - Extract ONLY information explicitly stated in the search results
+- Official spec pages use labels like: "Max Engine Power", "Boot Capacity",
+  "Ground Clearance", "Wheelbase", "Mileage", "Fuel Tank Capacity",
+  "Front Suspension Type", "Rear Suspension Type", "Kerb Weight", "Tyre Size"
 - Return answer in this EXACT format for each spec (one per line):
   spec_name: extracted_value
 - Keep values concise (max 15 words)
-- Include units where applicable (bhp, Nm, kmpl, Lakh, etc.)
+- Include units where applicable (bhp, Nm, kmpl, Lakh, mm, litres, kg, etc.)
 - If a spec is NOT found in the search results, write: spec_name: Not found
 - DO NOT make up or infer values
 - DO NOT include any explanations or notes
@@ -769,14 +825,17 @@ INSTRUCTIONS:
 GOOD EXAMPLES:
 price_range: ₹11.35-17.19 Lakh
 mileage: 15.2 kmpl
-performance: 150 bhp
+performance: 150 bhp @ 3500 rpm
 torque: 300 Nm
 seating_capacity: 5 Seater
 transmission: 6-speed Manual / 6-speed Automatic
+ground_clearance: 235 mm
+fuel_tank: 57 litres
+wheelbase: 2850 mm
+tyre_size: 255/60 R19
+suspension_front: Independent Double Wishbone
 nvh: Well insulated cabin, minimal road noise
 ride_quality: Comfortable on highways, stiff on rough roads
-braking: Front disc, rear drum
-steering: Electric power steering, light feel
 
 NOW EXTRACT (one spec per line):"""
 
