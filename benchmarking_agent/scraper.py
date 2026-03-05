@@ -13,6 +13,7 @@ Enhanced pipeline v3 with IMPROVED ACCURACY:
 - IMPROVED: Validation layer for extracted values
 """
 import json
+import json_repair
 import time
 import random
 import requests
@@ -22,18 +23,16 @@ from functools import wraps
 
 from vertexai.generative_models import GenerativeModel, GenerationConfig, Tool
 try:
-    from vertexai.preview import generative_models as grounding
-except ImportError:
-    try:
-        from vertexai.generative_models import grounding
-    except ImportError:
-        # Fallback: create a simple grounding wrapper
-        class grounding:
-            @staticmethod
-            def GoogleSearchRetrieval(**kwargs):
-                return None
+    from google.cloud.aiplatform_v1beta1.types import tool as _beta_tool_types
 
-from benchmarking_agent.config import GOOGLE_API_KEY, SEARCH_ENGINE_ID, CUSTOM_SEARCH_URL, SEARCH_SITES
+    def _make_google_search_tool():
+        raw = _beta_tool_types.Tool(google_search=_beta_tool_types.Tool.GoogleSearch())
+        return Tool._from_gapic(raw_tool=raw)
+
+except Exception:
+    _make_google_search_tool = None  # type: ignore
+
+from benchmarking_agent.config import GOOGLE_API_KEY, SEARCH_ENGINE_ID, COMPANY_SEARCH_ID, CUSTOM_SEARCH_URL, SEARCH_SITES
 
 
 # SIMPLIFIED: Per-spec search approach (1 spec = 1 query)
@@ -126,124 +125,138 @@ def call_gemini_with_retry(prompt: str, model_name: str = "gemini-2.5-flash", ma
     raise last_error
 
 
-# 87 specs with targeted search keywords (from car_search.py)
+# Specs that benefit from the official brand/company search engine (precise spec pages)
+# Test results: COMPANY_SEARCH_ID (auto.mahindra.com style) gives better numeric data for these
+COMPANY_SEARCH_SPECS = {
+    "price_range", "seating_capacity", "infotainment_screen", "boot_space",
+    "braking", "brakes", "vehicle_safety_features", "impact", "telescopic_steering",
+    "turning_radius", "wheelbase", "chasis", "epb", "sunroof", "irvm", "orvm",
+    "window", "alloy_wheel", "tail_lamp", "led", "drl", "lighting",
+    "apple_carplay", "digital_display", "button", "seats_restraint",
+    "performance", "torque", "transmission", "acceleration",
+}
+
+# 87 specs with targeted search keywords.
+# Kept concise — Google Custom Search degrades with very long queries (>6-7 words).
+# COMPANY_SEARCH_SPECS use these against the official brand site first (best for objective data).
+# All other specs use SEARCH_ENGINE_ID directly (review/subjective content).
 SPEC_QUERIES = {
     # Basic Info
-    "price_range": "price ex-showroom on-road cost variants lakh",
-    "mileage": "mileage fuel efficiency kmpl ARAI certified real world",
-    "user_rating": "user rating owner review score stars out of 5",
-    "seating_capacity": "seating capacity seats passengers seater",
+    "price_range":          "price on-road all variants",
+    "mileage":              "ARAI mileage fuel efficiency kmpl",
+    "user_rating":          "user rating owner review score",
+    "seating_capacity":     "seating capacity specifications",
 
     # Engine & Performance
-    "performance": "engine power bhp hp horsepower specs kW",
-    "torque": "torque Nm engine pulling power peak",
-    "transmission": "transmission gearbox manual automatic 6-speed DCT CVT",
-    "acceleration": "acceleration 0-100 kmph seconds sprint time",
+    "performance":          "engine power bhp specifications",
+    "torque":               "torque Nm engine specifications",
+    "transmission":         "gearbox manual automatic specifications",
+    "acceleration":         "0-100 kmph acceleration performance",
 
     # Braking & Safety
-    "braking": "braking system disc drum front rear caliper",
-    "brakes": "ABS EBD brake assist emergency braking system",
-    "brake_performance": "braking distance stopping power test 100-0",
-    "vehicle_safety_features": "safety features airbags ADAS NCAP rating ESP",
-    "impact": "crash test safety rating NCAP stars adult child",
+    "braking":              "disc brake specifications front rear",
+    "brakes":               "ABS EBD brake assist safety",
+    "brake_performance":    "braking distance stopping test",
+    "vehicle_safety_features": "safety features airbags ADAS NCAP",
+    "impact":               "crash test NCAP safety rating stars",
 
     # Steering & Handling
-    "steering": "steering feel weight electric hydraulic EPS feedback",
-    "telescopic_steering": "tilt telescopic steering adjustment column",
-    "turning_radius": "turning radius circle meters kerb to kerb",
-    "stability": "high speed stability highway cruising 120 kmph",
-    "corner_stability": "cornering handling curves grip body roll",
-    "straight_ahead_stability": "straight line stability highway tracking",
+    "steering":             "steering feel EPS review",
+    "telescopic_steering":  "tilt telescopic steering specifications",
+    "turning_radius":       "turning radius meters specifications",
+    "stability":            "high speed stability highway review",
+    "corner_stability":     "cornering handling body roll review",
+    "straight_ahead_stability": "straight line stability highway review",
 
     # Ride & Suspension
-    "ride": "ride quality comfort suspension setup feel",
-    "ride_quality": "ride comfort smooth rough roads bumpy surfaces",
-    "stiff_on_pot_holes": "pothole absorption suspension stiffness harsh impact",
-    "bumps": "bump absorption rough road handling speed breaker",
-    "shocks": "suspension setup dampers ride comfort absorbers",
+    "ride":                 "ride quality suspension review",
+    "ride_quality":         "ride quality road test review",
+    "stiff_on_pot_holes":   "pothole ride stiffness suspension review",
+    "bumps":                "bump absorption suspension review",
+    "shocks":               "suspension dampers ride review",
 
     # NVH (Noise Vibration Harshness)
-    "nvh": "NVH noise vibration harshness levels cabin insulation",
-    "powertrain_nvh": "engine noise vibration refinement idle clatter",
-    "wind_nvh": "wind noise cabin insulation highway speeds sealing",
-    "road_nvh": "road noise tyre noise cabin quiet insulation",
-    "wind_noise": "wind noise highway speeds aerodynamic 100 120 kmph",
-    "tire_noise": "tyre noise road surface cabin rubber pattern",
-    "turbo_noise": "turbo whistle sound diesel turbocharger boost",
+    "nvh":                  "cabin refinement noise vibration review",
+    "powertrain_nvh":       "engine noise vibration refinement review",
+    "wind_nvh":             "wind noise cabin highway review",
+    "road_nvh":             "road tyre noise cabin review",
+    "wind_noise":           "wind noise highway speed review",
+    "tire_noise":           "tyre road noise cabin review",
+    "turbo_noise":          "turbo whistle diesel noise review",
 
     # Transmission Feel
-    "manual_transmission_performance": "manual gearbox shift quality clutch notchy smooth",
-    "automatic_transmission_performance": "automatic gearbox smooth shifts response torque converter",
-    "pedal_operation": "clutch pedal feel light heavy travel range",
-    "gear_shift": "gear shift quality notchy smooth slick throw",
-    "gear_selection": "gear lever throw precision feel slot gate",
-    "pedal_travel": "pedal travel stroke accelerator brake clutch",
-    "crawl": "low speed crawl traffic driving creep mode",
+    "manual_transmission_performance": "manual gearbox shift quality review",
+    "automatic_transmission_performance": "automatic gearbox smooth shifts review",
+    "pedal_operation":      "clutch pedal feel review",
+    "gear_shift":           "gear shift quality smooth review",
+    "gear_selection":       "gear lever feel precision review",
+    "pedal_travel":         "pedal travel stroke review",
+    "crawl":                "low speed crawl traffic review",
 
     # Driving Dynamics
-    "driveability": "driveability daily driving city traffic ease",
-    "performance_feel": "driving feel sporty responsive quick agile",
-    "city_performance": "city driving traffic mileage fuel efficiency urban",
-    "highway_performance": "highway driving cruising stability overtaking",
-    "off_road": "off-road capability 4x4 terrain modes ground clearance",
-    "manoeuvring": "manoeuvring tight spaces parking u-turn ease",
+    "driveability":         "daily driving city ease review",
+    "performance_feel":     "driving feel sporty responsive review",
+    "city_performance":     "city driving urban mileage review",
+    "highway_performance":  "highway cruising stability overtaking review",
+    "off_road":             "off-road 4x4 ground clearance capability",
+    "manoeuvring":          "parking manoeuvring u-turn ease review",
 
     # Vibration & Feel Issues
-    "jerks": "jerky acceleration smooth power delivery judder",
-    "pulsation": "brake pulsation vibration pedal judder disc",
-    "shakes": "steering shake vibration wheels shimmy",
-    "shudder": "shudder vibration acceleration braking clutch",
-    "grabby": "brake grabbiness initial bite feel progressive",
-    "spongy": "brake pedal spongy firm feel travel",
-    "rattle": "rattle squeak creak cabin quality build noise",
+    "jerks":                "jerky acceleration power delivery review",
+    "pulsation":            "brake pulsation vibration pedal review",
+    "shakes":               "steering vibration shimmy review",
+    "shudder":              "shudder vibration acceleration review",
+    "grabby":               "brake grab feel progressive review",
+    "spongy":               "brake pedal spongy firm review",
+    "rattle":               "rattle squeak creak cabin review",
 
     # Interior & Comfort
-    "interior": "interior quality materials fit finish plastics leather",
-    "climate_control": "AC climate control cooling heating automatic dual zone",
-    "seats": "seat comfort cushioning support bolstering contour",
-    "seat_cushion": "seat cushion foam density soft firm thigh support",
-    "visibility": "visibility windshield pillars blind spots IRVM view",
-    "soft_trims": "soft touch materials dashboard quality premium feel",
-    "armrest": "armrest center console comfort storage elbow rest",
-    "headrest": "headrest comfort adjustable support height angle",
-    "egress": "egress exit getting out ease door opening",
-    "ingress": "ingress entry getting in ease step height",
+    "interior":             "interior quality materials fit finish",
+    "climate_control":      "AC climate control cooling features",
+    "seats":                "seat comfort cushioning support review",
+    "seat_cushion":         "seat cushion comfort thigh support review",
+    "visibility":           "visibility pillars blind spots review",
+    "soft_trims":           "soft touch dashboard materials review",
+    "armrest":              "armrest console comfort review",
+    "headrest":             "headrest adjustable comfort review",
+    "egress":               "getting out exit ease review",
+    "ingress":              "getting in entry ease review",
 
     # Features & Tech
-    "infotainment_screen": "infotainment touchscreen display size inch resolution",
-    "resolution": "screen resolution display quality clarity pixels HD",
-    "touch_response": "touchscreen response lag smooth interface speed",
-    "apple_carplay": "Apple CarPlay Android Auto wireless wired",
-    "digital_display": "digital cluster instrument display TFT screen",
-    "button": "physical buttons controls tactile knobs switches",
+    "infotainment_screen":  "infotainment touchscreen size specifications",
+    "resolution":           "screen display resolution quality",
+    "touch_response":       "touchscreen response interface review",
+    "apple_carplay":        "Apple CarPlay Android Auto features",
+    "digital_display":      "digital cluster instrument display",
+    "button":               "physical buttons controls features",
 
     # Exterior & Lighting
-    "lighting": "headlights LED projector beam pattern throw range",
-    "led": "LED lights headlamp tail lamp DRL indicators",
-    "drl": "DRL daytime running lights LED signature design",
-    "tail_lamp": "tail lamp rear lights LED design signature",
-    "alloy_wheel": "alloy wheels size design inch 18 19 diamond cut",
+    "lighting":             "headlights LED beam specifications",
+    "led":                  "LED headlamp tail lamp specifications",
+    "drl":                  "DRL daytime running lights",
+    "tail_lamp":            "tail lamp LED design specifications",
+    "alloy_wheel":          "alloy wheels size specifications",
 
     # Convenience Features
-    "sunroof": "sunroof panoramic moonroof glass roof electric",
-    "irvm": "IRVM inside rear view mirror auto dimming electro",
-    "orvm": "ORVM outside mirror electric folding auto heated",
-    "window": "power windows one touch auto up down",
-    "wiper_control": "wiper rain sensing automatic intermittent",
-    "parking": "parking sensors camera 360 degree rear front",
-    "epb": "electronic parking brake EPB auto hold hill",
-    "door_effort": "door operation effort quality feel weight thud",
+    "sunroof":              "sunroof panoramic specifications features",
+    "irvm":                 "IRVM auto dimming specifications",
+    "orvm":                 "ORVM electric folding specifications",
+    "window":               "power windows one touch specifications",
+    "wiper_control":        "rain sensing wiper features",
+    "parking":              "parking sensors camera 360 degree",
+    "epb":                  "electronic parking brake auto hold",
+    "door_effort":          "door quality feel review",
 
     # Dimensions & Space
-    "boot_space": "boot space luggage capacity litres liters trunk",
-    "wheelbase": "wheelbase length dimensions mm millimeter",
-    "chasis": "chassis frame platform ladder monocoque construction",
+    "boot_space":           "boot space litres specifications",
+    "wheelbase":            "wheelbase dimensions mm specifications",
+    "chasis":               "chassis frame platform specifications",
 
     # Other
-    "blower_noise": "AC blower noise fan sound cabin loud speed",
-    "response": "throttle response accelerator pickup lag turbo",
-    "sensitivity": "controls sensitivity steering throttle brake feel",
-    "seats_restraint": "seatbelt pretensioner ISOFIX child safety load limiter",
+    "blower_noise":         "AC blower noise fan review",
+    "response":             "throttle response pickup review",
+    "sensitivity":          "steering throttle sensitivity review",
+    "seats_restraint":      "seatbelt ISOFIX safety specifications",
 }
 
 
@@ -372,55 +385,63 @@ ALT_KEYWORDS = {
 CAR_SPECS = list(SPEC_QUERIES.keys())
 
 
-def custom_search(query: str, spec_name: str) -> dict:
-    """Execute a single Custom Search API call with exponential backoff."""
+def _do_search(cx: str, query: str, spec_name: str) -> list:
+    """Execute one Custom Search API call, return list of result dicts."""
     params = {
         "key": GOOGLE_API_KEY,
-        "cx": SEARCH_ENGINE_ID,
+        "cx": cx,
         "q": query,
         "num": SEARCH_RESULTS_PER_SPEC,
     }
-
     last_error = None
     for attempt in range(MAX_RETRIES):
         try:
             response = requests.get(CUSTOM_SEARCH_URL, params=params, timeout=15)
-
             if response.status_code == 200:
-                data = response.json()
-                items = data.get("items", [])
-                results = [{
+                return [{
                     "title": item.get("title", ""),
                     "snippet": item.get("snippet", ""),
                     "domain": item.get("displayLink", ""),
                     "url": item.get("link", ""),
-                } for item in items]
-                return {"spec": spec_name, "results": results, "query": query}
-
+                } for item in response.json().get("items", [])]
             elif response.status_code in [429, 500, 503]:
-                # Retryable errors
                 last_error = f"HTTP {response.status_code}"
                 if attempt < MAX_RETRIES - 1:
-                    delay = min(BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), MAX_DELAY)
-                    time.sleep(delay)
-                continue
+                    time.sleep(min(BASE_DELAY * (2 ** attempt) + random.uniform(0, 1), MAX_DELAY))
             else:
-                return {"spec": spec_name, "results": [], "error": f"HTTP {response.status_code}"}
-
+                return []
         except requests.exceptions.Timeout:
             last_error = "Timeout"
             if attempt < MAX_RETRIES - 1:
-                delay = min(BASE_DELAY * (2 ** attempt), MAX_DELAY)
-                time.sleep(delay)
-            continue
+                time.sleep(min(BASE_DELAY * (2 ** attempt), MAX_DELAY))
         except Exception as e:
             last_error = str(e)
             if attempt < MAX_RETRIES - 1:
-                delay = min(BASE_DELAY * (2 ** attempt), MAX_DELAY)
-                time.sleep(delay)
-            continue
+                time.sleep(min(BASE_DELAY * (2 ** attempt), MAX_DELAY))
+    return []
 
-    return {"spec": spec_name, "results": [], "error": last_error or "Max retries exceeded"}
+
+def custom_search(query: str, spec_name: str) -> dict:
+    """Search using COMPANY_SEARCH_ID first (for objective specs), fallback to SEARCH_ENGINE_ID.
+
+    Strategy based on test results:
+    - COMPANY_SEARCH_ID (official brand sites) gives precise spec data for objective specs
+    - SEARCH_ENGINE_ID (multi-domain automotive) gives richer review content for subjective specs
+    - Fallback triggers when COMPANY returns < 3 results
+    """
+    use_company_first = COMPANY_SEARCH_ID and spec_name in COMPANY_SEARCH_SPECS
+
+    results = []
+    if use_company_first:
+        results = _do_search(COMPANY_SEARCH_ID, query, spec_name)
+
+    # Fallback to general engine if company gave < 3 results or spec is review-based
+    if len(results) < 3:
+        general_results = _do_search(SEARCH_ENGINE_ID, query, spec_name)
+        if len(general_results) > len(results):
+            results = general_results
+
+    return {"spec": spec_name, "results": results, "query": query}
 
 
 def extract_spec_value(spec_name: str, search_data: dict, car_name: str) -> dict:
@@ -1058,55 +1079,67 @@ def scrape_car_data_with_custom_search(car_name: str) -> Dict[str, Any]:
                         elif "torque" in spec:
                             hint = " (e.g., 300 Nm)"
 
-                        specs_list.append(f'  "{spec}": "{human}{hint}"')
+                        specs_list.append(f'    "{spec}": {{"value": "{human}{hint}", "source_url": "full URL"}}')
 
                     specs_json = ",\n".join(specs_list)
 
-                    # Create prompt (similar to test.py approach)
-                    prompt = f"""Search for detailed specifications of the {car_name}. Focus on these trusted automotive review sites: {', '.join(preferred_domains)}
+                    # Create prompt with source URL requirement
+                    prompt = f"""
+Task: Extract detailed specifications for the vehicle **{car_name}**.
 
-Extract these specifications and return in JSON format:
+Search the web and extract the following specs.
+Return a JSON object matching this schema exactly:
 
 {{
 {specs_json}
 }}
 
-INSTRUCTIONS:
-- Search automotive review sites (prefer team-bhp.com, autocarindia.com, overdrive.in, zigwheels.com)
-- Extract EXACT values with units (bhp, Nm, kmpl, Lakh, litres, etc.)
-- For subjective specs (ride quality, NVH, steering feel): provide brief descriptions
-- Keep values concise (max 15 words per spec)
-- If truly not found after searching, use "Not found"
+Rules:
+- Keep each spec value concise (≤15 words).
+- For subjective specs (ride quality, NVH, steering), provide a short descriptive phrase.
+- For "source_url": return the URL of the page where you found the value.
+- If a spec cannot be found, return:
+  {{"value": "Not found", "source_url": "N/A"}}
 
-Return ONLY the JSON object with the same keys as shown above:"""
+Output requirements:
+- Return ONLY the JSON object.
+- No explanations, markdown, or extra text.
+"""
 
                     # Use Gemini 2.5 Flash with Google Search
                     model = GenerativeModel("gemini-2.5-flash")
 
-                    # Create Google Search tool
+                    # Create Google Search tool (uses google_search field for Gemini 2.x)
                     try:
-                        google_search = Tool.from_google_search_retrieval(
-                            google_search_retrieval=grounding.GoogleSearchRetrieval(
-                                disable_attribution=False
-                            )
-                        )
+                        if _make_google_search_tool is None:
+                            raise ImportError("google_search tool builder not available")
+                        google_search = _make_google_search_tool()
                         use_tools = [google_search]
                     except Exception as e:
-                        print(f"    Note: Google Search grounding not available ({str(e)[:50]}), using direct generation")
+                        print(f"    Note: Google Search not available ({str(e)[:60]}), using direct generation")
                         use_tools = None
 
-                    # Generate with Google Search grounding
-                    response = model.generate_content(
-                        prompt,
-                        tools=use_tools,
-                        generation_config=GenerationConfig(
-                            temperature=0.3,
-                            max_output_tokens=3000,
-                        )
+                    # Generate with Google Search grounding (no max_output_tokens limit)
+                    gen_kwargs = dict(
+                        generation_config=GenerationConfig(temperature=0.3)
                     )
+                    if use_tools:
+                        gen_kwargs["tools"] = use_tools
 
-                    # Parse JSON response
-                    text = response.text.strip()
+                    response = model.generate_content(prompt, **gen_kwargs)
+
+                    # Parse JSON response - handle cases where response has no text parts
+                    try:
+                        text = response.text.strip()
+                    except Exception:
+                        text = ""
+                        if response.candidates:
+                            for part in response.candidates[0].content.parts:
+                                if hasattr(part, "text") and part.text:
+                                    text += part.text
+                        text = text.strip()
+                    if not text:
+                        raise ValueError("Empty response from model (possibly safety filtered or no text parts)")
 
                     # Remove markdown code blocks if present
                     if "```json" in text:
@@ -1124,24 +1157,36 @@ Return ONLY the JSON object with the same keys as shown above:"""
                         end = text.rindex("}") + 1
                         text = text[start:end]
 
-                    extracted = json.loads(text)
+                    # Use json_repair to handle malformed JSON (unescaped chars, trailing commas, etc.)
+                    extracted = json_repair.loads(text)
 
-                    # Get grounding metadata for sources
-                    sources = []
+                    # Extract sources from the JSON response itself (now included in the response)
+                    # Also get grounding metadata as fallback
+                    sources_from_json = {}
+                    for spec_name, spec_data in extracted.items():
+                        if isinstance(spec_data, dict):
+                            # New format: {"value": "...", "source_url": "..."}
+                            sources_from_json[spec_name] = spec_data.get("source_url", "N/A")
+                        else:
+                            # Old format fallback: just the value as string
+                            sources_from_json[spec_name] = "N/A"
+
+                    # Get grounding metadata as additional fallback
+                    grounding_sources = []
                     if hasattr(response, 'candidates') and response.candidates:
                         candidate = response.candidates[0]
                         if hasattr(candidate, 'grounding_metadata'):
                             grounding_meta = candidate.grounding_metadata
                             if hasattr(grounding_meta, 'grounding_chunks'):
-                                for chunk in grounding_meta.grounding_chunks[:10]:  # First 10 sources
+                                for chunk in grounding_meta.grounding_chunks[:10]:
                                     if hasattr(chunk, 'web') and hasattr(chunk.web, 'uri'):
-                                        sources.append(chunk.web.uri)
+                                        grounding_sources.append(chunk.web.uri)
 
-                    return extracted, sources
+                    return extracted, sources_from_json, grounding_sources
 
                 except Exception as e:
                     print(f"    Batch error: {str(e)[:100]}")
-                    return {}, []
+                    return {}, {}, []
 
             # Split missing specs into batches of 10 (Gemini can handle this easily)
             batch_size = 10
@@ -1161,28 +1206,52 @@ Return ONLY the JSON object with the same keys as shown above:"""
                     batch_num, batch = futures[future]
 
                     try:
-                        extracted, sources = future.result()
+                        extracted, sources_from_json, grounding_sources = future.result()
                         batch_found = 0
 
-                        for spec_name in batch:
-                            value = extracted.get(spec_name, "")
+                        def _pick_trusted_url(raw_url):
+                            """Return first usable URL from raw_url (accepts redirect/grounding URLs)."""
+                            for candidate in raw_url.split(","):
+                                candidate = candidate.strip()
+                                if candidate and candidate != "N/A" and candidate.startswith("http"):
+                                    return candidate
+                            return None
 
+                        for spec_name in batch:
+                            spec_data = extracted.get(spec_name, {})
+
+                            # Handle both new format (dict with value+source) and old format (string)
+                            if isinstance(spec_data, dict):
+                                value = spec_data.get("value", "")
+                                source_url = spec_data.get("source_url", "N/A")
+                            else:
+                                # Fallback for old format
+                                value = spec_data if isinstance(spec_data, str) else ""
+                                source_url = sources_from_json.get(spec_name, "N/A")
+
+                            trusted_url = None
+                            if source_url and source_url != "N/A":
+                                trusted_url = _pick_trusted_url(source_url)
+
+                            # Fallback: use first grounding metadata source
+                            if not trusted_url and grounding_sources:
+                                trusted_url = grounding_sources[0]
+
+                            # Check if we have a valid value
                             if value and value != "Not found" and "Not" not in value and len(value.strip()) > 0:
                                 specs[spec_name] = value
                                 recovered += 1
                                 batch_found += 1
 
-                                # Create citation
                                 citation = {
-                                    "source_url": sources[0] if sources else "Google Search (Gemini grounded)",
-                                    "citation_text": "Retrieved via Gemini with Google Search grounding",
+                                    "source_url": trusted_url if trusted_url else "N/A",
+                                    "citation_text": f"Retrieved from {trusted_url}" if trusted_url else "",
                                     "gemini_grounded": True,
-                                    "all_sources": sources[:5] if sources else []
                                 }
                                 citations[spec_name] = citation
 
-                                if sources:
-                                    car_data["source_urls"].extend(sources[:3])
+                                if trusted_url and trusted_url not in car_data["source_urls"]:
+                                    car_data["source_urls"].append(trusted_url)
 
                         print(f"  Batch {batch_num}/{len(spec_batches)}: Extracted {batch_found}/{len(batch)} specs")
 

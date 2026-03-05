@@ -9,7 +9,8 @@ LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "asia-south1")
 vertexai.init(project=PROJECT_ID, location=LOCATION)
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-SEARCH_ENGINE_ID = os.getenv("SEARCH_ENGINE_ID")
+SEARCH_ENGINE_ID = os.getenv("SEARCH_ENGINE_ID")          # multi-domain automotive sites
+COMPANY_SEARCH_ID = os.getenv("COMPANY_SEARCH_ID")        # official brand/company sites
 CUSTOM_SEARCH_URL = "https://www.googleapis.com/customsearch/v1"
 
 # Sites to search - Complete list from Custom Search Engine

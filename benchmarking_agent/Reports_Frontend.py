@@ -843,7 +843,7 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
             position: relative;
         }}
         
-        /* Sales Chart Container Fix */
+        /* Sales Chart Container Fix - commented out
         .chart-container:has(#salesChart) {{
             position: relative;
             height: 450px;
@@ -856,6 +856,7 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
             width: 100% !important;
             height: 100% !important;
         }}
+        */
         
         .table-container {{ overflow-x: auto; margin-top: 24px; border-radius: 12px; background: white; border: 1px solid #e9ecef; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05); position: relative; }}
         .table-filter-wrapper {{ padding: 20px 20px 0 20px; background: #f8f9fa; border-bottom: 1px solid #e9ecef; position: sticky; top: 0; left: 0; z-index: 10; width: 100%; }}
@@ -899,8 +900,8 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
         .spec-row td {{ background: #fff; }}
         .animate-on-scroll {{ opacity: 0; transform: translateY(30px); transition: opacity 0.6s ease-out, transform 0.6s ease-out; }}
         .animate-on-scroll.is-visible {{ opacity: 1; transform: translateY(0); }}
-        #salesChart {{ min-height: 400px !important; }}
-        .chart-container:has(#salesChart) {{ grid-column: 1 / -1; page-break-before: always; }}
+        /* #salesChart {{ min-height: 400px !important; }} */
+        /* .chart-container:has(#salesChart) {{ grid-column: 1 / -1; page-break-before: always; }} */
         .footer {{ background: #dd032b; padding: 20px 60px; display: flex; align-items: center; justify-content: center; gap: 12px; border-top: none; }}
         .footer .logo {{ height: 24px; width: auto; }}
         .footer span {{ color: white; font-size: 13px; font-weight: 400; }}
@@ -1572,16 +1573,17 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
                         width: 100%;
                     }}
                     
-                    /* Sales Chart Mobile Fix */
+                    /* Sales Chart Mobile Fix - commented out
                     .chart-container:has(#salesChart) {{
                         padding: 10px 5px !important;
                         height: 400px;
                     }}
-                    
+
                     #salesChart {{
                         height: 100% !important;
                         min-height: unset !important;
                     }}
+                    */
                     
                     .table-container {{
                         overflow-x: auto;
@@ -1838,11 +1840,12 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
                         margin-bottom: 10px;
                     }}
                     
-                    /* Sales Chart Small Mobile Fix */
+                    /* Sales Chart Small Mobile Fix - commented out
                     .chart-container:has(#salesChart) {{
                         padding: 8px 3px !important;
                         height: 350px;
                     }}
+                    */
             
                     table {{
                 font-size: 10px !important;
@@ -1983,10 +1986,11 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
                         height: 16px;
                     }}
                     
-                    /* Sales Chart Extra Small Fix */
+                    /* Sales Chart Extra Small Fix - commented out
                     .chart-container:has(#salesChart) {{
                         height: 380px;
                     }}
+                    */
         
             
             .citation-link {{
@@ -2031,7 +2035,7 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
             <div class="charts-grid">
                 <div class="chart-container animate-on-scroll"><h3>Price Comparison (₹ Lakhs)</h3><canvas id="priceChart"></canvas></div><div class="chart-container animate-on-scroll"><h3>Mileage Comparison (kmpl)</h3><canvas id="mileageChart"></canvas></div>
                 <div class="chart-container animate-on-scroll"><h3>User Ratings (out of 5)</h3><canvas id="ratingChart"></canvas></div><div class="chart-container animate-on-scroll"><h3>Seating Capacity</h3><canvas id="seatingChart"></canvas></div>
-<h5>Sales Performance (Volume vs Price)</h5><div class="chart-container animate-on-scroll"><canvas id="salesChart"></canvas></div>            </div>
+<!-- <h5>Sales Performance (Volume vs Price)</h5><div class="chart-container animate-on-scroll"><canvas id="salesChart"></canvas></div> -->            </div>
         </div>
          <div class="content">
             <div class="section-header">
@@ -2091,27 +2095,28 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
         new Chart(document.getElementById('ratingChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: ratingData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: {{ scales: {{ y: {{ max: 5 }} }}, plugins: {{ legend: {{ display: false }} }} }} }});
         new Chart(document.getElementById('seatingChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: seatingData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: {{ plugins: {{ legend: {{ display: false }} }} }} }});
         
-        new Chart(document.getElementById('salesChart'), {{ 
-            type: 'bar', 
-            data: {{ 
-                labels: carLabels, 
-                datasets: [{{ 
-                    label: 'Sales Volume (Units/Month)', 
-                    data: salesVolumes, 
-                    backgroundColor: primaryColor, 
-                    xAxisID: 'x' 
-                }}, {{ 
-                    label: 'Price (₹ Lakhs)', 
-                    data: priceData, 
-                    backgroundColor: secondaryColor, 
-                    xAxisID: 'x1' 
-                }}] 
-            }}, 
-            options: {{ 
+        /* Sales chart commented out
+        new Chart(document.getElementById('salesChart'), {{
+            type: 'bar',
+            data: {{
+                labels: carLabels,
+                datasets: [{{
+                    label: 'Sales Volume (Units/Month)',
+                    data: salesVolumes,
+                    backgroundColor: primaryColor,
+                    xAxisID: 'x'
+                }}, {{
+                    label: 'Price (₹ Lakhs)',
+                    data: priceData,
+                    backgroundColor: secondaryColor,
+                    xAxisID: 'x1'
+                }}]
+            }},
+            options: {{
                 maintainAspectRatio: false,
-                indexAxis: 'y', 
-                scales: {{ 
-                    y: {{ 
+                indexAxis: 'y',
+                scales: {{
+                    y: {{
                         position: 'left',
                         ticks: {{
                             font: {{ size: isMobile ? 9 : 12 }},
@@ -2120,23 +2125,23 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
                             minRotation: 0
                         }}
                     }},
-                    x: {{ 
+                    x: {{
                         display: true,
-                        type: 'linear', 
-                        position: 'bottom', 
-                        title: {{ 
+                        type: 'linear',
+                        position: 'bottom',
+                        title: {{
                             display: !isMobile,
                             text: 'Sales Volume (Units/Month)',
                             font: {{ size: isMobile ? 9 : 12 }}
-                        }}, 
-                        ticks: {{ 
+                        }},
+                        ticks: {{
                             display: true,
                             font: {{ size: isMobile ? 7 : 11 }},
-                            callback: function(value) {{ 
+                            callback: function(value) {{
                                 if (isMobile) {{
                                     return value >= 1000 ? (value/1000).toFixed(0) + 'k' : value;
                                 }}
-                                return value.toLocaleString() + ' units'; 
+                                return value.toLocaleString() + ' units';
                             }}
                         }},
                         grid: {{
@@ -2144,50 +2149,51 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
                             color: isMobile ? '#f0f0f0' : '#e9ecef'
                         }}
                     }},
-                    x1: {{ 
+                    x1: {{
                         display: true,
-                        type: 'linear', 
-                        position: 'top', 
-                        title: {{ 
+                        type: 'linear',
+                        position: 'top',
+                        title: {{
                             display: !isMobile,
-                            text: 'Price (₹ Lakhs)', 
+                            text: 'Price (₹ Lakhs)',
                             color: '#6c757d',
                             font: {{ size: isMobile ? 9 : 12 }}
-                        }}, 
-                        grid: {{ 
+                        }},
+                        grid: {{
                             drawOnChartArea: false,
                             display: false
-                        }}, 
-                        ticks: {{ 
+                        }},
+                        ticks: {{
                             display: true,
                             color: '#6c757d',
                             font: {{ size: isMobile ? 7 : 11 }},
                             callback: function(value) {{ return '₹' + value.toFixed(1) + 'L'; }}
-                        }} 
+                        }}
                     }}
-                }}, 
-                plugins: {{ 
+                }},
+                plugins: {{
     legend: {{
         display: false
     }},
-    tooltip: {{ 
+    tooltip: {{
         enabled: true,
-        callbacks: {{ 
-            label: function(context) {{ 
-                let label = context.dataset.label || ''; 
-                if (label) {{ label += ': '; }} 
-                if (context.dataset.label.includes('Price')) {{ 
-                    label += '₹' + context.parsed.x.toFixed(2) + ' Lakhs'; 
-                }} else {{ 
-                    label += context.parsed.x.toLocaleString() + ' units'; 
-                }} 
-                return label; 
-            }} 
-        }} 
-    }} 
+        callbacks: {{
+            label: function(context) {{
+                let label = context.dataset.label || '';
+                if (label) {{ label += ': '; }}
+                if (context.dataset.label.includes('Price')) {{
+                    label += '₹' + context.parsed.x.toFixed(2) + ' Lakhs';
+                }} else {{
+                    label += context.parsed.x.toLocaleString() + ' units';
+                }}
+                return label;
+            }}
+        }}
+    }}
 }}
-            }} 
+            }}
         }});
+        */
         
         document.addEventListener('DOMContentLoaded', () => {{ const observer = new IntersectionObserver((entries) => {{ entries.forEach(entry => {{ if (entry.isIntersecting) {{ entry.target.classList.add('is-visible'); observer.unobserve(entry.target); }} }}); }}, {{ threshold: 0.1 }}); document.querySelectorAll('.animate-on-scroll').forEach(el => observer.observe(el)); }});
     </script>

@@ -15,7 +15,7 @@ from benchmarking_agent.scraper import (
     call_custom_search_parallel,
     extract_spec_from_search_results,
 )
-from benchmarking_agent.sales import scrape_sales_data
+# from benchmarking_agent.sales import scrape_sales_data
 from benchmarking_agent.gcs import save_chart_to_gcs, save_json_to_gcs
 from benchmarking_agent.Internal_Car_tools import (
     add_code_car_specs_tool,
@@ -302,59 +302,60 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
         else:
             car_data = scrape_car_data(car, manual_specs, use_custom_search=use_custom_search, pdf_specs=pdf_specs)
 
-        if not car_data.get('is_code_car'):
-            print(f"[{car}] Fetching sales data...")
-            if use_custom_search:
-                sales_query = f"{car} monthly sales units"
-
-                def _run_sales_async() -> list:
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    try:
-                        return loop.run_until_complete(
-                            call_custom_search_parallel(
-                                {"monthly_sales": sales_query}, num_results=5, max_concurrent=1
-                            )
-                        ).get("monthly_sales", [])
-                    finally:
-                        loop.close()
-
-                try:
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as sex:
-                        sales_results = sex.submit(_run_sales_async).result(timeout=60)
-                except Exception as e:
-                    print(f"[{car}] Sales fetch error: {e}")
-                    sales_results = []
-
-                if sales_results:
-                    ext = extract_spec_from_search_results(car, "monthly_sales", sales_results)
-                    car_data["monthly_sales"] = ext["value"]
-                    car_data["monthly_sales_citation"] = {
-                        "source_url": ext["source_url"],
-                        "citation_text": ext["citation"],
-                    }
-                    if ext["source_url"] not in car_data.get("source_urls", []):
-                        car_data["source_urls"].append(ext["source_url"])
-                else:
-                    car_data["monthly_sales"] = "Not Available"
-                    car_data["monthly_sales_citation"] = {
-                        "source_url": "N/A",
-                        "citation_text": "No sales data found",
-                    }
-            else:
-                sales_data = scrape_sales_data(car)
-                for key, value in sales_data.items():
-                    if key not in ('car_name', 'sales_source_urls'):
-                        car_data[key] = value
-                if sales_data.get('sales_source_urls'):
-                    car_data.setdefault('source_urls', []).extend(sales_data['sales_source_urls'])
-        else:
-            print(f"[{car}] Skipping sales data (code car)")
-            car_data["monthly_sales"] = "Not Available"
-            car_data["monthly_sales_citation"] = {
-                "source_url": "N/A",
-                "citation_text": "Code car - sales data not applicable",
-            }
+        # Sales data extraction commented out
+        # if not car_data.get('is_code_car'):
+        #     print(f"[{car}] Fetching sales data...")
+        #     if use_custom_search:
+        #         sales_query = f"{car} monthly sales units"
+        #
+        #         def _run_sales_async() -> list:
+        #             loop = asyncio.new_event_loop()
+        #             asyncio.set_event_loop(loop)
+        #             try:
+        #                 return loop.run_until_complete(
+        #                     call_custom_search_parallel(
+        #                         {"monthly_sales": sales_query}, num_results=5, max_concurrent=1
+        #                     )
+        #                 ).get("monthly_sales", [])
+        #             finally:
+        #                 loop.close()
+        #
+        #         try:
+        #             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as sex:
+        #                 sales_results = sex.submit(_run_sales_async).result(timeout=60)
+        #         except Exception as e:
+        #             print(f"[{car}] Sales fetch error: {e}")
+        #             sales_results = []
+        #
+        #         if sales_results:
+        #             ext = extract_spec_from_search_results(car, "monthly_sales", sales_results)
+        #             car_data["monthly_sales"] = ext["value"]
+        #             car_data["monthly_sales_citation"] = {
+        #                 "source_url": ext["source_url"],
+        #                 "citation_text": ext["citation"],
+        #             }
+        #             if ext["source_url"] not in car_data.get("source_urls", []):
+        #                 car_data["source_urls"].append(ext["source_url"])
+        #         else:
+        #             car_data["monthly_sales"] = "Not Available"
+        #             car_data["monthly_sales_citation"] = {
+        #                 "source_url": "N/A",
+        #                 "citation_text": "No sales data found",
+        #             }
+        #     else:
+        #         sales_data = scrape_sales_data(car)
+        #         for key, value in sales_data.items():
+        #             if key not in ('car_name', 'sales_source_urls'):
+        #                 car_data[key] = value
+        #         if sales_data.get('sales_source_urls'):
+        #             car_data.setdefault('source_urls', []).extend(sales_data['sales_source_urls'])
+        # else:
+        #     print(f"[{car}] Skipping sales data (code car)")
+        #     car_data["monthly_sales"] = "Not Available"
+        #     car_data["monthly_sales_citation"] = {
+        #         "source_url": "N/A",
+        #         "citation_text": "Code car - sales data not applicable",
+        #     }
 
         # Count actually found specs (exclude all empty/not-found variations)
         empty_values = ("Not Available", "N/A", "Not found", "not found", None, "", "—", "-", "None")
