@@ -1,4 +1,7 @@
 aiohttp
+aiodns
+aiohttp-retry
+tenacity
 fastapi
 google-adk
 google-auth
@@ -6,3 +9,4 @@ google-cloud-aiplatform
 google-cloud-storage
 python-dotenv
 uvicorn
+json-repair

@@ -10,6 +10,7 @@ FLOW:
    - Build autocarindia.com spec page URL
    - Extract missing specs in batches of 7 (parallel)
 """
+import asyncio
 import json
 import json_repair
 import time
@@ -1119,9 +1120,26 @@ def extract_car_images(car_name: str) -> Dict[str, List[str]]:
 # ENTRY POINT
 # ============================================================================
 
-def scrape_car_data(car_name: str, manual_specs: Dict[str, Any] = None, use_custom_search: bool = True, pdf_specs: Dict[str, str] = None) -> Dict[str, Any]:
-    """Main entry point."""
+def scrape_car_data(
+    car_name: str,
+    manual_specs: Dict[str, Any] = None,
+    use_custom_search: bool = True,
+    pdf_specs: Dict[str, str] = None,
+    use_async: bool = True
+) -> Dict[str, Any]:
+    """
+    Main entry point for car data scraping.
 
+    Args:
+        car_name: Name of the car to scrape
+        manual_specs: Pre-filled specs for code cars
+        use_custom_search: Whether to use Custom Search API (legacy parameter)
+        pdf_specs: Pre-filled specs from PDF (not implemented yet)
+        use_async: Use async scraper for better performance (default: True)
+
+    Returns:
+        Dict with car specifications and metadata
+    """
     if manual_specs and manual_specs.get('is_code_car'):
         print(f"  CODE CAR - using manual specs")
         for field in CAR_SPECS:
@@ -1133,6 +1151,21 @@ def scrape_car_data(car_name: str, manual_specs: Dict[str, Any] = None, use_cust
     if pdf_specs:
         print(f"  PDF prefill not implemented in this version")
 
+    # Use async scraper if enabled
+    if use_async:
+        try:
+            # Run async scraper in event loop
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                return loop.run_until_complete(async_scrape_car_data(car_name))
+            finally:
+                loop.close()
+        except Exception as e:
+            print(f"Async scraping failed: {e}")
+            print("Falling back to sync scraper...")
+
+    # Fallback to sync scraper
     return scrape_car_data_with_custom_search(car_name)
 
 
@@ -1149,4 +1182,147 @@ def extract_spec_from_search_results(car_name: str, spec_name: str, search_resul
     }
 
 async def call_custom_search_parallel(queries: Dict[str, str], num_results: int = 5, max_concurrent: int = 15) -> Dict[str, List[Dict[str, str]]]:
-    return {}
+    """
+    Execute multiple Custom Search queries in parallel using the async scraper.
+    This is the async implementation with proper rate limiting.
+    """
+    try:
+        from benchmarking_agent.core.async_scraper import async_call_custom_search_parallel
+        return await async_call_custom_search_parallel(queries, num_results, max_concurrent)
+    except Exception as e:
+        print(f"Async search failed, falling back to sync: {e}")
+        return {}
+
+
+# ============================================================================
+# ASYNC SCRAPING - HIGH-PERFORMANCE MODE
+# ============================================================================
+
+async def async_scrape_car_data(car_name: str) -> Dict[str, Any]:
+    """
+    Async version of scrape_car_data using the high-performance async scraper.
+
+    Benefits:
+    - Concurrent API calls with rate limiting
+    - Token bucket algorithm for smooth request distribution
+    - Exponential backoff with tenacity
+    - Circuit breaker pattern for fault tolerance
+    - Connection pooling for better performance
+
+    Args:
+        car_name: Name of the car to scrape
+
+    Returns:
+        Dict with car specifications and metadata
+    """
+    try:
+        from benchmarking_agent.core.async_scraper import (
+            async_phase1_per_spec_search,
+            gemini_api
+        )
+        from benchmarking_agent.extraction.async_images import async_extract_autocar_images
+    except ImportError as e:
+        print(f"Async modules not available: {e}")
+        print("Falling back to sync scraper...")
+        return scrape_car_data_with_custom_search(car_name)
+
+    # Reset Gemini rate limit counter
+    gemini_api.reset_rate_limit_count()
+
+    print(f"\n{'#'*60}")
+    print(f"ASYNC SCRAPING: {car_name}")
+    print(f"{'#'*60}")
+
+    start_time = time.time()
+
+    # Phase 0: Official brand site extraction (still sync - Gemini SDK limitation)
+    phase0_result = phase0_official_site_extraction(car_name)
+    specs = phase0_result["specs"].copy()
+    citations = phase0_result["citations"].copy()
+
+    # Phase 1: Async per-spec search for remaining specs
+    phase1_result = await async_phase1_per_spec_search(car_name, existing_specs=specs)
+
+    # Merge Phase 1 results
+    for spec_name, value in phase1_result["specs"].items():
+        if spec_name not in specs or specs.get(spec_name) in ["Not found", "Not Available", ""]:
+            specs[spec_name] = value
+
+    for spec_name, citation in phase1_result["citations"].items():
+        if spec_name not in citations:
+            citations[spec_name] = citation
+
+    # Phase 2: AutoCarIndia fallback (still sync for now)
+    phase2_result = phase2_autocarindia_fallback(car_name, specs)
+
+    # Merge Phase 2 results
+    for spec_name, value in phase2_result["specs"].items():
+        specs[spec_name] = value
+
+    for spec_name, citation in phase2_result["citations"].items():
+        citations[spec_name] = citation
+
+    # Phase 3: Async image extraction
+    try:
+        images = await async_extract_autocar_images(car_name)
+    except Exception as e:
+        print(f"\n  Warning: Async image extraction failed - {str(e)}")
+        images = {
+            "hero": [],
+            "exterior": [],
+            "interior": [],
+            "technology": [],
+            "comfort": [],
+            "safety": []
+        }
+
+    # Build final car_data
+    car_data = {
+        "car_name": car_name,
+        "method": "Async Per-Spec Search + AutoCarIndia Fallback",
+        "source_urls": [],
+        "images": images,
+    }
+
+    # Collect source URLs
+    source_urls = set()
+    for citation in citations.values():
+        url = citation.get("source_url", "")
+        if url and url != "N/A":
+            source_urls.add(url)
+
+    car_data["source_urls"] = list(source_urls)
+
+    # Add all specs
+    for spec_name in CAR_SPECS:
+        value = specs.get(spec_name, "Not Available")
+        if not value or value in ["Not found", ""]:
+            value = "Not Available"
+
+        car_data[spec_name] = value
+        car_data[f"{spec_name}_citation"] = citations.get(
+            spec_name,
+            {"source_url": "N/A", "citation_text": ""}
+        )
+
+    # Final stats
+    final_found = sum(
+        1 for s in CAR_SPECS
+        if car_data.get(s) and car_data[s] not in ["Not Available", "Not found", ""]
+    )
+
+    # Count by source
+    official_count = sum(1 for s in CAR_SPECS if citations.get(s, {}).get("engine") == "OFFICIAL")
+    search_count = sum(1 for s in CAR_SPECS if citations.get(s, {}).get("engine") in ["SEARCH", "SEARCH_ASYNC"])
+    autocar_count = sum(1 for s in CAR_SPECS if "autocarindia" in str(citations.get(s, {}).get("source_url", "")).lower())
+
+    elapsed = time.time() - start_time
+    accuracy = (final_found / len(CAR_SPECS) * 100) if CAR_SPECS else 0
+
+    print(f"\n{'='*60}")
+    print(f"ASYNC COMPLETE: {final_found}/{len(CAR_SPECS)} specs ({accuracy:.1f}%)")
+    print(f"Time: {elapsed:.1f}s | Sources: {len(car_data['source_urls'])}")
+    print(f"  Official: {official_count} | Search: {search_count} | AutoCar: {autocar_count}")
+    print(f"{'='*60}\n")
+
+    return car_data
