@@ -432,16 +432,21 @@ def custom_search(query: str, spec_name: str) -> dict:
     use_company_first = COMPANY_SEARCH_ID and spec_name in COMPANY_SEARCH_SPECS
 
     results = []
+    engine_used = "GENERAL"
+
     if use_company_first:
         results = _do_search(COMPANY_SEARCH_ID, query, spec_name)
+        if len(results) >= 3:
+            engine_used = "COMPANY"
 
     # Fallback to general engine if company gave < 3 results or spec is review-based
     if len(results) < 3:
         general_results = _do_search(SEARCH_ENGINE_ID, query, spec_name)
         if len(general_results) > len(results):
             results = general_results
+            engine_used = "GENERAL"
 
-    return {"spec": spec_name, "results": results, "query": query}
+    return {"spec": spec_name, "results": results, "query": query, "engine": engine_used}
 
 
 def extract_spec_value(spec_name: str, search_data: dict, car_name: str) -> dict:
@@ -982,19 +987,17 @@ def scrape_car_data_with_custom_search(car_name: str) -> Dict[str, Any]:
         keywords = SPEC_QUERIES.get(spec_name, spec_name.replace('_', ' '))
         query = f"{car_name} {keywords}"
 
-        # Search for this specific spec
         search_result = custom_search(query, spec_name)
         results = search_result.get("results", [])
+        engine = search_result.get("engine", "GENERAL")
 
         if not results:
-            return spec_name, "Not found", None
+            return spec_name, "Not found", None, engine
 
-        # Extract from search results
         extraction = extract_spec_value(spec_name, {"results": results}, car_name)
         value = extraction.get("value", "Not found")
         cites = extraction.get("citations", [])
 
-        # Build citation
         citation = None
         if cites:
             citation = {
@@ -1003,10 +1006,12 @@ def scrape_car_data_with_custom_search(car_name: str) -> Dict[str, Any]:
                 "all_sources": cites
             }
 
-        return spec_name, value, citation
+        return spec_name, value, citation, engine
 
     # Process all 87 specs in parallel
     found_count = 0
+    company_found = 0
+    general_found = 0
     with concurrent.futures.ThreadPoolExecutor(max_workers=SEARCH_WORKERS) as executor:
         futures = {executor.submit(search_and_extract_spec, spec): spec for spec in CAR_SPECS}
         completed = 0
@@ -1016,7 +1021,7 @@ def scrape_car_data_with_custom_search(car_name: str) -> Dict[str, Any]:
             completed += 1
 
             try:
-                spec_name, value, citation = future.result()
+                spec_name, value, citation, engine = future.result()
                 specs[spec_name] = value
 
                 if citation:
@@ -1027,9 +1032,13 @@ def scrape_car_data_with_custom_search(car_name: str) -> Dict[str, Any]:
 
                 if value and "Not" not in value and "Error" not in value:
                     found_count += 1
+                    if engine == "COMPANY":
+                        company_found += 1
+                    else:
+                        general_found += 1
 
                 if completed % 20 == 0:
-                    print(f"  Progress: {completed}/{len(CAR_SPECS)} ({found_count} found)")
+                    print(f"  Progress: {completed}/{len(CAR_SPECS)} ({found_count} found  |  company={company_found}  general={general_found})")
 
             except Exception as e:
                 specs[spec_name] = "Not Available"
@@ -1039,15 +1048,16 @@ def scrape_car_data_with_custom_search(car_name: str) -> Dict[str, Any]:
     found_p1 = found_count
     accuracy_p1 = (found_p1 / len(CAR_SPECS) * 100) if CAR_SPECS else 0
     print(f"\n  Phase 1 Complete: {found_p1}/{len(CAR_SPECS)} specs found ({accuracy_p1:.1f}%)")
+    print(f"  Engine breakdown  →  Company: {company_found}  |  General: {general_found}")
 
-    # PHASE 2: Retry ALL missing specs using Gemini + Google Search (ONLY if accuracy < 80%)
+    # PHASE 2: Retry missing specs via AutoCarIndia spec page (ONLY if accuracy < 80%)
     if accuracy_p1 < 80:
         # Find ALL specs we didn't get in Phase 1
         missing_specs = [k for k, v in specs.items() if "Not" in str(v) or "Error" in str(v) or not v]
 
         if missing_specs:
             print(f"\n{'='*60}")
-            print(f"PHASE 2: GEMINI + GOOGLE SEARCH RETRY ({len(missing_specs)} specs)")
+            print(f"PHASE 2: AUTOCARINDIA SPEC PAGE RETRY ({len(missing_specs)} specs)")
             print(f"{'='*60}\n")
 
             # Preferred automotive domains
@@ -1059,14 +1069,24 @@ def scrape_car_data_with_custom_search(car_name: str) -> Dict[str, Any]:
             # Exclude non-automotive domains
             exclude_domains = ["wikipedia.org", "youtube.com", "reddit.com", "facebook.com", "twitter.com"]
 
+            def _build_autocarindia_url(name: str) -> str:
+                """Convert car name to autocarindia specifications page URL.
+                e.g. 'Mahindra Thar Roxx' -> https://www.autocarindia.com/cars/mahindra/thar-roxx/specifications
+                """
+                parts = name.strip().lower().split()
+                make  = parts[0]
+                model = "-".join(parts[1:])
+                return f"https://www.autocarindia.com/cars/{make}/{model}/specifications"
+
             def retry_specs_with_gemini_search(spec_batch):
-                """Retry a batch of specs using Gemini + Google Search (like test.py)"""
+                """Retry missing specs by asking Gemini to extract them from the autocarindia spec page URL."""
                 try:
+                    spec_page_url = _build_autocarindia_url(car_name)
+
                     # Build spec list with hints
                     specs_list = []
                     for spec in spec_batch:
                         human = spec.replace("_", " ").title()
-                        # Add format hints for common specs
                         hint = ""
                         if "price" in spec:
                             hint = " (e.g., ₹11.35-17.19 Lakh)"
@@ -1078,16 +1098,14 @@ def scrape_car_data_with_custom_search(car_name: str) -> Dict[str, Any]:
                             hint = " (e.g., 150 bhp)"
                         elif "torque" in spec:
                             hint = " (e.g., 300 Nm)"
-
-                        specs_list.append(f'    "{spec}": {{"value": "{human}{hint}", "source_url": "full URL"}}')
+                        specs_list.append(f'    "{spec}": {{"value": "{human}{hint}", "source_url": "{spec_page_url}"}}')
 
                     specs_json = ",\n".join(specs_list)
 
-                    # Create prompt with source URL requirement
-                    prompt = f"""
-Task: Extract detailed specifications for the vehicle **{car_name}**.
+                    prompt = f"""The following URL contains the full specifications for the {car_name}:
+{spec_page_url}
 
-Search the web and extract the following specs.
+Using the data on that page, extract the values for the specs listed below.
 Return a JSON object matching this schema exactly:
 
 {{
@@ -1095,40 +1113,21 @@ Return a JSON object matching this schema exactly:
 }}
 
 Rules:
-- Keep each spec value concise (≤15 words).
-- For subjective specs (ride quality, NVH, steering), provide a short descriptive phrase.
-- For "source_url": return the URL of the page where you found the value.
-- If a spec cannot be found, return:
+- Keep each value concise (≤15 words, include units).
+- For subjective specs (ride quality, NVH, steering feel) provide a short descriptive phrase.
+- Set "source_url" to: {spec_page_url}
+- If a spec is genuinely not available on that page, return:
   {{"value": "Not found", "source_url": "N/A"}}
 
-Output requirements:
-- Return ONLY the JSON object.
-- No explanations, markdown, or extra text.
-"""
+Return ONLY the JSON object. No markdown, no explanations."""
 
-                    # Use Gemini 2.5 Flash with Google Search
                     model = GenerativeModel("gemini-2.5-flash")
-
-                    # Create Google Search tool (uses google_search field for Gemini 2.x)
-                    try:
-                        if _make_google_search_tool is None:
-                            raise ImportError("google_search tool builder not available")
-                        google_search = _make_google_search_tool()
-                        use_tools = [google_search]
-                    except Exception as e:
-                        print(f"    Note: Google Search not available ({str(e)[:60]}), using direct generation")
-                        use_tools = None
-
-                    # Generate with Google Search grounding (no max_output_tokens limit)
-                    gen_kwargs = dict(
-                        generation_config=GenerationConfig(temperature=0.3)
+                    response = model.generate_content(
+                        prompt,
+                        generation_config=GenerationConfig(temperature=0.1),
                     )
-                    if use_tools:
-                        gen_kwargs["tools"] = use_tools
 
-                    response = model.generate_content(prompt, **gen_kwargs)
-
-                    # Parse JSON response - handle cases where response has no text parts
+                    # Extract text safely
                     try:
                         text = response.text.strip()
                     except Exception:
@@ -1139,50 +1138,33 @@ Output requirements:
                                     text += part.text
                         text = text.strip()
                     if not text:
-                        raise ValueError("Empty response from model (possibly safety filtered or no text parts)")
+                        raise ValueError("Empty response from model")
 
-                    # Remove markdown code blocks if present
+                    # Strip markdown fences
                     if "```json" in text:
                         text = text.split("```json")[1].split("```")[0]
                     elif "```" in text:
                         parts = text.split("```")
                         if len(parts) >= 2:
                             text = parts[1]
-
                     text = text.strip()
 
-                    # Extract JSON object
                     if "{" in text and "}" in text:
-                        start = text.index("{")
-                        end = text.rindex("}") + 1
-                        text = text[start:end]
+                        text = text[text.index("{"):text.rindex("}") + 1]
 
-                    # Use json_repair to handle malformed JSON (unescaped chars, trailing commas, etc.)
                     extracted = json_repair.loads(text)
 
-                    # Extract sources from the JSON response itself (now included in the response)
-                    # Also get grounding metadata as fallback
-                    sources_from_json = {}
-                    for spec_name, spec_data in extracted.items():
-                        if isinstance(spec_data, dict):
-                            # New format: {"value": "...", "source_url": "..."}
-                            sources_from_json[spec_name] = spec_data.get("source_url", "N/A")
-                        else:
-                            # Old format fallback: just the value as string
-                            sources_from_json[spec_name] = "N/A"
+                    # source_url for every spec is the autocarindia page
+                    sources_from_json = {
+                        spec_name: (
+                            spec_data.get("source_url", spec_page_url)
+                            if isinstance(spec_data, dict)
+                            else spec_page_url
+                        )
+                        for spec_name, spec_data in extracted.items()
+                    }
 
-                    # Get grounding metadata as additional fallback
-                    grounding_sources = []
-                    if hasattr(response, 'candidates') and response.candidates:
-                        candidate = response.candidates[0]
-                        if hasattr(candidate, 'grounding_metadata'):
-                            grounding_meta = candidate.grounding_metadata
-                            if hasattr(grounding_meta, 'grounding_chunks'):
-                                for chunk in grounding_meta.grounding_chunks[:10]:
-                                    if hasattr(chunk, 'web') and hasattr(chunk.web, 'uri'):
-                                        grounding_sources.append(chunk.web.uri)
-
-                    return extracted, sources_from_json, grounding_sources
+                    return extracted, sources_from_json, [spec_page_url]
 
                 except Exception as e:
                     print(f"    Batch error: {str(e)[:100]}")
@@ -1194,6 +1176,8 @@ Output requirements:
             for i in range(0, len(missing_specs), batch_size):
                 spec_batches.append(missing_specs[i:i+batch_size])
 
+            spec_page_url_preview = _build_autocarindia_url(car_name)
+            print(f"  Source: {spec_page_url_preview}")
             print(f"  Processing {len(spec_batches)} batches of ~{batch_size} specs each...\n")
 
             # Process batches in parallel (max 3 at a time to avoid rate limits)
@@ -1258,9 +1242,9 @@ Output requirements:
                     except Exception as e:
                         print(f"  Batch {batch_num} failed: {str(e)[:80]}")
 
-            print(f"\n  Phase 2 Complete: Recovered {recovered}/{len(missing_specs)} specs using Gemini + Google Search")
+            print(f"\n  Phase 2 Complete: Recovered {recovered}/{len(missing_specs)} specs via AutoCarIndia spec page")
     else:
-        print(f"\n  Accuracy >= 80% - skipping Phase 2 retry")
+        print(f"\n  Phase 2: Skipped (Phase 1 accuracy >= 80%)")
 
     # Build final car_data
     all_urls = set(car_data.get("source_urls", []))
@@ -1277,11 +1261,15 @@ Output requirements:
     car_data["source_urls"] = list(all_urls)
 
     final_found = sum(1 for s in CAR_SPECS if car_data.get(s) and "Not" not in str(car_data.get(s, "")) and "Error" not in str(car_data.get(s, "")))
+    p2_found = final_found - found_p1 if final_found > found_p1 else 0
     elapsed = time.time() - start_time
     final_accuracy = (final_found / len(CAR_SPECS) * 100) if CAR_SPECS else 0
 
     print(f"\n{'='*60}")
     print(f"DONE: {final_found}/{len(CAR_SPECS)} specs ({final_accuracy:.1f}%) | {elapsed:.1f}s")
+    print(f"  Phase 1 (Custom Search): {found_p1} specs  [company={company_found}  general={general_found}]")
+    if accuracy_p1 < 80:
+        print(f"  Phase 2 (AutoCarIndia):  {p2_found} specs")
     print(f"{'='*60}\n")
 
     return car_data
