@@ -21,20 +21,20 @@ from functools import wraps
 
 from vertexai.generative_models import GenerativeModel, GenerationConfig
 
-from benchmarking_agent.config import GOOGLE_API_KEY, SEARCH_ENGINE_ID, CUSTOM_SEARCH_URL
+from benchmarking_agent.config import GOOGLE_API_KEY, SEARCH_ENGINE_ID, COMPANY_SEARCH_ID, CUSTOM_SEARCH_URL
 
 
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
 
-MAX_RETRIES = 3
-BASE_DELAY = 1.0
-MAX_DELAY = 20.0
+MAX_RETRIES = 5  # Increased for rate limits
+BASE_DELAY = 2.0  # Longer base delay
+MAX_DELAY = 30.0
 
-# Parallel workers
-SEARCH_WORKERS = 20
-GEMINI_WORKERS = 15
+# Parallel workers (reduced to avoid rate limits)
+SEARCH_WORKERS = 15  # Reduced from 20
+GEMINI_WORKERS = 12  # Reduced from 15
 
 # Gemini config
 EXTRACTION_CONFIG = GenerationConfig(
@@ -47,6 +47,86 @@ EXTRACTION_CONFIG = GenerationConfig(
 # ============================================================================
 # 87 CAR SPECIFICATIONS
 # ============================================================================
+
+# Top 30 specs to extract from official brand websites
+OFFICIAL_SITE_PRIORITY_SPECS = [
+    # Price & Basic (3)
+    "price_range", "seating_capacity", "mileage",
+
+    # Engine & Performance (8)
+    "performance", "torque", "transmission", "acceleration",
+    "engine_displacement", "fuel_type", "number_of_gears", "drive_type",
+
+    # Safety (5)
+    "airbags", "adas", "ncap_rating", "vehicle_safety_features", "brakes",
+
+    # Dimensions & Capacity (6)
+    "boot_space", "wheelbase", "ground_clearance", "fuel_tank",
+    "kerb_weight", "turning_radius",
+
+    # Tech Features (5)
+    "infotainment_screen", "digital_display", "apple_carplay",
+    "cruise_control", "parking_camera",
+
+    # Suspension & Wheels (3)
+    "suspension_front", "suspension_rear", "tyre_size",
+]  # 30 critical specs
+
+# Official brand website URL patterns
+# Format: "brand": ("base_url", "path_pattern")
+BRAND_OFFICIAL_URLS = {
+    "mahindra": ("https://auto.mahindra.com", "/suv/{model}.html"),
+    "tata": ("https://cars.tatamotors.com", "/{model}/ice/specifications.html"),
+    "maruti": ("https://www.marutisuzuki.com", "/{model}/specifications"),
+    "suzuki": ("https://www.marutisuzuki.com", "/{model}/specifications"),
+    "hyundai": ("https://www.hyundai.com", "/in/en/find-a-car/{model}/specification"),
+    "toyota": ("https://www.toyota.com", "/{model}/features/"),
+    "honda": ("https://www.hondacarindia.com", "/honda-{model}"),
+    "kia": ("https://www.kia.com", "/in/our-vehicles/{model}/features.html"),
+    "skoda": ("https://www.skoda-auto.com", "/models/{model}"),
+    "volkswagen": ("https://www.volkswagen.co.in", "/{model}"),
+    "nissan": ("https://www.nissan.in", "/{model}"),
+    "renault": ("https://www.renault.co.in", "/{model}"),
+    "mg": ("https://www.mgmotor.co.in", "/vehicles/{model}"),
+    "bmw": ("https://www.bmw.com", "/models/{model}"),
+    "mercedes": ("https://www.mercedes-benz.co.in", "/passengercars/models/{model}/overview.html"),
+    "audi": ("https://www.audi.com", "/models/{model}"),
+    "porsche": ("https://www.porsche.com", "/international/models/{model}"),
+    "lamborghini": ("https://www.lamborghini.com", "/en-en/models/{model}"),
+    "ferrari": ("https://www.ferrari.com", "/en-EN/auto/{model}"),
+    "aston": ("https://www.astonmartin.com", "/en/models/{model}"),
+    "bentley": ("https://www.bentleymotors.com", "/en/models/{model}.html"),
+    "rolls": ("https://www.rolls-roycemotorcars.com", "/{model}"),
+    "mclaren": ("https://cars.mclaren.com", "/gl_en/{model}"),
+    "maserati": ("https://www.maserati.com", "/{model}"),
+    "bugatti": ("https://www.bugatti.com", "/en/models/{model}"),
+    "jaguar": ("https://www.jaguar.in", "/jaguar-range/{model}/specifications.html"),
+    "range": ("https://www.rangerover.com", "/en-in/range-rover/models-and-specifications.html"),
+    "rover": ("https://www.rangerover.com", "/en-in/range-rover/models-and-specifications.html"),
+    "lexus": ("https://www.lexus.com", "/models/{model}/specifications"),
+    "volvo": ("https://www.volvocars.com", "/in/cars/{model}/specifications/"),
+    "mini": ("https://www.mini.in", "/en_IN/home/range/{model}/features-functions.html"),
+    "tesla": ("https://www.tesla.com", "/{model}"),
+    "byd": ("https://www.byd.com", "/en/car/{model}"),
+    "vinfast": ("https://vinfastauto.com", "/in_en/{model}/specifications"),
+    "geely": ("https://global.geely.com", "/models/{model}/"),
+    "chery": ("https://www.cheryinternational.com", "/models/{model}/"),
+    "changan": ("https://www.globalchangan.com", "/vehicle/{model}/"),
+    "isuzu": ("https://www.isuzu.co.jp", "/museum/vehicle/pickup/{model}/"),
+    "subaru": ("https://www.subaru-global.com", "/lineup/{model}/specifications.html"),
+    "mazda": ("https://www.mazda.com", "/en/innovation/technology/{model}/"),
+    "mitsubishi": ("https://www.mitsubishi-motors.com", "/en/products/{model}/specifications/"),
+    "peugeot": ("https://www.peugeot.com", "/en/models/{model}/specifications/"),
+    "citroen": ("https://www.citroen.in", "/models/{model}/specifications.html"),
+    "jeep": ("https://www.jeep-india.com", "/{model}/specifications.html"),
+    "dodge": ("https://www.dodge.com", "/{model}/specs.html"),
+    "cadillac": ("https://www.cadillac.com", "/suvs/{model}/specs"),
+    "chevrolet": ("https://www.chevrolet.com", "/cars/{model}/specs"),
+    "gmc": ("https://www.gmc.com", "/suvs/{model}/specs"),
+    "buick": ("https://www.buick.com", "/suvs/{model}/specs"),
+    "genesis": ("https://www.genesis.com", "/worldwide/en/models/luxury-sedan-genesis/{model}/specifications.html"),
+    "force": ("https://www.forcemotors.com", "/force{model}/specifications"),
+}
 
 CAR_SPECS = [
     # Basic Info
@@ -226,7 +306,7 @@ SPEC_KEYWORDS = {
 # ============================================================================
 
 def exponential_backoff_retry(max_retries: int = MAX_RETRIES, base_delay: float = BASE_DELAY):
-    """Decorator for exponential backoff retry."""
+    """Decorator for exponential backoff retry with rate limit handling."""
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -236,9 +316,25 @@ def exponential_backoff_retry(max_retries: int = MAX_RETRIES, base_delay: float 
                     return func(*args, **kwargs)
                 except Exception as e:
                     last_exception = e
+                    error_str = str(e).lower()
+
+                    # Check for rate limit errors
+                    is_rate_limit = any(x in error_str for x in ["429", "rate limit", "quota", "too many requests"])
+
                     if attempt < max_retries - 1:
-                        delay = min(base_delay * (2 ** attempt) + random.uniform(0, 1), MAX_DELAY)
+                        if is_rate_limit:
+                            # Longer delay for rate limits
+                            delay = min(base_delay * (3 ** attempt) + random.uniform(2, 5), MAX_DELAY)
+                            print(f"      Rate limit hit, waiting {delay:.1f}s before retry...")
+                        else:
+                            # Normal exponential backoff
+                            delay = min(base_delay * (2 ** attempt) + random.uniform(0, 1), MAX_DELAY)
+
                         time.sleep(delay)
+                    else:
+                        # Last attempt failed
+                        if is_rate_limit:
+                            print(f"      Rate limit exceeded after {max_retries} attempts")
             raise last_exception
         return wrapper
     return decorator
@@ -271,15 +367,199 @@ def call_gemini_simple(prompt: str) -> str:
 
 
 # ============================================================================
+# PHASE 0: OFFICIAL BRAND SITE EXTRACTION
+# ============================================================================
+
+def build_official_brand_url(car_name: str) -> tuple:
+    """
+    Build official brand website URL dynamically.
+
+    Returns: (url, brand) or (None, None) if brand not found
+    """
+    parts = car_name.strip().lower().split()
+    if not parts:
+        return None, None
+
+    brand = parts[0]
+    model_parts = parts[1:] if len(parts) > 1 else []
+
+    # Handle special cases
+    if brand == "range" or (brand == "land" and model_parts and model_parts[0] == "rover"):
+        brand = "rover"
+        model_parts = model_parts[1:] if model_parts else []
+    elif brand == "aston" and model_parts and model_parts[0] == "martin":
+        brand = "aston"
+        model_parts = model_parts[1:] if model_parts else []
+    elif brand == "rolls" and model_parts and model_parts[0] == "royce":
+        brand = "rolls"
+        model_parts = model_parts[1:] if model_parts else []
+
+    # Get URL pattern
+    if brand not in BRAND_OFFICIAL_URLS:
+        return None, None
+
+    base_url, path_pattern = BRAND_OFFICIAL_URLS[brand]
+
+    # Build model string with brand-specific formatting
+    if brand == "mg":
+        # MG uses concatenated names: "mg gloster" -> "mggloster"
+        model = "mg" + "".join(model_parts) if model_parts else "models"
+        model_lower = model.lower()
+    else:
+        # Most brands use dashes: "model name" -> "model-name"
+        model = "-".join(model_parts) if model_parts else "models"
+        model_lower = model.lower().replace(" ", "-")
+
+    # Build full URL
+    try:
+        full_url = base_url + path_pattern.format(model=model_lower)
+        return full_url, brand
+    except Exception:
+        return None, None
+
+
+def extract_specs_from_official_site(car_name: str, url: str, specs_batch: List[str]) -> Dict[str, str]:
+    """
+    Extract a batch of specs from official brand URL using Gemini.
+
+    Args:
+        car_name: Name of the car
+        url: Official brand website URL
+        specs_batch: List of spec names to extract (max 10)
+
+    Returns: Dict of {spec_name: value}
+    """
+    spec_list = "\n".join([f'- {spec}: {spec.replace("_", " ").title()}' for spec in specs_batch])
+
+    prompt = f"""Visit this official car specifications page and extract data for {car_name}:
+
+URL: {url}
+
+Extract these {len(specs_batch)} specifications from the page:
+{spec_list}
+
+IMPORTANT:
+- Visit the URL and read the official spec sheet/table
+- Extract exact values with units (bhp, Nm, mm, litres, kg, kmpl, etc.)
+- Look for technical specifications table, features list, or specs section
+- If a spec is not on this page, return "Not found"
+
+Return ONLY a JSON object:
+{{
+    "spec_name": "value with units (concise)",
+    ...
+}}
+
+Example:
+{{
+    "price_range": "₹12.5-18.9 Lakh",
+    "performance": "175 bhp @ 3500 rpm",
+    "torque": "370 Nm",
+    "mileage": "15.2 kmpl"
+}}
+
+Return ONLY the JSON, no markdown."""
+
+    try:
+        response_text = call_gemini_simple(prompt)
+
+        if not response_text:
+            return {}
+
+        # Parse JSON
+        text = response_text.strip()
+        if "```json" in text:
+            text = text.split("```json")[1].split("```")[0]
+        elif "```" in text:
+            text = text.split("```")[1].split("```")[0]
+        text = text.strip()
+
+        if "{" in text and "}" in text:
+            text = text[text.index("{"):text.rindex("}") + 1]
+
+        data = json_repair.loads(text)
+        return data
+
+    except Exception:
+        return {}
+
+
+def phase0_official_site_extraction(car_name: str) -> Dict[str, Any]:
+    """
+    Phase 0: Extract top 30 specs from official brand website.
+
+    Extracts in batches of 10 specs (3 Gemini calls total).
+
+    Returns: {specs: {spec_name: value}, citations: {spec_name: {source_url}}}
+    """
+    print(f"\n{'='*60}")
+    print(f"PHASE 0: OFFICIAL BRAND SITE EXTRACTION")
+    print(f"{'='*60}\n")
+
+    # Build official URL
+    url, brand = build_official_brand_url(car_name)
+
+    if not url:
+        print(f"  No official site URL pattern for this brand")
+        return {"specs": {}, "citations": {}}
+
+    print(f"  Brand: {brand.upper()}")
+    print(f"  URL: {url}")
+    print(f"  Extracting {len(OFFICIAL_SITE_PRIORITY_SPECS)} specs in batches of 10...\n")
+
+    specs = {}
+    citations = {}
+
+    # Split into batches of 10
+    spec_batches = [
+        OFFICIAL_SITE_PRIORITY_SPECS[i:i+10]
+        for i in range(0, len(OFFICIAL_SITE_PRIORITY_SPECS), 10)
+    ]
+
+    for batch_idx, batch in enumerate(spec_batches, 1):
+        print(f"    Batch {batch_idx}/{len(spec_batches)}: Extracting {len(batch)} specs...", end=" ")
+
+        try:
+            extracted = extract_specs_from_official_site(car_name, url, batch)
+
+            found_count = 0
+            for spec_name, value in extracted.items():
+                if spec_name in OFFICIAL_SITE_PRIORITY_SPECS and value and "Not found" not in value:
+                    specs[spec_name] = value
+                    citations[spec_name] = {
+                        "source_url": url,
+                        "citation_text": f"Official {brand} website",
+                        "engine": "OFFICIAL",
+                    }
+                    found_count += 1
+
+            print(f"✓ {found_count}/{len(batch)}")
+            time.sleep(0.5)  # Delay between batches
+
+        except Exception as e:
+            print(f"✗ Error: {str(e)[:30]}")
+
+    total_found = len(specs)
+    accuracy = (total_found / len(OFFICIAL_SITE_PRIORITY_SPECS) * 100) if OFFICIAL_SITE_PRIORITY_SPECS else 0
+
+    print(f"\n  Phase 0 Complete: {total_found}/{len(OFFICIAL_SITE_PRIORITY_SPECS)} specs ({accuracy:.1f}%)")
+
+    return {"specs": specs, "citations": citations}
+
+
+# ============================================================================
 # PHASE 1: PER-SPEC SEARCH + SNIPPET EXTRACTION
 # ============================================================================
 
 @exponential_backoff_retry()
-def google_custom_search(query: str, num_results: int = 5) -> List[Dict[str, str]]:
-    """Execute Google Custom Search API call."""
+def google_custom_search(query: str, search_engine_id: str, num_results: int = 5) -> List[Dict[str, str]]:
+    """Execute Google Custom Search API call with specified search engine."""
+    # Small delay to avoid rate limits (distributed across parallel workers)
+    time.sleep(random.uniform(0.05, 0.15))
+
     params = {
         "key": GOOGLE_API_KEY,
-        "cx": SEARCH_ENGINE_ID,
+        "cx": search_engine_id,
         "q": query,
         "num": min(num_results, 10),
     }
@@ -293,6 +573,10 @@ def google_custom_search(query: str, num_results: int = 5) -> List[Dict[str, str
             "snippet": item.get("snippet", ""),
             "domain": item.get("displayLink", ""),
         } for item in response.json().get("items", [])]
+
+    # Handle rate limit responses
+    if response.status_code == 429:
+        raise Exception("Rate limit exceeded (429)")
 
     return []
 
@@ -361,17 +645,19 @@ Return ONLY the JSON object."""
         return {"value": "Not found", "source_url": "N/A"}
 
 
-def phase1_per_spec_search(car_name: str) -> Dict[str, Any]:
+def phase1_per_spec_search(car_name: str, existing_specs: Dict[str, str] = None) -> Dict[str, Any]:
     """
-    Phase 1: For each spec, do one search query and extract from snippets.
+    Phase 1: For each remaining spec, do one search query and extract from snippets.
+
+    Searches only specs not already found in Phase 0 (official site).
 
     Returns: {specs: {spec_name: value}, citations: {spec_name: {source_url}}}
     """
     print(f"\n{'='*60}")
     print(f"PHASE 1: PER-SPEC SEARCH + SNIPPET EXTRACTION")
     print(f"{'='*60}\n")
-    print(f"  Searching and extracting {len(CAR_SPECS)} specs...")
 
+    existing_specs = existing_specs or {}
     specs = {}
     citations = {}
 
@@ -381,20 +667,30 @@ def phase1_per_spec_search(car_name: str) -> Dict[str, Any]:
         query = f"{car_name} {keyword}"
 
         try:
-            # Search
-            search_results = google_custom_search(query, num_results=5)
+            # Search with exponential backoff
+            search_results = google_custom_search(query, SEARCH_ENGINE_ID, num_results=5)
 
             # Extract from snippets
             result = extract_spec_from_snippets(car_name, spec_name, search_results)
 
             return spec_name, result["value"], result["source_url"]
 
-        except Exception:
+        except Exception as e:
+            # Log rate limit errors
+            if "429" in str(e) or "quota" in str(e).lower():
+                print(f"    Rate limit hit for {spec_name}, will retry...")
             return spec_name, "Not found", "N/A"
 
-    # Process all specs in parallel
+    # Find specs not yet found
+    remaining_specs = [
+        s for s in CAR_SPECS
+        if s not in existing_specs or existing_specs.get(s) in ["Not found", "Not Available", ""]
+    ]
+
+    print(f"  Searching {len(remaining_specs)} remaining specs with SEARCH_ENGINE_ID...")
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=SEARCH_WORKERS) as executor:
-        futures = {executor.submit(search_and_extract, spec): spec for spec in CAR_SPECS}
+        futures = {executor.submit(search_and_extract, spec): spec for spec in remaining_specs}
 
         completed = 0
         found = 0
@@ -409,21 +705,22 @@ def phase1_per_spec_search(car_name: str) -> Dict[str, Any]:
                 specs[spec_name] = value
                 citations[spec_name] = {
                     "source_url": source_url,
-                    "citation_text": f"Extracted from search results",
+                    "citation_text": "From search results",
+                    "engine": "SEARCH",
                 }
 
                 if value and "Not found" not in value:
                     found += 1
 
                 if completed % 20 == 0:
-                    print(f"    Progress: {completed}/{len(CAR_SPECS)} ({found} found)")
+                    print(f"    Progress: {completed}/{len(remaining_specs)} ({found} found)")
 
             except Exception:
                 specs[spec_name] = "Not found"
-                citations[spec_name] = {"source_url": "N/A", "citation_text": ""}
+                citations[spec_name] = {"source_url": "N/A", "citation_text": "", "engine": "SEARCH"}
 
-    accuracy = (found / len(CAR_SPECS) * 100) if CAR_SPECS else 0
-    print(f"\n  Phase 1 Complete: {found}/{len(CAR_SPECS)} specs ({accuracy:.1f}%)")
+    accuracy = (found / len(remaining_specs) * 100) if remaining_specs else 0
+    print(f"\n  Phase 1 Complete: {found}/{len(remaining_specs)} specs ({accuracy:.1f}%)")
 
     return {"specs": specs, "citations": citations}
 
@@ -573,7 +870,8 @@ def scrape_car_data_with_custom_search(car_name: str) -> Dict[str, Any]:
     """
     Main scraping function.
 
-    Phase 1: Per-spec search + snippet extraction
+    Phase 0: Official brand site extraction (top 30 specs)
+    Phase 1: Per-spec search for remaining specs
     Phase 2: AutoCarIndia fallback for missing specs
     """
     print(f"\n{'#'*60}")
@@ -582,10 +880,22 @@ def scrape_car_data_with_custom_search(car_name: str) -> Dict[str, Any]:
 
     start_time = time.time()
 
-    # Phase 1: Per-spec search
-    phase1_result = phase1_per_spec_search(car_name)
-    specs = phase1_result["specs"].copy()
-    citations = phase1_result["citations"].copy()
+    # Phase 0: Official brand site extraction
+    phase0_result = phase0_official_site_extraction(car_name)
+    specs = phase0_result["specs"].copy()
+    citations = phase0_result["citations"].copy()
+
+    # Phase 1: Per-spec search for remaining specs
+    phase1_result = phase1_per_spec_search(car_name, existing_specs=specs)
+
+    # Merge Phase 1 results
+    for spec_name, value in phase1_result["specs"].items():
+        if spec_name not in specs or specs.get(spec_name) in ["Not found", "Not Available", ""]:
+            specs[spec_name] = value
+
+    for spec_name, citation in phase1_result["citations"].items():
+        if spec_name not in citations:
+            citations[spec_name] = citation
 
     # Phase 2: AutoCarIndia fallback
     phase2_result = phase2_autocarindia_fallback(car_name, specs)
@@ -630,12 +940,19 @@ def scrape_car_data_with_custom_search(car_name: str) -> Dict[str, Any]:
         1 for s in CAR_SPECS
         if car_data.get(s) and car_data[s] not in ["Not Available", "Not found", ""]
     )
+
+    # Count by source
+    official_count = sum(1 for s in CAR_SPECS if citations.get(s, {}).get("engine") == "OFFICIAL")
+    search_count = sum(1 for s in CAR_SPECS if citations.get(s, {}).get("engine") == "SEARCH")
+    autocar_count = sum(1 for s in CAR_SPECS if "autocarindia" in str(citations.get(s, {}).get("source_url", "")).lower())
+
     elapsed = time.time() - start_time
     accuracy = (final_found / len(CAR_SPECS) * 100) if CAR_SPECS else 0
 
     print(f"\n{'='*60}")
     print(f"COMPLETE: {final_found}/{len(CAR_SPECS)} specs ({accuracy:.1f}%)")
     print(f"Time: {elapsed:.1f}s | Sources: {len(car_data['source_urls'])}")
+    print(f"  Official: {official_count} | Search: {search_count} | AutoCar: {autocar_count}")
     print(f"{'='*60}\n")
 
     return car_data
