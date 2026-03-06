@@ -44,7 +44,7 @@ FEATURE_QUERIES = {
     ],
 
     "interior": [
-        "dashboard steering wheel view",
+        "steering wheel image",
         "front seats interior",
         "infotainment touchscreen display",
         "speedometer instrument cluster display",
@@ -85,6 +85,58 @@ FEATURE_QUERIES = {
 }
 
 
+def calculate_image_relevance_score(item: dict, car_name: str, feature_query: str) -> float:
+    """
+    Calculate relevance score for an image result.
+
+    Args:
+        item: Search result item from API
+        car_name: Car name (e.g., "Mahindra Thar")
+        feature_query: Feature being searched (e.g., "dashboard")
+
+    Returns:
+        Float score (0.0 to 1.0, higher is better)
+    """
+    score = 0.0
+
+    # Extract text fields
+    title = item.get("title", "").lower()
+    snippet = item.get("snippet", "").lower()
+    link = item.get("link", "").lower()
+    display_link = item.get("displayLink", "").lower()
+
+    # Combine all text for matching
+    combined_text = f"{title} {snippet} {link} {display_link}"
+
+    # Extract feature keywords (split on spaces, take important words)
+    feature_keywords = [w.lower() for w in feature_query.split() if len(w) > 3]
+    car_keywords = [w.lower() for w in car_name.split() if len(w) > 3]
+
+    # Score based on feature keyword matches
+    feature_matches = sum(1 for keyword in feature_keywords if keyword in combined_text)
+    if feature_matches > 0:
+        score += 0.5 * (feature_matches / len(feature_keywords))
+
+    # Score based on car name matches
+    car_matches = sum(1 for keyword in car_keywords if keyword in combined_text)
+    if car_matches > 0:
+        score += 0.3 * (car_matches / len(car_keywords))
+
+    # Bonus for preferred domains
+    preferred_domains = ["autocarindia", "cardekho", "carwale", "zigwheels", "overdrive"]
+    if any(domain in display_link for domain in preferred_domains):
+        score += 0.2
+
+    # PENALTY: If only car name present but NO feature keywords (generic car image)
+    has_car_keywords = any(keyword in combined_text for keyword in car_keywords)
+    has_feature_keywords = any(keyword in combined_text for keyword in feature_keywords)
+
+    if has_car_keywords and not has_feature_keywords:
+        score = 0.01  # Heavy penalty for generic car images
+
+    return min(score, 1.0)  # Cap at 1.0
+
+
 def search_feature_image(
     car_name: str,
     feature_query: str,
@@ -92,6 +144,7 @@ def search_feature_image(
 ) -> Tuple[str, str, str]:
     """
     Search for a specific feature image using COMPANY_SEARCH_ID with retry logic.
+    Uses scoring to select the best match and skips invalid URLs.
 
     Args:
         car_name: Car name (e.g., "Mahindra Thar")
@@ -117,7 +170,7 @@ def search_feature_image(
                 "cx": COMPANY_SEARCH_ID,
                 "q": query,
                 "searchType": "image",
-                "num": 3,
+                "num": 10,  # Get more results for scoring
                 "imgSize": "medium",
                 "safe": "active",
                 "imgType": "photo",
@@ -127,12 +180,52 @@ def search_feature_image(
 
             if response.status_code == 200:
                 items = response.json().get("items", [])
-                if items:
-                    img_url = items[0].get("link", "")
-                    if img_url:
-                        return img_url, feature_query.title(), "success"
+                if not items:
+                    return None, feature_query.title(), "no_results"
 
-                # No results found
+                # Score all items and filter valid URLs
+                scored_items = []
+
+                for item in items:
+                    img_url = item.get("link", "")
+
+                    # SKIP x-raw-image URLs completely
+                    if "x-raw-image" in img_url:
+                        continue
+
+                    # Validate URL
+                    if not img_url.startswith(('http://', 'https://')):
+                        # Try thumbnail as fallback (but skip if it's encrypted/blurry)
+                        image_meta = item.get("image", {})
+                        thumb_url = image_meta.get("thumbnailLink", "")
+
+                        # Skip encrypted thumbnail URLs (they're blurry)
+                        if thumb_url and "encrypted-tbn" not in thumb_url:
+                            img_url = thumb_url
+                        else:
+                            # Try original image context
+                            img_url = image_meta.get("contextLink", "")
+
+                    # Only consider valid HTTP/HTTPS URLs
+                    if img_url and img_url.startswith(('http://', 'https://')):
+                        # Skip encrypted thumbnails
+                        if "encrypted-tbn" in img_url:
+                            continue
+
+                        score = calculate_image_relevance_score(item, car_name, feature_query)
+                        scored_items.append((score, img_url, item))
+
+                # Sort by score (highest first)
+                scored_items.sort(key=lambda x: x[0], reverse=True)
+
+                # Always return the best scoring image, even if score is low
+                # Better to show something relevant than nothing at all
+                if scored_items:
+                    best_score, best_url, best_item = scored_items[0]
+                    # No minimum threshold - if we have ANY valid image, use the best one
+                    return best_url, feature_query.title(), "success"
+
+                # No valid results found (all were invalid URLs)
                 return None, feature_query.title(), "no_results"
 
             elif response.status_code == 429:
@@ -195,17 +288,34 @@ def extract_autocar_images(car_name: str) -> Dict[str, List[Tuple[str, str]]]:
             "cx": COMPANY_SEARCH_ID,
             "q": f"{car_name} front three quarter official press image",
             "searchType": "image",
-            "num": 2,
+            "num": 10,  # Get more results for better selection
             "imgSize": "large",
         }
         response = requests.get(CUSTOM_SEARCH_URL, params=params, timeout=10)
         if response.status_code == 200:
             items = response.json().get("items", [])
             if items:
-                hero_url = items[0].get("link", "")
-                if hero_url and hero_url not in used_urls:
-                    results["hero"].append((hero_url, car_name))
-                    used_urls.add(hero_url)
+                # Try to find best hero image (skip invalid URLs)
+                for item in items:
+                    hero_url = item.get("link", "")
+
+                    # Skip x-raw-image URLs
+                    if "x-raw-image" in hero_url:
+                        continue
+
+                    # Skip encrypted thumbnails (blurry)
+                    if "encrypted-tbn" in hero_url:
+                        continue
+
+                    # Validate URL
+                    if not hero_url.startswith(('http://', 'https://')):
+                        image_meta = item.get("image", {})
+                        hero_url = image_meta.get("contextLink", "")  # Use context, not thumbnail
+
+                    if hero_url and hero_url.startswith(('http://', 'https://')) and hero_url not in used_urls:
+                        results["hero"].append((hero_url, car_name))
+                        used_urls.add(hero_url)
+                        break  # Found a good hero image
     except Exception:
         pass
 
