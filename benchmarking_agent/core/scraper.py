@@ -3,7 +3,7 @@ Car Specifications Scraper - Simple Per-Spec Search Pipeline
 
 FLOW:
 1. Phase 1: Per-spec search (87 queries) → Extract from snippets with Gemini
-   - Query: "{car_name} {spec_keyword}"
+   - Query: "{car_name} latest {spec_keyword}"
    - Gemini extracts value + source URL from snippets
 
 2. Phase 2: AutoCarIndia fallback for missing specs
@@ -17,6 +17,7 @@ import time
 import random
 import requests
 import concurrent.futures
+from datetime import datetime
 from typing import Dict, Any, List
 from functools import wraps
 
@@ -36,6 +37,17 @@ MAX_DELAY = 30.0
 # Parallel workers (reduced to avoid rate limits)
 SEARCH_WORKERS = 15  # Reduced from 20
 GEMINI_WORKERS = 12  # Reduced from 15
+
+# Dynamic current year (auto-updates, no hardcoding!)
+CURRENT_YEAR = datetime.now().year
+
+# Query enhancement strategy
+# "latest" is better than year because:
+# - Works regardless of model release cycles
+# - Search engines understand "latest"
+# - Covers cases where current year model isn't released yet
+# - Still gets most recent information
+QUERY_ENHANCEMENT_MODE = "latest"  # Options: "latest", "year", "both"
 
 # Gemini config
 EXTRACTION_CONFIG = GenerationConfig(
@@ -320,6 +332,56 @@ SPEC_KEYWORDS = {
 # ============================================================================
 # UTILITIES
 # ============================================================================
+
+def build_enhanced_query(car_name: str, spec_keyword: str, enhance: bool = True) -> str:
+    """
+    Build search query with smart enhancement for better, more current results.
+
+    Strategy:
+    - "latest" mode: "{car_name} latest {spec_keyword}"
+      → Best for most cases, always relevant
+    - "year" mode: "{CURRENT_YEAR} {car_name} {spec_keyword}"
+      → Good when year model definitely exists
+    - "both" mode: "{car_name} {CURRENT_YEAR} latest {spec_keyword}"
+      → Most comprehensive but longer query
+
+    Args:
+        car_name: Name of the car (e.g., "Toyota Camry")
+        spec_keyword: Specification keyword (e.g., "price", "mileage")
+        enhance: Whether to enhance query (True for specs, False for images)
+
+    Returns:
+        Enhanced query string
+
+    Examples:
+        >>> build_enhanced_query("Toyota Camry", "price", enhance=True)
+        "Toyota Camry latest price"  # if mode="latest"
+
+        >>> build_enhanced_query("Honda Civic", "mileage", enhance=False)
+        "Honda Civic mileage"  # no enhancement
+    """
+    if not enhance:
+        return f"{car_name} {spec_keyword}"
+
+    mode = QUERY_ENHANCEMENT_MODE
+
+    if mode == "latest":
+        # Recommended: "latest" keyword is understood by search engines
+        # and always returns most recent model regardless of release cycle
+        return f"{car_name} latest {spec_keyword}"
+
+    elif mode == "year":
+        # Use current year - works well mid-year onwards
+        return f"{CURRENT_YEAR} {car_name} {spec_keyword}"
+
+    elif mode == "both":
+        # Combine both for maximum coverage (longer query)
+        return f"{car_name} {CURRENT_YEAR} latest {spec_keyword}"
+
+    else:
+        # Fallback to basic query
+        return f"{car_name} {spec_keyword}"
+
 
 def exponential_backoff_retry(max_retries: int = MAX_RETRIES, base_delay: float = BASE_DELAY):
     """Decorator for exponential backoff retry with rate limit handling."""
@@ -659,7 +721,7 @@ def extract_spec_from_snippets(car_name: str, spec_name: str, search_results: Li
 
     human_name = spec_name.replace("_", " ").title()
 
-    prompt = f"""Extract the {human_name} for {car_name} from these search snippets.
+    prompt = f"""Extract the {human_name} for the LATEST MODEL of {car_name} from these search snippets.
 
 SEARCH RESULTS:
 {snippets_text}
@@ -671,6 +733,7 @@ Extract the {human_name} value and return a JSON object:
 }}
 
 Rules:
+- Extract the MOST RECENT model data available (prefer {CURRENT_YEAR} or latest year mentioned)
 - Extract ONLY if explicitly stated in snippets
 - Include units (bhp, Nm, kmpl, mm, litres, etc.)
 - For subjective specs, use brief phrase (3-5 words)
@@ -725,7 +788,8 @@ def phase1_per_spec_search(car_name: str, existing_specs: Dict[str, str] = None)
     def search_and_extract(spec_name):
         """Search and extract a single spec."""
         keyword = SPEC_KEYWORDS.get(spec_name, spec_name.replace("_", " "))
-        query = f"{car_name} {keyword}"
+        # Use enhanced query with "latest" for most current results
+        query = build_enhanced_query(car_name, keyword, enhance=True)
 
         try:
             # Search with exponential backoff

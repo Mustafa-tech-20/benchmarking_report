@@ -8,11 +8,13 @@ Features:
 - Circuit breaker pattern
 - Connection pooling
 - Proper error handling and logging
+- Smart query enhancement with "latest" keyword
 """
 import asyncio
 import json
 import logging
 import random
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 import aiohttp
@@ -42,6 +44,9 @@ from benchmarking_agent.core.async_utils import (
 from benchmarking_agent.core.scraper import (
     CAR_SPECS,
     SPEC_KEYWORDS,
+    CURRENT_YEAR,
+    QUERY_ENHANCEMENT_MODE,
+    build_enhanced_query,
 )
 
 
@@ -266,7 +271,7 @@ async def async_extract_spec_from_snippets(
 
     human_name = spec_name.replace("_", " ").title()
 
-    prompt = f"""Extract the {human_name} for {car_name} from these search snippets.
+    prompt = f"""Extract the {human_name} for the LATEST MODEL of {car_name} from these search snippets.
 
 SEARCH RESULTS:
 {snippets_text}
@@ -278,6 +283,7 @@ Extract the {human_name} value and return a JSON object:
 }}
 
 Rules:
+- Extract the MOST RECENT model data available (prefer {CURRENT_YEAR} or latest year mentioned)
 - Extract ONLY if explicitly stated in snippets
 - Include units (bhp, Nm, kmpl, mm, litres, etc.)
 - For subjective specs, use brief phrase (3-5 words)
@@ -361,7 +367,8 @@ async def async_phase1_per_spec_search(
         async def search_and_extract_spec(spec_name: str) -> Tuple[str, str, str]:
             """Search and extract a single spec."""
             keyword = SPEC_KEYWORDS.get(spec_name, spec_name.replace("_", " "))
-            query = f"{car_name} {keyword}"
+            # Use enhanced query with "latest" for most current results
+            query = build_enhanced_query(car_name, keyword, enhance=True)
 
             try:
                 # Search with rate limiting
