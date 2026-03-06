@@ -44,10 +44,10 @@ FEATURE_QUERIES = {
     ],
 
     "interior": [
-        "dashboard interior driver view",
+        "dashboard steering wheel view",
         "front seats interior",
         "infotainment touchscreen display",
-        "instrument cluster display",
+        "speedometer instrument cluster display",
         "steering wheel controls",
         "center console interior",
         "gear shifter center console",
