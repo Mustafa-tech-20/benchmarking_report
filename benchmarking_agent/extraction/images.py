@@ -50,7 +50,7 @@ FEATURE_QUERIES = {
         "speedometer instrument cluster display",
         "steering wheel controls",
         "center console interior",
-        "gear shifter center console",
+        "gear",
         "door panel interior trim",
     ],
 
