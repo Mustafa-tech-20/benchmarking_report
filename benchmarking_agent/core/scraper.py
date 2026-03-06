@@ -73,29 +73,27 @@ def reset_gemini_model():
 # 87 CAR SPECIFICATIONS
 # ============================================================================
 
-# Top 30 specs to extract from official brand websites
+# Top specs to extract from official brand websites
 OFFICIAL_SITE_PRIORITY_SPECS = [
-    # Price & Basic (3)
+    # Top 5 Key Specs
     "price_range", "seating_capacity", "mileage",
 
-    # Engine & Performance (8)
-    "performance", "torque", "transmission", "acceleration",
-    "engine_displacement", "fuel_type", "number_of_gears", "drive_type",
+    # Performance & Engine
+    "acceleration", "torque", "engine_displacement", "fuel_type",
 
-    # Safety (5)
+    # Safety
     "airbags", "adas", "ncap_rating", "vehicle_safety_features", "brakes",
 
-    # Dimensions & Capacity (6)
-    "boot_space", "wheelbase", "ground_clearance", "fuel_tank",
-    "kerb_weight", "turning_radius",
+    # Dimensions
+    "boot_space", "wheelbase", "ground_clearance", "turning_radius",
 
-    # Tech Features (5)
+    # Tech Features
     "infotainment_screen", "digital_display", "apple_carplay",
     "cruise_control", "parking_camera",
 
-    # Suspension & Wheels (3)
-    "suspension_front", "suspension_rear", "tyre_size",
-]  # 30 critical specs
+    # Exterior
+    "tyre_size", "led", "drl",
+]  # 25 critical specs
 
 # Official brand website URL patterns
 # Format: "brand": ("base_url", "path_pattern")
@@ -155,68 +153,59 @@ BRAND_OFFICIAL_URLS = {
 }
 
 CAR_SPECS = [
-    # Basic Info
-    "price_range", "mileage", "user_rating", "seating_capacity", "body_type",
+    # Top 5 Key Specs (for main table)
+    "price_range", "monthly_sales", "mileage", "user_rating", "seating_capacity",
 
-    # Engine & Performance
-    "performance", "torque", "transmission", "acceleration",
-    "engine_displacement", "fuel_type", "number_of_gears", "drive_type",
+    # Performance & Driving (from image)
+    "performance_feel", "driveability", "acceleration", "torque", "response",
+    "city_performance", "highway_performance", "off_road", "crawl",
 
-    # Braking & Safety
-    "braking", "brakes", "brake_performance", "vehicle_safety_features",
-    "impact", "airbags", "adas", "ncap_rating",
+    # Transmission (from image)
+    "manual_transmission_performance", "automatic_transmission_performance",
+    "pedal_operation", "gear_shift", "gear_selection", "pedal_travel",
 
-    # Steering & Handling
-    "steering", "telescopic_steering", "turning_radius",
+    # Ride & Suspension (from image)
+    "ride", "ride_quality", "stiff_on_pot_holes", "bumps", "shocks",
+
+    # NVH & Noise (from image)
+    "nvh", "powertrain_nvh", "wind_nvh", "road_nvh",
+    "wind_noise", "tire_noise", "turbo_noise", "blower_noise",
+
+    # Vibration & Feel (from image)
+    "jerks", "pulsation", "shakes", "shudder", "grabby", "spongy", "rattle",
+
+    # Steering & Handling (from image)
+    "steering", "telescopic_steering", "turning_radius", "manoeuvring",
     "stability", "corner_stability", "straight_ahead_stability",
 
-    # Ride & Suspension
-    "ride", "ride_quality", "stiff_on_pot_holes", "bumps", "shocks",
-    "suspension_front", "suspension_rear",
+    # Braking (from image)
+    "braking", "brakes", "brake_performance", "epb",
 
-    # NVH
-    "nvh", "powertrain_nvh", "wind_nvh", "road_nvh",
-    "wind_noise", "tire_noise", "turbo_noise",
+    # Safety & Airbags (for checklist + from image)
+    "airbags", "airbag_types_breakdown", "vehicle_safety_features",
+    "adas", "ncap_rating", "impact", "seats_restraint",
 
-    # Transmission Feel
-    "manual_transmission_performance", "automatic_transmission_performance",
-    "pedal_operation", "gear_shift", "gear_selection", "pedal_travel", "crawl",
+    # Interior & Comfort (from image + checklist)
+    "interior", "climate_control", "seats", "seat_cushion", "seat_material",
+    "seat_features_detailed", "rear_seat_features", "ventilated_seats",
+    "visibility", "soft_trims", "armrest", "headrest", "egress", "ingress",
+    "seatbelt_features",
 
-    # Driving Dynamics
-    "driveability", "performance_feel", "city_performance",
-    "highway_performance", "off_road", "manoeuvring",
+    # Technology & Infotainment (from image + checklist)
+    "infotainment_screen", "resolution", "touch_response", "digital_display",
+    "apple_carplay", "button", "audio_system", "cruise_control",
+    "parking_camera", "parking_sensors",
 
-    # Vibration Issues
-    "jerks", "pulsation", "shakes", "shudder",
-    "grabby", "spongy", "rattle",
+    # Exterior & Lighting (from image + checklist)
+    "led", "drl", "tail_lamp", "alloy_wheel", "tyre_size", "wheel_size",
 
-    # Interior & Comfort
-    "interior", "climate_control", "seats", "seat_cushion",
-    "seat_material", "ventilated_seats", "visibility", "soft_trims",
-    "armrest", "headrest", "egress", "ingress", "audio_system",
+    # Convenience (from image + checklist)
+    "sunroof", "irvm", "orvm", "window", "wiper_control", "parking",
+    "door_effort", "sensitivity",
 
-    # Features & Tech
-    "infotainment_screen", "resolution", "touch_response", "apple_carplay",
-    "digital_display", "button", "cruise_control", "parking_sensors", "parking_camera",
-
-    # Exterior & Lighting
-    "lighting", "led", "drl", "tail_lamp",
-    "alloy_wheel", "tyre_size", "wheel_size",
-
-    # Convenience Features
-    "sunroof", "irvm", "orvm", "window",
-    "wiper_control", "parking", "epb", "door_effort",
-
-    # Dimensions & Space
-    "boot_space", "wheelbase", "chasis",
-    "ground_clearance", "fuel_tank", "kerb_weight",
-
-    # Other
-    "blower_noise", "response", "sensitivity", "seats_restraint",
-
-    # Checklist Features (Granular)
-    "airbag_types_breakdown", "seat_features_detailed",
-    "rear_seat_features", "seatbelt_features",
+    # Dimensions & Specs (from image + checklist)
+    "wheelbase", "ground_clearance", "boot_space", "chasis",
+    "fuel_type", "engine_displacement",
 ]
 
 
@@ -930,7 +919,7 @@ Return ONLY the JSON object."""
 
 def phase2_autocarindia_fallback(car_name: str, current_specs: Dict[str, str]) -> Dict[str, Any]:
     """
-    Phase 2: Extract missing specs from AutoCarIndia URL in batches of 7 (parallel).
+    Phase 2: Extract ALL missing specs from AutoCarIndia URL in one Gemini call with type hints.
 
     Returns: {specs: {spec_name: value}, citations: {spec_name: {source_url}}}
     """
@@ -949,50 +938,213 @@ def phase2_autocarindia_fallback(car_name: str, current_specs: Dict[str, str]) -
 
     autocar_url = build_autocarindia_url(car_name)
     print(f"  URL: {autocar_url}")
-    print(f"  Extracting in batches of 7 (parallel)...\n")
+    print(f"  Extracting all specs in one Gemini call with type hints...")
 
-    # Split into batches of 7
-    batches = [missing_specs[i:i+7] for i in range(0, len(missing_specs), 7)]
+    # Fetch URL content
+    try:
+        response = requests.get(autocar_url, timeout=15)
+        html_content = response.text[:50000]  # Limit to 50k chars
+    except Exception as e:
+        print(f"  Error fetching URL: {e}")
+        return {"specs": {}, "citations": {}}
 
-    specs = {}
-    citations = {}
+    # Build type hints for each spec
+    spec_type_hints = {
+        # Top 5
+        "price_range": "string (e.g., '₹10 Lakh - ₹15 Lakh')",
+        "monthly_sales": "number or 'Not Available'",
+        "mileage": "string (e.g., '15-18 kmpl')",
+        "user_rating": "string (e.g., '4.5/5')",
+        "seating_capacity": "string (e.g., '5 Seater')",
 
-    def extract_batch(batch):
-        """Extract one batch."""
-        extracted = extract_specs_from_url(car_name, autocar_url, batch)
-        return batch, extracted
+        # Performance
+        "performance_feel": "string description",
+        "driveability": "string description",
+        "acceleration": "string (e.g., '10.5s 0-100kmph')",
+        "torque": "string (e.g., '250 Nm @ 1500-3000 rpm')",
+        "response": "string description",
+        "city_performance": "string description",
+        "highway_performance": "string description",
+        "off_road": "string description",
+        "crawl": "string description",
 
-    # Process batches in parallel
-    with concurrent.futures.ThreadPoolExecutor(max_workers=GEMINI_WORKERS) as executor:
-        futures = {executor.submit(extract_batch, batch): i for i, batch in enumerate(batches, 1)}
+        # Transmission
+        "manual_transmission_performance": "string description",
+        "automatic_transmission_performance": "string description",
+        "pedal_operation": "string description",
+        "gear_shift": "string description",
+        "gear_selection": "string description",
+        "pedal_travel": "string description",
 
+        # Ride
+        "ride": "string description",
+        "ride_quality": "string description",
+        "stiff_on_pot_holes": "boolean or string",
+        "bumps": "string description",
+        "shocks": "string description",
+
+        # NVH
+        "nvh": "string description",
+        "powertrain_nvh": "string description",
+        "wind_nvh": "string description",
+        "road_nvh": "string description",
+        "wind_noise": "string description",
+        "tire_noise": "string description",
+        "turbo_noise": "string description",
+        "blower_noise": "string description",
+
+        # Vibration
+        "jerks": "string description or 'Not Available'",
+        "pulsation": "string description or 'Not Available'",
+        "shakes": "string description or 'Not Available'",
+        "shudder": "string description or 'Not Available'",
+        "grabby": "string description or 'Not Available'",
+        "spongy": "string description or 'Not Available'",
+        "rattle": "string description or 'Not Available'",
+
+        # Steering
+        "steering": "string description",
+        "telescopic_steering": "boolean (Yes/No) or string",
+        "turning_radius": "string (e.g., '5.2 m')",
+        "manoeuvring": "string description",
+        "stability": "string description",
+        "corner_stability": "string description",
+        "straight_ahead_stability": "string description",
+
+        # Braking
+        "braking": "string description",
+        "brakes": "string (e.g., 'Front: Disc, Rear: Drum')",
+        "brake_performance": "string (e.g., '40.5m from 100kmph')",
+        "epb": "boolean or string (Electronic Parking Brake)",
+
+        # Safety
+        "airbags": "string (e.g., '6 Airbags')",
+        "airbag_types_breakdown": "string (e.g., 'Driver, Passenger, Side, Curtain')",
+        "vehicle_safety_features": "string (list of features)",
+        "adas": "string (ADAS features) or 'Not Available'",
+        "ncap_rating": "string (e.g., '5-Star GNCAP')",
+        "impact": "string description",
+        "seats_restraint": "string description or 'Not Available'",
+
+        # Interior
+        "interior": "string description",
+        "climate_control": "string (e.g., 'Dual-zone automatic')",
+        "seats": "number or string",
+        "seat_cushion": "string description",
+        "seat_material": "string (e.g., 'Leather', 'Fabric')",
+        "seat_features_detailed": "string (detailed seat features)",
+        "rear_seat_features": "string (rear seat details)",
+        "ventilated_seats": "boolean or string",
+        "visibility": "string description",
+        "soft_trims": "string description",
+        "armrest": "boolean or string",
+        "headrest": "boolean or string",
+        "egress": "string description or 'Not Available'",
+        "ingress": "string description or 'Not Available'",
+        "seatbelt_features": "string (seatbelt details)",
+
+        # Technology
+        "infotainment_screen": "string (e.g., '10.25 inch touchscreen')",
+        "resolution": "string or 'Not Available'",
+        "touch_response": "string description or 'Not Available'",
+        "digital_display": "string (e.g., '7 inch TFT display')",
+        "apple_carplay": "boolean or string (Wireless/Wired)",
+        "button": "string (e.g., 'Push button start')",
+        "audio_system": "string (e.g., 'Harman Kardon 8-speaker')",
+        "cruise_control": "boolean or string",
+        "parking_camera": "string (e.g., '360-degree camera')",
+        "parking_sensors": "string (e.g., 'Front & Rear sensors')",
+
+        # Exterior
+        "led": "string (LED lighting details)",
+        "drl": "string (DRL details)",
+        "tail_lamp": "string description",
+        "alloy_wheel": "string description",
+        "tyre_size": "string (e.g., '215/60 R17')",
+        "wheel_size": "string (e.g., '17 inch')",
+
+        # Convenience
+        "sunroof": "string (e.g., 'Panoramic sunroof')",
+        "irvm": "string (e.g., 'Auto-dimming')",
+        "orvm": "string (e.g., 'Electrically adjustable')",
+        "window": "string (e.g., 'Power windows')",
+        "wiper_control": "string or 'Not Available'",
+        "parking": "string description",
+        "door_effort": "string description or 'Not Available'",
+        "sensitivity": "string description or 'Not Available'",
+
+        # Dimensions
+        "wheelbase": "string (e.g., '2650 mm')",
+        "ground_clearance": "string (e.g., '205 mm')",
+        "boot_space": "string (e.g., '350 litres')",
+        "chasis": "string description or 'Not Available'",
+        "fuel_type": "string (e.g., 'Petrol, Diesel')",
+        "engine_displacement": "string (e.g., '1498 cc')",
+    }
+
+    # Build prompt with type hints
+    specs_with_hints = "\n".join([
+        f'  "{spec}": <{spec_type_hints.get(spec, "string")}>'
+        for spec in missing_specs
+    ])
+
+    prompt = f"""Extract car specifications from this AutoCarIndia page for {car_name}.
+
+**IMPORTANT TYPE HINTS:**
+{specs_with_hints}
+
+**RULES:**
+1. Extract EXACT values from the page (numbers, measurements, descriptions)
+2. If a spec is not found or unclear, use "Not Available"
+3. For boolean specs, use "Yes" or "No"
+4. Keep descriptions concise but informative
+5. Return valid JSON only
+
+**HTML Content:**
+{html_content}
+
+**Return JSON format:**
+{{
+{chr(10).join([f'  "{spec}": "value or Not Available",' for spec in missing_specs])}
+}}"""
+
+    # Call Gemini with high output tokens
+    try:
+        model = GenerativeModel(_gemini_model)
+        config = GenerationConfig(
+            temperature=0.1,
+            top_p=0.95,
+            max_output_tokens=8192,  # High limit for all specs
+            response_mime_type="application/json",
+        )
+
+        response = model.generate_content(prompt, generation_config=config)
+        extracted = parse_gemini_json_response(response.text)
+
+        # Count recovered specs
+        specs = {}
+        citations = {}
         recovered = 0
 
-        for future in concurrent.futures.as_completed(futures):
-            batch_num = futures[future]
+        for spec_name in missing_specs:
+            value = extracted.get(spec_name, "Not found")
 
-            try:
-                batch, extracted = future.result()
+            if value and value not in ["Not found", "Not Available", ""]:
+                specs[spec_name] = value
+                citations[spec_name] = {
+                    "source_url": autocar_url,
+                    "citation_text": "Extracted from AutoCarIndia",
+                }
+                recovered += 1
 
-                batch_found = 0
-                for spec_name in batch:
-                    value = extracted.get(spec_name, "Not found")
+        print(f"  ✓ Recovered {recovered}/{len(missing_specs)} specs in one call")
 
-                    if value and "Not found" not in value:
-                        specs[spec_name] = value
-                        citations[spec_name] = {
-                            "source_url": autocar_url,
-                            "citation_text": "Extracted from AutoCarIndia",
-                        }
-                        batch_found += 1
-                        recovered += 1
+    except Exception as e:
+        print(f"  ✗ Extraction failed: {str(e)[:100]}")
+        specs = {}
+        citations = {}
 
-                print(f"    Batch {batch_num}/{len(batches)}: {batch_found}/{len(batch)} specs")
-
-            except Exception:
-                print(f"    Batch {batch_num}/{len(batches)}: Error")
-
-    print(f"\n  Phase 2 Complete: Recovered {recovered}/{len(missing_specs)} specs")
+    print(f"\n  Phase 2 Complete: {len(specs)} specs extracted")
 
     return {"specs": specs, "citations": citations}
 
