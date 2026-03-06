@@ -14,9 +14,9 @@ from pathlib import Path
 from datetime import datetime
 
 # Add benchmarking_agent to path
-sys.path.insert(0, str(Path(__file__).parent / "benchmarking_agent"))
+sys.path.insert(0, str(Path(__file__).parent))
 
-from Reports_Frontend import create_comparison_chart_html
+from benchmarking_agent.reports.html_generator import create_comparison_chart_html
 
 
 def generate_test_report(json_path: str, output_path: str = None):

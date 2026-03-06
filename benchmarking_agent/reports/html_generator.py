@@ -9,6 +9,10 @@ from benchmarking_agent.reports.image_sections import (
     generate_image_gallery_section,
     get_image_section_styles
 )
+from benchmarking_agent.reports.checklist_transformer import (
+    transform_to_checklist,
+    format_checklist_value
+)
 
 
 # ============================================================================
@@ -191,7 +195,7 @@ def extract_sales(sales_str: str) -> int:
 
     Handles:
     - "18,522 units"
-    - "3853 units (January 2025)"
+    - "3853 units (January 2026)"
     - "approximately 15000"
     - "10,000 - 15,000 units"
     """
@@ -489,8 +493,252 @@ def _generate_consolidated_review_html(comparison_data: Dict[str, Any]) -> str:
         </table>
     </div>
     """
-    
+
     return review_html
+
+
+def generate_checklist_table(comparison_data: Dict[str, Any]) -> str:
+    """
+    Generate checklist comparison table with ✓, ✗, numbers, and short text values.
+
+    Args:
+        comparison_data: Dictionary containing car comparison data
+
+    Returns:
+        HTML string for the checklist table
+    """
+    # Transform all cars to checklist format
+    checklists = {}
+    car_names = []
+
+    for car_name, car_data in comparison_data.items():
+        if "error" not in car_data:
+            checklist = transform_to_checklist(car_data)
+            checklists[car_name] = checklist
+            car_names.append(car_name)
+
+    if not car_names:
+        return "<p>No data available for checklist comparison.</p>"
+
+    # Generate table HTML
+    html = """
+    <div class="checklist-table-container">
+        <div class="table-responsive">
+            <table class="checklist-table">
+                <thead>
+                    <tr>
+                        <th class="category-col">Category</th>
+                        <th class="feature-col">Feature</th>
+"""
+
+    # Add car name columns
+    for car_name in car_names:
+        html += f'                        <th class="car-col">{car_name}</th>\n'
+
+    html += """
+                    </tr>
+                </thead>
+                <tbody>
+"""
+
+    # Safety & Airbags Section
+    html += """
+                    <tr class="category-header">
+                        <td colspan="{}" class="category-name">Safety & Airbags</td>
+                    </tr>
+""".format(len(car_names) + 2)
+
+    safety_features = [
+        ("Number of Airbags", "safety", "airbag_total"),
+        ("Knee Airbag", "safety", "airbag_knee"),
+        ("Curtain Airbag", "safety", "airbag_curtain"),
+        ("Side Airbag", "safety", "airbag_side"),
+        ("ABS (Anti-lock Braking)", "safety", "abs"),
+        ("DSC / ESP", "safety", "dsc"),
+        ("ADAS", "safety", "adas"),
+        ("NCAP Rating", "safety", "ncap_rating"),
+        ("Hill Hold / Hill Descent", "safety", "hill_hold"),
+        ("TPMS (Tyre Pressure Monitor)", "safety", "tpms"),
+        ("ISOFIX Child Seat Anchors", "safety", "isofix"),
+    ]
+
+    for idx, (feature_name, category, key) in enumerate(safety_features):
+        html += f'                    <tr>\n'
+        if idx == 0:
+            html += f'                        <td class="category-cell" rowspan="{len(safety_features)}">Safety</td>\n'
+        html += f'                        <td class="feature-cell">{feature_name}</td>\n'
+        for car_name in car_names:
+            value = checklists[car_name][category][key]
+            html += f'                        <td class="value-cell">{format_checklist_value(value)}</td>\n'
+        html += f'                    </tr>\n'
+
+    # Seats & Comfort Section
+    html += """
+                    <tr class="category-header">
+                        <td colspan="{}" class="category-name">Seats & Comfort</td>
+                    </tr>
+""".format(len(car_names) + 2)
+
+    seat_features = [
+        ("Seat Material", "seats", "material"),
+        ("Backrest Split Ratio", "seats", "backrest_split"),
+        ("Lumbar Support", "seats", "lumbar_support"),
+        ("Driver Seat Height Adjust", "seats", "seat_height_adjust"),
+        ("Ventilated Seats - Driver", "seats", "ventilation_driver"),
+        ("Ventilated Seats - Co-Driver", "seats", "ventilation_codriver"),
+        ("Rear Seat Folding", "seats", "rear_fold"),
+        ("Rear Center Armrest", "seats", "rear_armrest"),
+    ]
+
+    for idx, (feature_name, category, key) in enumerate(seat_features):
+        html += f'                    <tr>\n'
+        if idx == 0:
+            html += f'                        <td class="category-cell" rowspan="{len(seat_features)}">Seats</td>\n'
+        html += f'                        <td class="feature-cell">{feature_name}</td>\n'
+        for car_name in car_names:
+            value = checklists[car_name][category][key]
+            html += f'                        <td class="value-cell">{format_checklist_value(value)}</td>\n'
+        html += f'                    </tr>\n'
+
+    # Seatbelt Section
+    html += """
+                    <tr class="category-header">
+                        <td colspan="{}" class="category-name">Seatbelt Features</td>
+                    </tr>
+""".format(len(car_names) + 2)
+
+    seatbelt_features = [
+        ("Pretensioner", "seatbelts", "pretensioner"),
+        ("Load Limiter", "seatbelts", "load_limiter"),
+        ("Height Adjuster", "seatbelts", "height_adjuster"),
+    ]
+
+    for idx, (feature_name, category, key) in enumerate(seatbelt_features):
+        html += f'                    <tr>\n'
+        if idx == 0:
+            html += f'                        <td class="category-cell" rowspan="{len(seatbelt_features)}">Seatbelt</td>\n'
+        html += f'                        <td class="feature-cell">{feature_name}</td>\n'
+        for car_name in car_names:
+            value = checklists[car_name][category][key]
+            html += f'                        <td class="value-cell">{format_checklist_value(value)}</td>\n'
+        html += f'                    </tr>\n'
+
+    # Technology Section
+    html += """
+                    <tr class="category-header">
+                        <td colspan="{}" class="category-name">Technology</td>
+                    </tr>
+""".format(len(car_names) + 2)
+
+    tech_features = [
+        ("Touchscreen Size", "technology", "infotainment_size"),
+        ("Digital Instrument Cluster", "technology", "digital_display"),
+        ("Apple CarPlay / Android Auto", "technology", "apple_carplay"),
+        ("Audio System", "technology", "audio_system"),
+        ("Cruise Control", "technology", "cruise_control"),
+        ("Parking Camera", "technology", "parking_camera"),
+        ("Parking Sensors", "technology", "parking_sensors"),
+        ("Push Button Start", "technology", "push_button_start"),
+    ]
+
+    for idx, (feature_name, category, key) in enumerate(tech_features):
+        html += f'                    <tr>\n'
+        if idx == 0:
+            html += f'                        <td class="category-cell" rowspan="{len(tech_features)}">Technology</td>\n'
+        html += f'                        <td class="feature-cell">{feature_name}</td>\n'
+        for car_name in car_names:
+            value = checklists[car_name][category][key]
+            html += f'                        <td class="value-cell">{format_checklist_value(value)}</td>\n'
+        html += f'                    </tr>\n'
+
+    # Comfort Features Section
+    html += """
+                    <tr class="category-header">
+                        <td colspan="{}" class="category-name">Comfort Features</td>
+                    </tr>
+""".format(len(car_names) + 2)
+
+    comfort_features = [
+        ("Sunroof / Panoramic Sunroof", "comfort", "sunroof"),
+        ("Climate Control", "comfort", "climate_control"),
+        ("Armrest", "comfort", "armrest"),
+        ("Adjustable Headrest", "comfort", "headrest"),
+        ("Power Windows", "comfort", "power_windows"),
+        ("Auto-Dimming IRVM", "comfort", "auto_irvm"),
+        ("Power Adjustable ORVM", "comfort", "power_orvm"),
+        ("Electronic Parking Brake", "comfort", "epb"),
+    ]
+
+    for idx, (feature_name, category, key) in enumerate(comfort_features):
+        html += f'                    <tr>\n'
+        if idx == 0:
+            html += f'                        <td class="category-cell" rowspan="{len(comfort_features)}">Comfort</td>\n'
+        html += f'                        <td class="feature-cell">{feature_name}</td>\n'
+        for car_name in car_names:
+            value = checklists[car_name][category][key]
+            html += f'                        <td class="value-cell">{format_checklist_value(value)}</td>\n'
+        html += f'                    </tr>\n'
+
+    # Exterior Features Section
+    html += """
+                    <tr class="category-header">
+                        <td colspan="{}" class="category-name">Exterior Features</td>
+                    </tr>
+""".format(len(car_names) + 2)
+
+    exterior_features = [
+        ("LED Headlights", "exterior", "led_headlights"),
+        ("LED DRLs", "exterior", "led_drls"),
+        ("LED Tail Lamps", "exterior", "led_tail_lamps"),
+        ("Alloy Wheels", "exterior", "alloy_wheels"),
+        ("Wheel Size", "exterior", "wheel_size"),
+        ("Tyre Size", "exterior", "tyre_size"),
+    ]
+
+    for idx, (feature_name, category, key) in enumerate(exterior_features):
+        html += f'                    <tr>\n'
+        if idx == 0:
+            html += f'                        <td class="category-cell" rowspan="{len(exterior_features)}">Exterior</td>\n'
+        html += f'                        <td class="feature-cell">{feature_name}</td>\n'
+        for car_name in car_names:
+            value = checklists[car_name][category][key]
+            html += f'                        <td class="value-cell">{format_checklist_value(value)}</td>\n'
+        html += f'                    </tr>\n'
+
+    # Dimensions & Specs Section
+    html += """
+                    <tr class="category-header">
+                        <td colspan="{}" class="category-name">Dimensions & Specs</td>
+                    </tr>
+""".format(len(car_names) + 2)
+
+    dimension_features = [
+        ("Wheelbase", "dimensions", "wheelbase"),
+        ("Ground Clearance", "dimensions", "ground_clearance"),
+        ("Turning Radius", "dimensions", "turning_radius"),
+        ("Boot Space", "dimensions", "boot_space"),
+        ("Fuel Type", "dimensions", "fuel_type"),
+        ("Engine Displacement", "dimensions", "engine_displacement"),
+    ]
+
+    for idx, (feature_name, category, key) in enumerate(dimension_features):
+        html += f'                    <tr>\n'
+        if idx == 0:
+            html += f'                        <td class="category-cell" rowspan="{len(dimension_features)}">Dimensions</td>\n'
+        html += f'                        <td class="feature-cell">{feature_name}</td>\n'
+        for car_name in car_names:
+            value = checklists[car_name][category][key]
+            html += f'                        <td class="value-cell">{format_checklist_value(value)}</td>\n'
+        html += f'                    </tr>\n'
+
+    html += """
+                </tbody>
+            </table>
+        </div>
+    </div>
+"""
+
+    return html
 
 
 def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) -> str:
@@ -544,7 +792,12 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
             # Extract sales using robust helper
             sales_volumes.append(extract_sales(car_data.get("monthly_sales", "")))
 
+    # Generate checklist comparison table
+    checklist_html = generate_checklist_table(comparison_data)
+
+    # Format AI-powered summary
     formatted_summary = format_summary(summary)
+
     citations_html = _generate_citations_html(comparison_data)
     
 
@@ -2010,6 +2263,151 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
 
             /* Image Section Styles */
             {get_image_section_styles()}
+
+            /* Checklist Table Styles */
+            .checklist-table-container {{
+                margin: 20px 0;
+                overflow-x: auto;
+            }}
+
+            .checklist-table-container h3 {{
+                margin-bottom: 15px;
+                color: #2c3e50;
+                font-size: 1.5em;
+            }}
+
+            .checklist-table {{
+                width: 100%;
+                border-collapse: collapse;
+                background: white;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                font-size: 14px;
+            }}
+
+            .checklist-table thead {{
+                background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+                color: white;
+            }}
+
+            .checklist-table thead th {{
+                padding: 15px 10px;
+                text-align: left;
+                font-weight: 600;
+                border-right: 1px solid rgba(255,255,255,0.2);
+            }}
+
+            .checklist-table .category-col {{
+                width: 120px;
+                min-width: 120px;
+            }}
+
+            .checklist-table .feature-col {{
+                width: 250px;
+                min-width: 250px;
+            }}
+
+            .checklist-table .car-col {{
+                width: 150px;
+                text-align: center;
+            }}
+
+            .checklist-table tbody tr {{
+                border-bottom: 1px solid #e0e0e0;
+                transition: background-color 0.2s ease;
+            }}
+
+            .checklist-table tbody tr:hover {{
+                background-color: #f8f9fa;
+            }}
+
+            .checklist-table .category-header td {{
+                background: linear-gradient(135deg, #2e3b4e 0%, #dd032b 100%);
+                color: white;
+                font-weight: 600;
+                padding: 12px 15px;
+                font-size: 15px;
+            }}
+
+            .checklist-table .category-cell {{
+                background: #ecf0f1;
+                color: #34495e;
+                font-weight: 600;
+                padding: 10px 15px;
+                border-right: 1px solid #d0d0d0;
+                width: 120px;
+            }}
+
+            .checklist-table .feature-cell {{
+                padding: 10px 15px;
+                color: #2c3e50;
+                border-right: 1px solid #e0e0e0;
+                width: 250px;
+            }}
+
+            .checklist-table .value-cell {{
+                padding: 10px;
+                text-align: center;
+                border-right: 1px solid #e0e0e0;
+            }}
+
+            .checklist-table .value-cell:last-child {{
+                border-right: none;
+            }}
+
+            /* Checklist value styling */
+            .check-yes {{
+                color: #27ae60;
+                font-size: 20px;
+                font-weight: bold;
+            }}
+
+            .check-no {{
+                color: #e74c3c;
+                font-size: 18px;
+                font-weight: bold;
+            }}
+
+            .check-number {{
+                color: #2980b9;
+                font-weight: 600;
+                font-size: 16px;
+            }}
+
+            .check-text {{
+                color: #34495e;
+                font-size: 14px;
+            }}
+
+            /* Responsive */
+            @media (max-width: 1024px) {{
+                .checklist-table {{
+                    font-size: 12px;
+                }}
+
+                .checklist-table .category-col {{
+                    width: 100px;
+                    min-width: 100px;
+                }}
+
+                .checklist-table .feature-col {{
+                    width: 200px;
+                    min-width: 200px;
+                }}
+
+                .checklist-table .car-col {{
+                    width: 120px;
+                }}
+            }}
+
+            @media print {{
+                .checklist-table {{
+                    page-break-inside: avoid;
+                }}
+
+                .checklist-table .category-header {{
+                    page-break-after: avoid;
+                }}
+            }}
             </style>
 </head>
 <body>
@@ -2022,8 +2420,8 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
                 <a href="#interior-section">Interior</a>
                 <a href="#technology-section">Technology</a>
                 <a href="#analytics-section">Analytics</a>
-                <a href="#review-section">Reviews</a>
-                <a href="#summary-section">Summary</a>
+                <a href="#summary-section">Checklist</a>
+                <a href="#review-section">Analysis</a>
                 <a href="#" id="citations-toggle" onclick="toggleCitations(event)">Citations</a>
             </nav>
             <button class="print-btn" onclick="printReport()">Save as PDF</button>
@@ -2055,25 +2453,26 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
                 <div class="chart-container animate-on-scroll"><h3>User Ratings (out of 5)</h3><canvas id="ratingChart"></canvas></div><div class="chart-container animate-on-scroll"><h3>Seating Capacity</h3><canvas id="seatingChart"></canvas></div>
 <!-- <h5>Sales Performance (Volume vs Price)</h5><div class="chart-container animate-on-scroll"><canvas id="salesChart"></canvas></div> -->            </div>
         </div>
+        <div class="content">
+            <div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg></div><h2 id="summary-section">Features Checklist</h2></div>
+            <div class="checklist-section animate-on-scroll">{checklist_html}</div>
+        </div>
          <div class="content">
             <div class="section-header">
                 <div class="icon-wrapper">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                        <path d="M9 12h6m-6 4h6"/>
+                        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
                     </svg>
                 </div>
-                <h2 id="review-section">Consolidated Review Summary</h2>
+                <h2 id="review-section">AI-Powered Analysis Summary</h2>
             </div>
-            {_generate_consolidated_review_html(comparison_data)}
-        </div>
-        <div class="content">
-            <div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg></div><h2 id="summary-section">Analysis Summary</h2></div>
-            <div class="summary animate-on-scroll"><p>{formatted_summary}</p></div>
+            <div class="summary animate-on-scroll">
+                <p>{formatted_summary}</p>
+            </div>
         </div>
         <div class="content" id="citations-section" style="display: none;"><div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><line x1="10" y1="9" x2="8" y2="9"></line></svg></div><h2>Data Source Citations</h2></div><div class="citations-grid">{citations_html}</div></div>
     </div>
-    <footer class="footer"><span>Copyright© 2025 Mahindra&Mahindra Ltd. All Rights Reserved.</span></footer>
+    <footer class="footer"><span>Copyright© 2026 Mahindra&Mahindra Ltd. All Rights Reserved.</span></footer>
     <script>
             function toggleAccordion(headerRow) {{
     headerRow.classList.toggle('active');

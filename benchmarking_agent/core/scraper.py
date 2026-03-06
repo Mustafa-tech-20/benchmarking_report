@@ -213,6 +213,10 @@ CAR_SPECS = [
 
     # Other
     "blower_noise", "response", "sensitivity", "seats_restraint",
+
+    # Checklist Features (Granular)
+    "airbag_types_breakdown", "seat_features_detailed",
+    "rear_seat_features", "seatbelt_features",
 ]
 
 
@@ -326,6 +330,12 @@ SPEC_KEYWORDS = {
     "response": "throttle response",
     "sensitivity": "control sensitivity",
     "seats_restraint": "seatbelt",
+
+    # Checklist Features (Granular extraction)
+    "airbag_types_breakdown": "airbag types knee curtain side front rear breakdown",
+    "seat_features_detailed": "seat features backrest split ratio recline lumbar support thigh ventilation",
+    "rear_seat_features": "rear seat features fold center armrest cup holder recline",
+    "seatbelt_features": "seatbelt features pretensioner load limiter height adjuster",
 }
 
 
