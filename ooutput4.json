@@ -1,0 +1,1572 @@
+{
+  "cars_compared": [
+    "Mahindra Thar",
+    "Hyundai Creta"
+  ],
+  "total_cars": 2,
+  "comparison_data": {
+    "Mahindra Thar": {
+      "car_name": "Mahindra Thar",
+      "method": "Per-Spec Search + AutoCarIndia Fallback",
+      "source_urls": [
+        "https://www.overdrive.in/news-cars-auto/maruti-suzuki-jimny-vs-mahindra-thar-whats-different/",
+        "https://www.overdrive.in/news-cars-auto/mahindra-thar-5-door-to-debut-on-august-15-2023-in-south-africa-launch-in-2024/",
+        "https://www.overdrive.in/news-cars-auto/mahindra-thar-roxx-launch-on-august-15-what-to-expect/",
+        "https://www.overdrive.in/news-cars-auto/mahindra-thar-roxx-4x2-diesel-automatic-real-world-range-performance-figures-revealed/",
+        "https://motoringworld.in/news/mahindra-thar-roxx-more-than-just-a-bigger-thar/",
+        "https://motoringworld.in/long-term-reviews/survivors-mahindra-thar-roxx/",
+        "https://www.overdrive.in/reviews/mahindra-thar-2wd-review-road-test-no-4x4-no-problem/",
+        "https://auto.mahindra.com/suv/thar/",
+        "https://www.overdrive.in/news-cars-auto/mahindra-thar-roxx-garners-over-176218-bookings-in-one-hour/",
+        "https://motoringworld.in/car-news/mahindra-thar-roxx-scores-5-star-safety-rating-in-bharat-ncap-crash-tests/",
+        "https://motoringworld.in/car-reviews/thar-she-goes-new-mahindra-thar/",
+        "https://motoringworld.in/car-news/news-mahindra-thar-roxx/",
+        "https://www.overdrive.in/cars/mahindra/thar/lx-4-str-hard-top-diesel-at-v10799/",
+        "https://www.overdrive.in/news-cars-auto/opinions/new-mahindra-thar-has-got-great-response-but-has-it-missed-a-trick-or-two/",
+        "https://www.overdrive.in/news-cars-auto/all-new-2020-mahindra-thar-spotted-on-test-launch-expected-soon/",
+        "https://www.overdrive.in/news-cars-auto/mahindra-thar-roxx-vs-thar-three-door-what-is-different/",
+        "https://www.overdrive.in/news-cars-auto/mahindra-thar-roxx-4x4-gets-mocha-brown-interiors-option/",
+        "https://www.overdrive.in/news-cars-auto/mahindra-thar-rwd-launched-variants-explained/",
+        "https://www.overdrive.in/news-cars-auto/mahindra-thar-roxx-interior-pictures-leaked-ahead-of-launch/",
+        "https://motoringworld.in/car-reviews/2024-force-gurkha-review/",
+        "https://www.overdrive.in/news-cars-auto/2020-mahindra-thar-revealed-in-india-everything-you-need-to-know/",
+        "https://www.jalopnik.com/mahindras-all-new-thar-has-been-civilized-1844753228/",
+        "https://www.overdrive.in/news-cars-auto/mahindra-thar-5-door-will-be-launched-on-august-15mahindra-thar-5-door/",
+        "https://www.overdrive.in/news-cars-auto/new-mahindra-thar-crosses-50000-bookings-in-6-months-of-launch/",
+        "https://www.overdrive.in/news-cars-auto/mahindra-thar-roxx-everything-you-need-to-knowmahindra-thar-roxx-variant-explained/",
+        "https://www.autocarindia.com/cars/mahindra/thar/specifications",
+        "https://www.overdrive.in/news-cars-auto/nissan-magnite-facelift-launched-at-rs-5-99-lakh/",
+        "https://www.overdrive.in/news-cars-auto/new-mahindra-thar-roxx-panoramic-sunroof-confirmed/",
+        "https://motoringworld.in/car-news/mahindra-thar-roxx-star-edn-launched/",
+        "https://www.overdrive.in/news-cars-auto/spec-comparison-mahindra-thar-roxx-vs-mahindra-scorpio-n/",
+        "https://motoringworld.in/car-features/mahindra-thar-vs-hero-xpulse-200-4v-off-road-troopers/",
+        "motoringworld.in/bike-features/issue-special-sands-of-time/"
+      ],
+      "images": {
+        "hero": [],
+        "exterior": [
+          [
+            "https://auto.mahindra.com/dw/image/v2/BKRC_PRD/on/demandware.static/-/Sites-mahindra-product-catalog/default/dwa4de1cb1/images/TH5D/large/Thar_Roxx_602x339.png?sw=360&sh=202",
+            "Led Drl Daytime Running Lights"
+          ],
+          [
+            "https://i.ytimg.com/vi/cYCBWr8E9nk/mqdefault.jpg",
+            "Front Headlights Close Up"
+          ],
+          [
+            "https://www.motorbeam.com/wp-content/uploads/Mahindra-Thar-5-Door-Alloy-Wheels-210x143.jpg",
+            "Alloy Wheels Rim Design"
+          ]
+        ],
+        "interior": [
+          [
+            "https://www.motorbeam.com/wp-content/uploads/Audi-RSQ8-Front-1-210x158.jpg",
+            "Front Seats Interior"
+          ],
+          [
+            "https://auto.mahindra.com/dw/image/v2/BKRC_PRD/on/demandware.static/-/Sites-mahindra-product-catalog/default/dw24e99287/images/NEO/large/BoleroNeo_602x339.png?sw=360&sh=202",
+            "Steering Wheel Image"
+          ],
+          [
+            "https://auto.mahindra.com/dw/image/v2/BKRC_PRD/on/demandware.static/-/Sites-mahindra-product-catalog/default/dwa9415634/images/THRN/large/Thar_LXT_TangoRed_602x339.png?sw=360&sh=202",
+            "Speedometer Instrument Cluster Display"
+          ]
+        ],
+        "technology": [
+          [
+            "https://www.motorbeam.com/wp-content/uploads/Mahindra-Thar-5-Door-Dashboard-Leaked-210x126.jpg",
+            "Infotainment Ui Screen"
+          ],
+          [
+            "https://auto.mahindra.com/on/demandware.static/-/Sites-amc-Library/default/dw91cc7f10/homepage/New-thar-343x192.jpg",
+            "Apple Carplay Infotainment"
+          ]
+        ],
+        "comfort": [
+          [
+            "https://www.team-bhp.com/forum/attachments/official-new-car-reviews/2643094d1723902913-mahindra-thar-roxx-review-screenshot-20240817-192444.png",
+            "Sunroof Interior View"
+          ],
+          [
+            "https://www.motorbeam.com/wp-content/uploads/Citroen-Aircross-X-front-210x158.jpg",
+            "Front Seats Comfort Interior"
+          ]
+        ],
+        "safety": []
+      },
+      "price_range": "\u20b911.25 Lakh - \u20b917.60 Lakh",
+      "price_range_citation": {
+        "source_url": "https://auto.mahindra.com/suv/thar/",
+        "citation_text": "Official mahindra website",
+        "engine": "OFFICIAL"
+      },
+      "mileage": "13-15.2 kmpl",
+      "mileage_citation": {
+        "source_url": "https://www.autocarindia.com/cars/mahindra/thar/specifications",
+        "citation_text": "Extracted from AutoCarIndia"
+      },
+      "user_rating": "4.5/5 (10 Reviews)",
+      "user_rating_citation": {
+        "source_url": "https://www.autocarindia.com/cars/mahindra/thar/specifications",
+        "citation_text": "Extracted from AutoCarIndia"
+      },
+      "seating_capacity": "4 Seater",
+      "seating_capacity_citation": {
+        "source_url": "https://auto.mahindra.com/suv/thar/",
+        "citation_text": "Official mahindra website",
+        "engine": "OFFICIAL"
+      },
+      "body_type": "two-door body style",
+      "body_type_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/2020-mahindra-thar-revealed-in-india-everything-you-need-to-know/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "performance": "152 PS @ 5000 rpm",
+      "performance_citation": {
+        "source_url": "https://auto.mahindra.com/suv/thar/",
+        "citation_text": "Official mahindra website",
+        "engine": "OFFICIAL"
+      },
+      "torque": "320 Nm @ 1500-3000 rpm",
+      "torque_citation": {
+        "source_url": "https://auto.mahindra.com/suv/thar/",
+        "citation_text": "Official mahindra website",
+        "engine": "OFFICIAL"
+      },
+      "transmission": "6-speed Manual, 6-speed Automatic",
+      "transmission_citation": {
+        "source_url": "https://auto.mahindra.com/suv/thar/",
+        "citation_text": "Official mahindra website",
+        "engine": "OFFICIAL"
+      },
+      "acceleration": "10.03s (Petrol AT), 12.06s (Diesel MT)",
+      "acceleration_citation": {
+        "source_url": "https://www.autocarindia.com/cars/mahindra/thar/specifications",
+        "citation_text": "Extracted from AutoCarIndia"
+      },
+      "engine_displacement": "2184 cc",
+      "engine_displacement_citation": {
+        "source_url": "https://auto.mahindra.com/suv/thar/",
+        "citation_text": "Official mahindra website",
+        "engine": "OFFICIAL"
+      },
+      "fuel_type": "Petrol, Diesel",
+      "fuel_type_citation": {
+        "source_url": "https://auto.mahindra.com/suv/thar/",
+        "citation_text": "Official mahindra website",
+        "engine": "OFFICIAL"
+      },
+      "number_of_gears": "6 gears",
+      "number_of_gears_citation": {
+        "source_url": "https://auto.mahindra.com/suv/thar/",
+        "citation_text": "Official mahindra website",
+        "engine": "OFFICIAL"
+      },
+      "drive_type": "4X4, 4X2",
+      "drive_type_citation": {
+        "source_url": "https://auto.mahindra.com/suv/thar/",
+        "citation_text": "Official mahindra website",
+        "engine": "OFFICIAL"
+      },
+      "braking": "rear-wheel disc brakes",
+      "braking_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/mahindra-thar-5-door-will-be-launched-on-august-15mahindra-thar-5-door/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "brakes": "Front: Disc, Rear: Drum",
+      "brakes_citation": {
+        "source_url": "https://auto.mahindra.com/suv/thar/",
+        "citation_text": "Official mahindra website",
+        "engine": "OFFICIAL"
+      },
+      "brake_performance": "44.5m (Petrol AT), 46.5m (Diesel MT)",
+      "brake_performance_citation": {
+        "source_url": "https://www.autocarindia.com/cars/mahindra/thar/specifications",
+        "citation_text": "Extracted from AutoCarIndia"
+      },
+      "vehicle_safety_features": "2 Airbags (Driver & Co-Driver), ABS with EBD, ESP with Roll-over Mitigation, Tyre Pressure Monitoring System, ISOFIX Child Seat Mounts, Hill Hold & Hill Descent Control",
+      "vehicle_safety_features_citation": {
+        "source_url": "https://auto.mahindra.com/suv/thar/",
+        "citation_text": "Official mahindra website",
+        "engine": "OFFICIAL"
+      },
+      "impact": "5-star safety rating in BNCAP crash tests",
+      "impact_citation": {
+        "source_url": "https://motoringworld.in/car-news/mahindra-thar-roxx-scores-5-star-safety-rating-in-bharat-ncap-crash-tests/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "airbags": "2 Airbags (Driver & Co-Driver)",
+      "airbags_citation": {
+        "source_url": "https://auto.mahindra.com/suv/thar/",
+        "citation_text": "Official mahindra website",
+        "engine": "OFFICIAL"
+      },
+      "adas": "an ADAS suite",
+      "adas_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/mahindra-thar-roxx-launch-on-august-15-what-to-expect/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "ncap_rating": "4-Star GNCAP Rating",
+      "ncap_rating_citation": {
+        "source_url": "https://auto.mahindra.com/suv/thar/",
+        "citation_text": "Official mahindra website",
+        "engine": "OFFICIAL"
+      },
+      "steering": "new steering wheel similar to the XUV700",
+      "steering_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/mahindra-thar-roxx-interior-pictures-leaked-ahead-of-launch/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "telescopic_steering": "Yes, with steering adjust reach",
+      "telescopic_steering_citation": {
+        "source_url": "https://www.overdrive.in/cars/mahindra/thar/lx-4-str-hard-top-diesel-at-v10799/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "turning_radius": "5.7 m",
+      "turning_radius_citation": {
+        "source_url": "https://auto.mahindra.com/suv/thar/",
+        "citation_text": "Official mahindra website",
+        "engine": "OFFICIAL"
+      },
+      "stability": "great for really long days",
+      "stability_citation": {
+        "source_url": "https://motoringworld.in/long-term-reviews/survivors-mahindra-thar-roxx/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "corner_stability": "Not Available",
+      "corner_stability_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "straight_ahead_stability": "Not Available",
+      "straight_ahead_stability_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "ride": "Ride quality not great",
+      "ride_citation": {
+        "source_url": "https://motoringworld.in/car-features/mahindra-thar-vs-hero-xpulse-200-4v-off-road-troopers/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "ride_quality": "wasn't that great, most bumps would get transferred to the cabin",
+      "ride_quality_citation": {
+        "source_url": "https://motoringworld.in/car-features/mahindra-thar-vs-hero-xpulse-200-4v-off-road-troopers/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "stiff_on_pot_holes": "Not Available",
+      "stiff_on_pot_holes_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "bumps": "Not Available",
+      "bumps_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "shocks": "Not Available",
+      "shocks_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "suspension_front": "Independent Double Wishbone with Coil Over Damper",
+      "suspension_front_citation": {
+        "source_url": "https://auto.mahindra.com/suv/thar/",
+        "citation_text": "Official mahindra website",
+        "engine": "OFFICIAL"
+      },
+      "suspension_rear": "Multi-Link Coil Spring",
+      "suspension_rear_citation": {
+        "source_url": "https://auto.mahindra.com/suv/thar/",
+        "citation_text": "Official mahindra website",
+        "engine": "OFFICIAL"
+      },
+      "nvh": "reduced substantially",
+      "nvh_citation": {
+        "source_url": "https://www.jalopnik.com/mahindras-all-new-thar-has-been-civilized-1844753228/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "powertrain_nvh": "nois(ier) inside than your average SUV",
+      "powertrain_nvh_citation": {
+        "source_url": "https://www.overdrive.in/reviews/mahindra-thar-2wd-review-road-test-no-4x4-no-problem/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "wind_nvh": "Noisier than average SUV",
+      "wind_nvh_citation": {
+        "source_url": "https://www.overdrive.in/reviews/mahindra-thar-2wd-review-road-test-no-4x4-no-problem/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "road_nvh": "noisy cabin",
+      "road_nvh_citation": {
+        "source_url": "motoringworld.in/bike-features/issue-special-sands-of-time/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "wind_noise": "still noisier inside than your average SUV",
+      "wind_noise_citation": {
+        "source_url": "https://www.overdrive.in/reviews/mahindra-thar-2wd-review-road-test-no-4x4-no-problem/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "tire_noise": "Not Available",
+      "tire_noise_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "turbo_noise": "Not Available",
+      "turbo_noise_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "manual_transmission_performance": "152PS and 330Nm with a manual transmission",
+      "manual_transmission_performance_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/mahindra-thar-roxx-garners-over-176218-bookings-in-one-hour/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "automatic_transmission_performance": "Not Available",
+      "automatic_transmission_performance_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "pedal_operation": "Clutch action pretty hefty",
+      "pedal_operation_citation": {
+        "source_url": "https://motoringworld.in/car-reviews/2024-force-gurkha-review/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "gear_shift": "new automatic transmission",
+      "gear_shift_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/2020-mahindra-thar-revealed-in-india-everything-you-need-to-know/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "gear_selection": "small transfer lever beside the shifter knob for 4x4 selection",
+      "gear_selection_citation": {
+        "source_url": "https://motoringworld.in/car-features/mahindra-thar-vs-hero-xpulse-200-4v-off-road-troopers/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "pedal_travel": "Not Available",
+      "pedal_travel_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "crawl": "Not Available",
+      "crawl_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "driveability": "Not Available",
+      "driveability_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "performance_feel": "Not Available",
+      "performance_feel_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "city_performance": "Not Available",
+      "city_performance_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "highway_performance": "Not Available",
+      "highway_performance_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "off_road": "off-roading (no 4x4, no problem)",
+      "off_road_citation": {
+        "source_url": "https://www.overdrive.in/reviews/mahindra-thar-2wd-review-road-test-no-4x4-no-problem/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "manoeuvring": "parking and tricky off-road trails",
+      "manoeuvring_citation": {
+        "source_url": "https://motoringworld.in/car-news/news-mahindra-thar-roxx/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "jerks": "Not Available",
+      "jerks_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "pulsation": "Not Available",
+      "pulsation_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "shakes": "a bit of body-on-chassis wobble at high speeds",
+      "shakes_citation": {
+        "source_url": "https://motoringworld.in/car-reviews/thar-she-goes-new-mahindra-thar/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "shudder": "Not Available",
+      "shudder_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "grabby": "Not Available",
+      "grabby_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "spongy": "Not Available",
+      "spongy_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "rattle": "Not Available",
+      "rattle_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "interior": "new Mocha Brown interior option",
+      "interior_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/mahindra-thar-roxx-4x4-gets-mocha-brown-interiors-option/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "climate_control": "Dual-zone climate control and rear AC vents",
+      "climate_control_citation": {
+        "source_url": "https://motoringworld.in/car-news/news-mahindra-thar-roxx/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "seats": "4",
+      "seats_citation": {
+        "source_url": "https://www.autocarindia.com/cars/mahindra/thar/specifications",
+        "citation_text": "Extracted from AutoCarIndia"
+      },
+      "seat_cushion": "Not Available",
+      "seat_cushion_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "seat_material": "Fabric",
+      "seat_material_citation": {
+        "source_url": "https://www.autocarindia.com/cars/mahindra/thar/specifications",
+        "citation_text": "Extracted from AutoCarIndia"
+      },
+      "ventilated_seats": "ventilated front seats",
+      "ventilated_seats_citation": {
+        "source_url": "https://motoringworld.in/car-news/mahindra-thar-roxx-star-edn-launched/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "visibility": "would get a big thumbs up from off-road enthusiasts",
+      "visibility_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/all-new-2020-mahindra-thar-spotted-on-test-launch-expected-soon/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "soft_trims": "Soft-touch materials on the upper dashboard",
+      "soft_trims_citation": {
+        "source_url": "https://motoringworld.in/news/mahindra-thar-roxx-more-than-just-a-bigger-thar/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "armrest": "sliding armrest",
+      "armrest_citation": {
+        "source_url": "https://motoringworld.in/car-news/mahindra-thar-roxx-star-edn-launched/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "headrest": "central headrest",
+      "headrest_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/mahindra-thar-roxx-everything-you-need-to-knowmahindra-thar-roxx-variant-explained/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "egress": "Not Available",
+      "egress_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "ingress": "Not Available",
+      "ingress_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "audio_system": "nine-speaker Harman Kardon audio system",
+      "audio_system_citation": {
+        "source_url": "https://motoringworld.in/car-news/mahindra-thar-roxx-star-edn-launched/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "infotainment_screen": "17.8 cm Touchscreen",
+      "infotainment_screen_citation": {
+        "source_url": "https://auto.mahindra.com/suv/thar/",
+        "citation_text": "Official mahindra website",
+        "engine": "OFFICIAL"
+      },
+      "resolution": "Not Available",
+      "resolution_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "touch_response": "Not Available",
+      "touch_response_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "apple_carplay": "Wireless Apple CarPlay & Android Auto",
+      "apple_carplay_citation": {
+        "source_url": "https://auto.mahindra.com/suv/thar/",
+        "citation_text": "Official mahindra website",
+        "engine": "OFFICIAL"
+      },
+      "digital_display": "Coloured TFT Multi-Information Display",
+      "digital_display_citation": {
+        "source_url": "https://auto.mahindra.com/suv/thar/",
+        "citation_text": "Official mahindra website",
+        "engine": "OFFICIAL"
+      },
+      "button": "push-button start/stop",
+      "button_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/spec-comparison-mahindra-thar-roxx-vs-mahindra-scorpio-n/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "cruise_control": "Yes",
+      "cruise_control_citation": {
+        "source_url": "https://auto.mahindra.com/suv/thar/",
+        "citation_text": "Official mahindra website",
+        "engine": "OFFICIAL"
+      },
+      "parking_sensors": "parking sensors with a 360-degree video",
+      "parking_sensors_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/spec-comparison-mahindra-thar-roxx-vs-mahindra-scorpio-n/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "parking_camera": "360-degree camera",
+      "parking_camera_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/mahindra-thar-roxx-4x2-diesel-automatic-real-world-range-performance-figures-revealed/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "lighting": "all-LED lighting, including LED projector headlights, indicators",
+      "lighting_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/mahindra-thar-5-door-will-be-launched-on-august-15mahindra-thar-5-door/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "led": "all-LED lighting, including LED projector headlights, indicators",
+      "led_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/mahindra-thar-5-door-will-be-launched-on-august-15mahindra-thar-5-door/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "drl": "C-shaped LED DRLs",
+      "drl_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/mahindra-thar-roxx-everything-you-need-to-knowmahindra-thar-roxx-variant-explained/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "tail_lamp": "rectangular-shaped tail lights",
+      "tail_lamp_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/maruti-suzuki-jimny-vs-mahindra-thar-whats-different/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "alloy_wheel": "newly designed alloy wheels",
+      "alloy_wheel_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/mahindra-thar-roxx-vs-thar-three-door-what-is-different/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "tyre_size": "255/65 R18",
+      "tyre_size_citation": {
+        "source_url": "https://auto.mahindra.com/suv/thar/",
+        "citation_text": "Official mahindra website",
+        "engine": "OFFICIAL"
+      },
+      "wheel_size": "16-inch (standard) and 18-inch",
+      "wheel_size_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/new-mahindra-thar-crosses-50000-bookings-in-6-months-of-launch/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "sunroof": "panoramic sunroof",
+      "sunroof_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/new-mahindra-thar-roxx-panoramic-sunroof-confirmed/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "irvm": "auto IRVM",
+      "irvm_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/nissan-magnite-facelift-launched-at-rs-5-99-lakh/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "orvm": "Electrically Adjustable",
+      "orvm_citation": {
+        "source_url": "https://www.autocarindia.com/cars/mahindra/thar/specifications",
+        "citation_text": "Extracted from AutoCarIndia"
+      },
+      "window": "power windows",
+      "window_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/mahindra-thar-5-door-to-debut-on-august-15-2023-in-south-africa-launch-in-2024/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "wiper_control": "Not Available",
+      "wiper_control_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "parking": "parking sensors with a 360-degree video",
+      "parking_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/spec-comparison-mahindra-thar-roxx-vs-mahindra-scorpio-n/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "epb": "parking brake with auto hold",
+      "epb_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/mahindra-thar-roxx-4x2-diesel-automatic-real-world-range-performance-figures-revealed/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "door_effort": "Not Available",
+      "door_effort_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "boot_space": "150 litres",
+      "boot_space_citation": {
+        "source_url": "https://auto.mahindra.com/suv/thar/",
+        "citation_text": "Official mahindra website",
+        "engine": "OFFICIAL"
+      },
+      "wheelbase": "2450 mm",
+      "wheelbase_citation": {
+        "source_url": "https://auto.mahindra.com/suv/thar/",
+        "citation_text": "Official mahindra website",
+        "engine": "OFFICIAL"
+      },
+      "chasis": "Not Available",
+      "chasis_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "ground_clearance": "226 mm",
+      "ground_clearance_citation": {
+        "source_url": "https://auto.mahindra.com/suv/thar/",
+        "citation_text": "Official mahindra website",
+        "engine": "OFFICIAL"
+      },
+      "fuel_tank": "57 litres",
+      "fuel_tank_citation": {
+        "source_url": "https://auto.mahindra.com/suv/thar/",
+        "citation_text": "Official mahindra website",
+        "engine": "OFFICIAL"
+      },
+      "kerb_weight": "1700-1800 kg",
+      "kerb_weight_citation": {
+        "source_url": "https://auto.mahindra.com/suv/thar/",
+        "citation_text": "Official mahindra website",
+        "engine": "OFFICIAL"
+      },
+      "blower_noise": "Not Available",
+      "blower_noise_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "response": "generated lots of excitement",
+      "response_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/opinions/new-mahindra-thar-has-got-great-response-but-has-it-missed-a-trick-or-two/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "sensitivity": "Not Available",
+      "sensitivity_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "seats_restraint": "Seat Belt Reminder, ISOFIX child seat anchor points",
+      "seats_restraint_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/mahindra-thar-rwd-launched-variants-explained/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "airbag_types_breakdown": "Not Available",
+      "airbag_types_breakdown_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "seat_features_detailed": "Adjustable Headrests: Yes, Lumbar Support: No, Height Adjustable Driver Seat: No, Ventilated Seats: No, Heated Seats: No, Seat Upholstery: Fabric, Front Passenger Seat Adjustment: Manual, Driver Seat Adjustment: Manual",
+      "seat_features_detailed_citation": {
+        "source_url": "https://www.autocarindia.com/cars/mahindra/thar/specifications",
+        "citation_text": "Extracted from AutoCarIndia"
+      },
+      "rear_seat_features": "Rear Seat Headrests: Yes, Rear Armrest: No, Rear AC Vents: No, Split Rear Seat: No, Rear Seat Adjustment: No, Rear Seat Type: Bench",
+      "rear_seat_features_citation": {
+        "source_url": "https://www.autocarindia.com/cars/mahindra/thar/specifications",
+        "citation_text": "Extracted from AutoCarIndia"
+      },
+      "seatbelt_features": "Seat Belt Warning: Yes, Adjustable Front Seat Belts: Yes, Rear Seat Belts: Yes",
+      "seatbelt_features_citation": {
+        "source_url": "https://www.autocarindia.com/cars/mahindra/thar/specifications",
+        "citation_text": "Extracted from AutoCarIndia"
+      }
+    },
+    "Hyundai Creta": {
+      "car_name": "Hyundai Creta",
+      "method": "Per-Spec Search + AutoCarIndia Fallback",
+      "source_urls": [
+        "https://ksa.motory.com/en/new-cars/hyundai/creta/2023/hyundai-creta-comfort-2-tone-7-seat-2023-223902/",
+        "https://www.overdrive.in/news-cars-auto/features/hyundai-cretas-ac-scores-highest-among-suvs-and-muvs-in-india/",
+        "https://www.overdrive.in/news-cars-auto/hyundai-creta-king-launched-at-rs-17-89-lakh/",
+        "https://www.overdrive.in/reviews/2021-vw-taigun-1-0-road-test-review/",
+        "https://motoringworld.in/car-reviews/bit-by-bit-2018-hyundai-creta-first-drive-review/",
+        "https://www.hyundai.com/in/en/find-a-car/creta/specification",
+        "https://ksa.motory.com/en/new-cars/compare/kia-seltos-lx15-2026-268055-vs-hyundai-creta-gl-2026-266109/",
+        "https://www.overdrive.in/reviews/2025-hyundai-creta-electric-review-first-drive-familiar-ground/",
+        "https://www.overdrive.in/news-cars-auto/live-updates-2020-hyundai-creta-launch-in-india/",
+        "https://www.zigwheels.ae/compare-cars/hyundai-ioniq-6-2026-vs-mazda-mx-5",
+        "https://www.autoblog.com/features/hyundai-creta-crossover-india-official",
+        "https://www.overdrive.in/news-cars-auto/hyundai-creta-receives-1-lakh-bookings-high-demand-for-sunroof-variants/",
+        "https://www.overdrive.in/news-cars-auto/features/the-final-element-exploring-the-alchemy-of-the-all-new-hyundai-creta/",
+        "https://www.overdrive.in/news-cars-auto/india-bound-hyundai-creta-facelift-secures-five-star-asean-ncap-rating/",
+        "https://www.overdrive.in/news-cars-auto/hyundai-creta-ev-to-launch-in-january-2025/",
+        "https://ksa.motory.com/en/new-cars/compare/hyundai-creta-grand-comfort-2025-260614-vs-hyundai-santafe-comfort-awd-t-2024-243893/",
+        "https://www.zigwheels.ae/car-news/discover-the-all-new-hyundai-creta-2025-designed-for-the-uae-drivers",
+        "https://paultan.org/2025/03/25/bangkok-2025-hyundai-creta-n-line-facelift-more-like-a-face-swap-all-new-rear-dash-too-1-5l-na-cvt/",
+        "https://www.zigwheels.ae/compare-cars/hyundai-creta-grand-vs-lada-niva-legend",
+        "https://www.overdrive.in/reviews/2024-tata-curvv-review-first-drive-a-real-disruptor/",
+        "https://ksa.motory.com/en/new-cars/compare/hyundai-creta-gl-2026-266109-vs-hyundai-creta-gls-2026-268657/",
+        "https://motoringworld.in/car-news/kia-carens-clavis-ev-revealed-launch-set-for-15-july/",
+        "https://www.overdrive.in/reviews/honda-elevate-vs-volkswagen-taigun-vs-hyundai-creta-comparison-middleweight-affair/",
+        "https://motoringworld.in/car-reviews/hyundai-creta-n-line-review-n-litenment/",
+        "https://www.zigwheels.ae/new-cars/jetour/t2",
+        "https://www.overdrive.in/news-cars-auto/hyundai-creta-adventure-edition-vs-kia-seltos-x-line-what-is-different/",
+        "https://motoringworld.in/car-reviews/2024-hyundai-creta-first-drive-review/",
+        "https://www.overdrive.in/reviews/2024-hyundai-creta-n-line-review-first-drive-glow-up/",
+        "https://www.overdrive.in/news-cars-auto/hyundai-motors-india-standardizes-3-point-seatbelt-and-seat-belt-reminder-for-all-seats/",
+        "https://ksa.motory.com/en/new-cars/compare/hyundai-creta-smart-2025-252208-vs-toyota-rav4-hybrid-limited-4x4-2024-238253/",
+        "https://www.autocarindia.com/cars/hyundai/creta/specifications",
+        "https://www.overdrive.in/news-cars-auto/upcoming-hyundai-creta-electric-interior-revealed/",
+        "https://www.overdrive.in/news-cars-auto/2020-hyundai-creta-variants-explained/",
+        "https://ksa.motory.com/en/new-cars/hyundai/creta/2024/hyundai-creta-comfort-2-tone-7seat-2024-234054/",
+        "https://www.zigwheels.ae/compare-cars/hyundai-creta-grand-vs-mitsubishi-l200",
+        "https://www.overdrive.in/reviews/2019-tata-harrier-first-drive-review/",
+        "https://www.overdrive.in/news-cars-auto/hyundai-creta-ev-bookings-to-open-in-december-launch-in-january-2025/",
+        "https://www.overdrive.in/news-cars-auto/2024-hyundai-creta-facelift-variants-wise-features-explained/",
+        "https://www.overdrive.in/reviews/2024-mahindra-xuv-3xo-review-new-name-new-appeal/",
+        "https://ksa.motory.com/en/new-cars/hyundai/creta/2023/hyundai-creta-smart-2023-223898/",
+        "https://ksa.motory.com/en/new-cars/compare/hyundai-creta-smart-2025-252208-vs-kia-seltos-ex-two-tone-2025-254115/",
+        "https://www.zigwheels.ae/compare-cars/honda-cr-v-vs-kaiyi-x7",
+        "https://www.overdrive.in/reviews/2024-hyundai-creta-vs-toyota-urban-cruiser-hyryder-vs-skoda-kushaq-comparison-review/",
+        "https://www.overdrive.in/news-cars-auto/hyundai-creta-facelift-will-debut-on-january-16-in-india/",
+        "https://www.overdrive.in/news-cars-auto/2024-hyundai-creta-design-fully-leaked-ahead-of-january-16-debut/",
+        "https://www.zigwheels.ae/new-cars/hyundai/creta"
+      ],
+      "images": {
+        "hero": [
+          [
+            "https://bluesky.cdn.imgeng.in/cogstock-images/b79504d0-40ec-41f3-a4fe-532a44d35339.jpg?imgeng=/w_auto,700/",
+            "Hyundai Creta"
+          ]
+        ],
+        "exterior": [
+          [
+            "https://www.hyundai.com/content/dam/hyundai/template_en/en/images/find-a-car/pip/creta-2021/exterior/creta-su2-design-front-fog-lamps-pc.jpg",
+            "Front Grille Close Up"
+          ],
+          [
+            "https://www.team-bhp.com/forum/attachments/technical-stuff/1390605d1691418131t-drl-thread-everything-about-daytime-running-lights-ciaz_drl_tbhp.jpg",
+            "Led Drl Daytime Running Lights"
+          ],
+          [
+            "https://www.hyundai.com/content/dam/hyundai/template_en/en/images/connect-to-service/landing-page/connect-to-service-landing-small-conents-accessories-four-wheels-has-different-design-pc.jpg",
+            "Alloy Wheels Rim Design"
+          ]
+        ],
+        "interior": [
+          [
+            "https://www.hyundai.com/content/dam/hyundai/template_en/en/images/find-a-car/pip/creta-2021/convenience/creta-su2-convenience-ventilated-front-seats-pc.jpg",
+            "Front Seats Interior"
+          ],
+          [
+            "https://media.zigcdn.com/media/photogallery/2015/Jul/hyundai-creta-diesel-review-road-test-zigwheels-india-m18_300x225.jpg",
+            "Steering Wheel Image"
+          ],
+          [
+            "https://www.motorbeam.com/wp-content/uploads/Hyundai-Creta-vs-Kia-Seltos-210x158.jpeg",
+            "Speedometer Instrument Cluster Display"
+          ]
+        ],
+        "technology": [
+          [
+            "https://www.motorbeam.com/wp-content/uploads/2020-Hyundai-Creta-Touchscreen-210x193.jpg",
+            "Infotainment Touchscreen System"
+          ],
+          [
+            "https://www.hyundai.com/content/dam/hyundai/template_en/en/images/find-a-car/pip/creta-2021/convenience/creta-su2-convenience-wireless-charger-pc.jpg",
+            "Digital Instrument Cluster Display"
+          ],
+          [
+            "https://www.hyundai.com/content/dam/hyundai/template_en/en/images/find-a-car/pip/i10-2021/convenience/i10-ac3-convenience-8-display-audio-pc.jpg",
+            "Apple Carplay Infotainment"
+          ]
+        ],
+        "comfort": [
+          [
+            "https://dmassets.hyundai.com/is/image/hyundaiautoever/INSTER_Grant_V4",
+            "Sunroof Interior View"
+          ],
+          [
+            "https://www.hyundai.com/content/dam/hyundai/template_en/en/images/find-a-car/pip/azera/interior/azera-ig-design-side-view-interior-solar-glass-pc.jpg",
+            "Front Seats Comfort Interior"
+          ],
+          [
+            "https://dmassets.hyundai.com/is/image/hyundaiautoever/Hyundai_Genuine_Accessories_2024_Header_Roof+and+Rear+carriers_01",
+            "Rear Seats Interior"
+          ],
+          [
+            "https://www.hyundai.com/content/dam/hyundai/template_en/en/images/find-a-car/pip/sonata/interior/sonata-lf-fl-design-rear-air-ventilation-pc.jpg",
+            "Rear Ac Vents Interior"
+          ]
+        ],
+        "safety": [
+          [
+            "https://www.kia.com/content/dam/kia2/in/en/content/ev6-manual/res/images/OCV051193L.png",
+            "Parking Camera"
+          ],
+          [
+            "https://www.hyundai.com/content/dam/hyundai/template_en/en/images/find-a-car/pip/creta-2021/safety/creta-su2-safety-cruise-control-brake-pc.jpg",
+            "Abs Brakes"
+          ],
+          [
+            "https://www.motorbeam.com/wp-content/uploads/Hyundai-Creta-King-Edition-front-210x158.jpg",
+            "Adas"
+          ],
+          [
+            "https://www.hyundai.com/content/dam/hyundai/in/en/data/find-a-car/Exter/Highlights/airbagsexterwithoutsticker.jpg",
+            "Airbags"
+          ]
+        ]
+      },
+      "price_range": "\u20b9 11,00,000 - \u20b9 20,15,000",
+      "price_range_citation": {
+        "source_url": "https://www.hyundai.com/in/en/find-a-car/creta/specification",
+        "citation_text": "Official hyundai website",
+        "engine": "OFFICIAL"
+      },
+      "mileage": "21.8 kmpl",
+      "mileage_citation": {
+        "source_url": "https://www.hyundai.com/in/en/find-a-car/creta/specification",
+        "citation_text": "Official hyundai website",
+        "engine": "OFFICIAL"
+      },
+      "user_rating": "4.5/5",
+      "user_rating_citation": {
+        "source_url": "https://www.autocarindia.com/cars/hyundai/creta/specifications",
+        "citation_text": "Extracted from AutoCarIndia"
+      },
+      "seating_capacity": "5 Persons",
+      "seating_capacity_citation": {
+        "source_url": "https://www.hyundai.com/in/en/find-a-car/creta/specification",
+        "citation_text": "Official hyundai website",
+        "engine": "OFFICIAL"
+      },
+      "body_type": "SUV",
+      "body_type_citation": {
+        "source_url": "https://ksa.motory.com/en/new-cars/hyundai/creta/2023/hyundai-creta-smart-2023-223898/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "performance": "158 bhp @ 5,500 rpm",
+      "performance_citation": {
+        "source_url": "https://www.hyundai.com/in/en/find-a-car/creta/specification",
+        "citation_text": "Official hyundai website",
+        "engine": "OFFICIAL"
+      },
+      "torque": "253 Nm @ 1,500 - 3,500 rpm",
+      "torque_citation": {
+        "source_url": "https://www.hyundai.com/in/en/find-a-car/creta/specification",
+        "citation_text": "Official hyundai website",
+        "engine": "OFFICIAL"
+      },
+      "transmission": "6-Speed Manual, IVT, 6-Speed Automatic, 7-Speed DCT",
+      "transmission_citation": {
+        "source_url": "https://www.hyundai.com/in/en/find-a-car/creta/specification",
+        "citation_text": "Official hyundai website",
+        "engine": "OFFICIAL"
+      },
+      "acceleration": "11.52s (0-100kph)",
+      "acceleration_citation": {
+        "source_url": "https://www.autocarindia.com/cars/hyundai/creta/specifications",
+        "citation_text": "Extracted from AutoCarIndia"
+      },
+      "engine_displacement": "1,497 cc",
+      "engine_displacement_citation": {
+        "source_url": "https://www.hyundai.com/in/en/find-a-car/creta/specification",
+        "citation_text": "Official hyundai website",
+        "engine": "OFFICIAL"
+      },
+      "fuel_type": "Petrol, Diesel",
+      "fuel_type_citation": {
+        "source_url": "https://www.hyundai.com/in/en/find-a-car/creta/specification",
+        "citation_text": "Official hyundai website",
+        "engine": "OFFICIAL"
+      },
+      "number_of_gears": "6, 7, Variable",
+      "number_of_gears_citation": {
+        "source_url": "https://www.hyundai.com/in/en/find-a-car/creta/specification",
+        "citation_text": "Official hyundai website",
+        "engine": "OFFICIAL"
+      },
+      "drive_type": "FWD",
+      "drive_type_citation": {
+        "source_url": "https://ksa.motory.com/en/new-cars/hyundai/creta/2024/hyundai-creta-comfort-2-tone-7seat-2024-234054/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "braking": "ABS, Electronic parking brake, Auto hold, Antilock Brakes",
+      "braking_citation": {
+        "source_url": "https://ksa.motory.com/en/new-cars/compare/kia-seltos-lx15-2026-268055-vs-hyundai-creta-gl-2026-266109/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "brakes": "Front: Disc, Rear: Disc",
+      "brakes_citation": {
+        "source_url": "https://www.hyundai.com/in/en/find-a-car/creta/specification",
+        "citation_text": "Official hyundai website",
+        "engine": "OFFICIAL"
+      },
+      "brake_performance": "42.02m (100-0kph)",
+      "brake_performance_citation": {
+        "source_url": "https://www.autocarindia.com/cars/hyundai/creta/specifications",
+        "citation_text": "Extracted from AutoCarIndia"
+      },
+      "vehicle_safety_features": "6 Airbags, All 4 Disc Brakes, Electronic Stability Control (ESC), Vehicle Stability Management (VSM), Hill-start Assist Control (HAC), Tyre Pressure Monitoring System (TPMS), ISOFIX Child-Seat Mounts, Electric Parking Brake with Auto Hold",
+      "vehicle_safety_features_citation": {
+        "source_url": "https://www.hyundai.com/in/en/find-a-car/creta/specification",
+        "citation_text": "Official hyundai website",
+        "engine": "OFFICIAL"
+      },
+      "impact": "five-star safety rating by ASEAN NCAP",
+      "impact_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/india-bound-hyundai-creta-facelift-secures-five-star-asean-ncap-rating/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "airbags": "6 Airbags",
+      "airbags_citation": {
+        "source_url": "https://www.hyundai.com/in/en/find-a-car/creta/specification",
+        "citation_text": "Official hyundai website",
+        "engine": "OFFICIAL"
+      },
+      "adas": "Hyundai SmartSense (ADAS)",
+      "adas_citation": {
+        "source_url": "https://www.hyundai.com/in/en/find-a-car/creta/specification",
+        "citation_text": "Official hyundai website",
+        "engine": "OFFICIAL"
+      },
+      "ncap_rating": "five-star (ASEAN NCAP)",
+      "ncap_rating_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/india-bound-hyundai-creta-facelift-secures-five-star-asean-ncap-rating/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "steering": "new steering wheel with Morse code Hyundai logo and toggle-type steering-mounted gear selector",
+      "steering_citation": {
+        "source_url": "https://www.overdrive.in/reviews/2025-hyundai-creta-electric-review-first-drive-familiar-ground/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "telescopic_steering": "Manual Tilt & Telescopic Steering Adjustment",
+      "telescopic_steering_citation": {
+        "source_url": "https://www.zigwheels.ae/car-news/discover-the-all-new-hyundai-creta-2025-designed-for-the-uae-drivers",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "turning_radius": "5.2 m",
+      "turning_radius_citation": {
+        "source_url": "https://www.hyundai.com/in/en/find-a-car/creta/specification",
+        "citation_text": "Official hyundai website",
+        "engine": "OFFICIAL"
+      },
+      "stability": "Electronic Stability (base variant)",
+      "stability_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/india-bound-hyundai-creta-facelift-secures-five-star-asean-ncap-rating/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "corner_stability": "Not Available",
+      "corner_stability_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "straight_ahead_stability": "Not Available",
+      "straight_ahead_stability_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "ride": "ride quality is top",
+      "ride_citation": {
+        "source_url": "https://www.overdrive.in/reviews/honda-elevate-vs-volkswagen-taigun-vs-hyundai-creta-comparison-middleweight-affair/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "ride_quality": "comfortable and enjoyable ride",
+      "ride_quality_citation": {
+        "source_url": "https://motoringworld.in/car-reviews/2024-hyundai-creta-first-drive-review/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "stiff_on_pot_holes": "Not Available",
+      "stiff_on_pot_holes_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "bumps": "rebound tackled over speed breakers",
+      "bumps_citation": {
+        "source_url": "https://www.overdrive.in/reviews/2021-vw-taigun-1-0-road-test-review/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "shocks": "sportier suspension",
+      "shocks_citation": {
+        "source_url": "https://motoringworld.in/car-reviews/hyundai-creta-n-line-review-n-litenment/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "suspension_front": "McPherson Strut with Coil Spring",
+      "suspension_front_citation": {
+        "source_url": "https://www.hyundai.com/in/en/find-a-car/creta/specification",
+        "citation_text": "Official hyundai website",
+        "engine": "OFFICIAL"
+      },
+      "suspension_rear": "Coupled Torsion Beam Axle",
+      "suspension_rear_citation": {
+        "source_url": "https://www.hyundai.com/in/en/find-a-car/creta/specification",
+        "citation_text": "Official hyundai website",
+        "engine": "OFFICIAL"
+      },
+      "nvh": "outstanding NVH characteristics",
+      "nvh_citation": {
+        "source_url": "https://www.autoblog.com/features/hyundai-creta-crossover-india-official",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "powertrain_nvh": "Engine noise absent, wind noticeable",
+      "powertrain_nvh_citation": {
+        "source_url": "https://www.overdrive.in/reviews/2025-hyundai-creta-electric-review-first-drive-familiar-ground/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "wind_nvh": "Wind insulation could be a bit better",
+      "wind_nvh_citation": {
+        "source_url": "https://www.overdrive.in/reviews/2025-hyundai-creta-electric-review-first-drive-familiar-ground/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "road_nvh": "Not Available",
+      "road_nvh_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "wind_noise": "Wind insulation could be a bit better",
+      "wind_noise_citation": {
+        "source_url": "https://www.overdrive.in/reviews/2025-hyundai-creta-electric-review-first-drive-familiar-ground/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "tire_noise": "Not Available",
+      "tire_noise_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "turbo_noise": "Not Available",
+      "turbo_noise_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "manual_transmission_performance": "Not Available",
+      "manual_transmission_performance_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "automatic_transmission_performance": "6-speed torque-converter automatic gearbox",
+      "automatic_transmission_performance_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/2020-hyundai-creta-variants-explained/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "pedal_operation": "The clutch pedal's natural input",
+      "pedal_operation_citation": {
+        "source_url": "https://www.zigwheels.ae/compare-cars/hyundai-ioniq-6-2026-vs-mazda-mx-5",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "gear_shift": "column-mounted",
+      "gear_shift_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/upcoming-hyundai-creta-electric-interior-revealed/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "gear_selection": "column-mounted gear shifter",
+      "gear_selection_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/upcoming-hyundai-creta-electric-interior-revealed/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "pedal_travel": "pedal travel is too long",
+      "pedal_travel_citation": {
+        "source_url": "https://www.overdrive.in/reviews/2019-tata-harrier-first-drive-review/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "crawl": "Not Available",
+      "crawl_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "driveability": "widened the torque curve to aid driveability",
+      "driveability_citation": {
+        "source_url": "https://motoringworld.in/car-reviews/bit-by-bit-2018-hyundai-creta-first-drive-review/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "performance_feel": "solid substantial feel (from suspension tuning)",
+      "performance_feel_citation": {
+        "source_url": "https://www.overdrive.in/reviews/2024-hyundai-creta-n-line-review-first-drive-glow-up/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "city_performance": "great car for city driving",
+      "city_performance_citation": {
+        "source_url": "https://www.zigwheels.ae/new-cars/hyundai/creta",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "highway_performance": "Not Available",
+      "highway_performance_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "off_road": "Not Available",
+      "off_road_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "manoeuvring": "Harder city manoeuvring and parking",
+      "manoeuvring_citation": {
+        "source_url": "https://www.zigwheels.ae/compare-cars/hyundai-creta-grand-vs-mitsubishi-l200",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "jerks": "a bit jerky while getting off the mark",
+      "jerks_citation": {
+        "source_url": "https://www.overdrive.in/reviews/honda-elevate-vs-volkswagen-taigun-vs-hyundai-creta-comparison-middleweight-affair/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "pulsation": "Not Available",
+      "pulsation_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "shakes": "Vibration iInsulation",
+      "shakes_citation": {
+        "source_url": "https://www.zigwheels.ae/compare-cars/hyundai-creta-grand-vs-lada-niva-legend",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "shudder": "Not Available",
+      "shudder_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "grabby": "Not Available",
+      "grabby_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "spongy": "Not Available",
+      "spongy_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "rattle": "Not Available",
+      "rattle_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "interior": "Single-pedal driving, wireless phone charger, dual-zone temperature control, Apple...",
+      "interior_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/upcoming-hyundai-creta-electric-interior-revealed/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "climate_control": "Multi-Zone Climate Control A/C",
+      "climate_control_citation": {
+        "source_url": "https://ksa.motory.com/en/new-cars/compare/hyundai-creta-smart-2025-252208-vs-toyota-rav4-hybrid-limited-4x4-2024-238253/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "seats": "5 or 7 seats",
+      "seats_citation": {
+        "source_url": "https://ksa.motory.com/en/new-cars/hyundai/creta/2023/hyundai-creta-comfort-2-tone-7-seat-2023-223902/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "seat_cushion": "Not Available",
+      "seat_cushion_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "seat_material": "Leather upholstery",
+      "seat_material_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/2024-hyundai-creta-facelift-variants-wise-features-explained/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "ventilated_seats": "Ventilated seats",
+      "ventilated_seats_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/hyundai-creta-ev-bookings-to-open-in-december-launch-in-january-2025/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "visibility": "great visibility",
+      "visibility_citation": {
+        "source_url": "https://www.overdrive.in/reviews/2024-mahindra-xuv-3xo-review-new-name-new-appeal/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "soft_trims": "Not Available",
+      "soft_trims_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "armrest": "Not Available",
+      "armrest_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "headrest": "headrest cushion",
+      "headrest_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/hyundai-creta-king-launched-at-rs-17-89-lakh/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "egress": "Not Available",
+      "egress_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "ingress": "Not Available",
+      "ingress_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "audio_system": "8-speaker Bose audio system with a central speaker and a subwoofer",
+      "audio_system_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/2020-hyundai-creta-variants-explained/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "infotainment_screen": "10.25 inch (26.03 cm) HD",
+      "infotainment_screen_citation": {
+        "source_url": "https://www.hyundai.com/in/en/find-a-car/creta/specification",
+        "citation_text": "Official hyundai website",
+        "engine": "OFFICIAL"
+      },
+      "resolution": "Not Available",
+      "resolution_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "touch_response": "fluid and intuitive",
+      "touch_response_citation": {
+        "source_url": "https://www.overdrive.in/reviews/2024-tata-curvv-review-first-drive-a-real-disruptor/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "apple_carplay": "Yes",
+      "apple_carplay_citation": {
+        "source_url": "https://www.hyundai.com/in/en/find-a-car/creta/specification",
+        "citation_text": "Official hyundai website",
+        "engine": "OFFICIAL"
+      },
+      "digital_display": "10.25 inch (26.03 cm) Multi Display Digital Cluster",
+      "digital_display_citation": {
+        "source_url": "https://www.hyundai.com/in/en/find-a-car/creta/specification",
+        "citation_text": "Official hyundai website",
+        "engine": "OFFICIAL"
+      },
+      "button": "Start Engine Button",
+      "button_citation": {
+        "source_url": "https://ksa.motory.com/en/new-cars/compare/hyundai-creta-grand-comfort-2025-260614-vs-hyundai-santafe-comfort-awd-t-2024-243893/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "cruise_control": "Yes",
+      "cruise_control_citation": {
+        "source_url": "https://www.hyundai.com/in/en/find-a-car/creta/specification",
+        "citation_text": "Official hyundai website",
+        "engine": "OFFICIAL"
+      },
+      "parking_sensors": "front and rear parking sensors",
+      "parking_sensors_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/hyundai-creta-facelift-will-debut-on-january-16-in-india/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "parking_camera": "Yes (Rear View Monitor with Parking Guidance)",
+      "parking_camera_citation": {
+        "source_url": "https://www.hyundai.com/in/en/find-a-car/creta/specification",
+        "citation_text": "Official hyundai website",
+        "engine": "OFFICIAL"
+      },
+      "lighting": "redesigned vertically stacked LED headlights, reworked taillamps",
+      "lighting_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/hyundai-creta-facelift-will-debut-on-january-16-in-india/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "led": "inverted L-shaped LEDs and a full-width strip of light",
+      "led_citation": {
+        "source_url": "https://paultan.org/2025/03/25/bangkok-2025-hyundai-creta-n-line-facelift-more-like-a-face-swap-all-new-rear-dash-too-1-5l-na-cvt/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "drl": "full-width LED DRL with an inverted 'L'-shaped trademark",
+      "drl_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/2024-hyundai-creta-design-fully-leaked-ahead-of-january-16-debut/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "tail_lamp": "new LED tail lamps",
+      "tail_lamp_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/live-updates-2020-hyundai-creta-launch-in-india/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "alloy_wheel": "alloy wheels",
+      "alloy_wheel_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/hyundai-creta-ev-bookings-to-open-in-december-launch-in-january-2025/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "tyre_size": "205/65 R16, 215/60 R17",
+      "tyre_size_citation": {
+        "source_url": "https://www.hyundai.com/in/en/find-a-car/creta/specification",
+        "citation_text": "Official hyundai website",
+        "engine": "OFFICIAL"
+      },
+      "wheel_size": "17 Inch",
+      "wheel_size_citation": {
+        "source_url": "https://ksa.motory.com/en/new-cars/compare/hyundai-creta-smart-2025-252208-vs-kia-seltos-ex-two-tone-2025-254115/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "sunroof": "Available in sunroof variants",
+      "sunroof_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/hyundai-creta-receives-1-lakh-bookings-high-demand-for-sunroof-variants/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "irvm": "IRVM",
+      "irvm_citation": {
+        "source_url": "https://motoringworld.in/car-news/kia-carens-clavis-ev-revealed-launch-set-for-15-july/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "orvm": "Black ORVM caps",
+      "orvm_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/hyundai-creta-adventure-edition-vs-kia-seltos-x-line-what-is-different/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "window": "Power Windows",
+      "window_citation": {
+        "source_url": "https://ksa.motory.com/en/new-cars/compare/hyundai-creta-smart-2025-252208-vs-toyota-rav4-hybrid-limited-4x4-2024-238253/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "wiper_control": "Rain sensing",
+      "wiper_control_citation": {
+        "source_url": "https://www.autocarindia.com/cars/hyundai/creta/specifications",
+        "citation_text": "Extracted from AutoCarIndia"
+      },
+      "parking": "parking sensors",
+      "parking_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/hyundai-creta-ev-to-launch-in-january-2025/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "epb": "Electronic parking brake",
+      "epb_citation": {
+        "source_url": "https://ksa.motory.com/en/new-cars/compare/hyundai-creta-gl-2026-266109-vs-hyundai-creta-gls-2026-268657/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "door_effort": "Not Available",
+      "door_effort_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "boot_space": "433 L",
+      "boot_space_citation": {
+        "source_url": "https://www.hyundai.com/in/en/find-a-car/creta/specification",
+        "citation_text": "Official hyundai website",
+        "engine": "OFFICIAL"
+      },
+      "wheelbase": "2610 mm",
+      "wheelbase_citation": {
+        "source_url": "https://www.hyundai.com/in/en/find-a-car/creta/specification",
+        "citation_text": "Official hyundai website",
+        "engine": "OFFICIAL"
+      },
+      "chasis": "strongest, safest structure imaginable",
+      "chasis_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/features/the-final-element-exploring-the-alchemy-of-the-all-new-hyundai-creta/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "ground_clearance": "190 mm",
+      "ground_clearance_citation": {
+        "source_url": "https://www.hyundai.com/in/en/find-a-car/creta/specification",
+        "citation_text": "Official hyundai website",
+        "engine": "OFFICIAL"
+      },
+      "fuel_tank": "50 L",
+      "fuel_tank_citation": {
+        "source_url": "https://www.hyundai.com/in/en/find-a-car/creta/specification",
+        "citation_text": "Official hyundai website",
+        "engine": "OFFICIAL"
+      },
+      "kerb_weight": "1160 - 1330 kg",
+      "kerb_weight_citation": {
+        "source_url": "https://www.hyundai.com/in/en/find-a-car/creta/specification",
+        "citation_text": "Official hyundai website",
+        "engine": "OFFICIAL"
+      },
+      "blower_noise": "2/5",
+      "blower_noise_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/features/hyundai-cretas-ac-scores-highest-among-suvs-and-muvs-in-india/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "response": "Drive modes alter steering, throttle, gearbox responses",
+      "response_citation": {
+        "source_url": "https://www.overdrive.in/reviews/2024-hyundai-creta-vs-toyota-urban-cruiser-hyryder-vs-skoda-kushaq-comparison-review/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "sensitivity": "Not Available",
+      "sensitivity_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "seats_restraint": "3-point seatbelt and seat belt reminder for all seats",
+      "seats_restraint_citation": {
+        "source_url": "https://www.overdrive.in/news-cars-auto/hyundai-motors-india-standardizes-3-point-seatbelt-and-seat-belt-reminder-for-all-seats/",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "airbag_types_breakdown": "6 airbags (driver, front passenger, side curtains)",
+      "airbag_types_breakdown_citation": {
+        "source_url": "https://www.zigwheels.ae/new-cars/jetour/t2",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "seat_features_detailed": "Driver seat electric, Front passenger seat manual, Front ventilated, Rear headrests adjustable, Rear armrest, Rear split 60:40",
+      "seat_features_detailed_citation": {
+        "source_url": "https://www.autocarindia.com/cars/hyundai/creta/specifications",
+        "citation_text": "Extracted from AutoCarIndia"
+      },
+      "rear_seat_features": "Foldable Rear Seat, Rear Seat Center Arm Rest, Cup Holders-Rear",
+      "rear_seat_features_citation": {
+        "source_url": "https://www.zigwheels.ae/compare-cars/honda-cr-v-vs-kaiyi-x7",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      },
+      "seatbelt_features": "Not Available",
+      "seatbelt_features_citation": {
+        "source_url": "N/A",
+        "citation_text": "From search results",
+        "engine": "SEARCH"
+      }
+    }
+  },
+  "timestamp": "2026-03-06 17:50:25",
+  "gcs_folder": "car_comparison_20260306_175025",
+  "scraping_method": "Custom Search API",
+  "summary": "**Price Positioning**\nTo compete effectively, the product should aim for an aggressive entry price point, potentially matching or slightly undercutting the Hyundai Creta's starting price of \u20b911.00 Lakh. Mid-to-high variants can command a premium up to \u20b919 Lakh if they offer compelling feature advantages. Avoid positioning the base model significantly above Creta's entry, as it will struggle to attract value-conscious buyers given Creta's established market presence and feature set.\n\n**Engine & Performance**\nThe focus should be on delivering a balanced engine, offering better horsepower than Creta's 158 bhp for highway cruising while ensuring high torque for versatile driving (above Thar's 320 Nm). Target an acceleration figure faster than Creta's 11.52s (0-100kph) for a more spirited feel. Avoid sacrificing engine refinement or efficiency for raw power if the target market is primarily urban/highway focused.\n\n**Fuel Efficiency**\nFuel efficiency is a critical purchase driver where Creta significantly outperforms Thar. The product must achieve a mileage figure substantially higher than Thar's 13-15.2 kmpl, aiming for at least 18-20 kmpl to be competitive against Creta's 21.8 kmpl. Do not launch a vehicle with low fuel economy as it will be a major disadvantage in a cost-sensitive market.\n\n**Safety Standards**\nPrioritize a comprehensive safety package that meets or exceeds Creta's offerings. This means a minimum of 6 airbags, all-wheel disc brakes, and advanced stability features like Electronic Stability Control (ESC) and Vehicle Stability Management (VSM) as standard or widely available. Avoid equipping the base model with only 2 airbags, as this is now considered insufficient and a significant detractor in the segment.\n\n**NVH Levels**\nOutstanding NVH characteristics are crucial for a premium feel and driving comfort, as demonstrated by Creta. The development team should prioritize extensive sound dampening and refinement to achieve an interior cabin experience that is quiet and serene, comparable to Creta's \"outstanding\" levels. Avoid merely \"substantially reducing\" NVH, as this might not be enough to satisfy modern buyers expecting a high-quality cabin.\n\n**Ride & Handling**\nA comfortable and enjoyable ride quality, akin to Creta's, is paramount for mass-market appeal. Invest heavily in suspension tuning to ensure the vehicle absorbs bumps effectively and provides a stable, refined handling experience. Avoid the issue of \"most bumps would get transferred to the cabin\" that plagues the Thar, as this will lead to poor user perception and discomfort.\n\n**Interior & Features**\nFocus on a feature-rich interior with a large, high-resolution infotainment screen (at least 10.25 inch / 26.03 cm), premium conveniences like wireless phone charging, dual-zone climate control, and ample boot space (exceeding Thar's 150 litres, aiming for Creta's 433L). Avoid small infotainment screens, limited convenience features, or a cramped boot, as these are key differentiators for urban and family users.\n\n**User Satisfaction**\nTo achieve sustained success, aim for a consistently high user rating (4.5/5 or higher) by delivering excellence across all key performance indicators. This means superior ride comfort, advanced safety, modern features, and strong after-sales support. Avoid overlooking any single aspect that could create user frustration, as Creta already sets a high benchmark for overall satisfaction.",
+  "chart_gcs_uri": "gs://car_reports/car-comparisons/car_comparison_20260306_175025/report_20260306_175645_9740860e.html",
+  "chart_signed_url": "https://storage.googleapis.com/car_reports/car-comparisons/car_comparison_20260306_175025/report_20260306_175645_9740860e.html?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=269609691769-compute%40developer.gserviceaccount.com%2F20260306%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260306T122648Z&X-Goog-Expires=3600&X-Goog-SignedHeaders=host&X-Goog-Signature=9c45af47ef45d47d9d104b2e0053964bbbc99cf9477c3c8e7dd1448cc2acd62b176f20891919841be5830cfbf6262cb1d7c7800e93961c1cb5a35cdc96e413fe02e76be1a6974885ade40e816d1bccb3126ad17f9447fd88b214296da236ccac72d1dcb55c7bbe4192dc5bf7376729a1065908b7c3b0d4f8a77e7dda69df29856bbe7d3653284df92f2c1661eb923999133d7bc5d76062b11da10cf2365a3b833be41ab55d96887eb5409f06eebb30218868be4418ae251bc88009ac0e2411f3e9587cc7463e6a48b966387fd1a808eaa222f4b78da41b9f842c5a5b1f48cffd7da0237e148c21f189bd24e5a1a4d3fe7adef70e54bd9c2f178f1170374fb63d"
+}

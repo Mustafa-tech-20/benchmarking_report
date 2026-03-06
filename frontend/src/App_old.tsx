@@ -1,17 +1,15 @@
 /**
- * Car Benchmarking AI Agent - Professional Chat Interface with RBAC
+ * Car Benchmarking AI Agent - Professional Chat Interface
  * Mahindra Color Scheme with Industry-Standard UX
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Upload, X, FileText, Loader2, ChevronDown, Car, Settings, BarChart3, Plus, User, Bot, LogOut } from 'lucide-react';
+import { Send, Upload, X, FileText, Loader2, ChevronDown, Car, Settings, BarChart3, Plus, User, Bot } from 'lucide-react';
 import { getSessionFromCookies, saveSessionToCookies, clearSessionCookies } from './utils/cookies';
-import Login from './Login';
 import './App.css';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-const API_URL = `${API_BASE_URL}/api/compare`;
-const LOGOUT_URL = `${API_BASE_URL}/api/auth/logout`;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ;
+const API_URL = `${API_BASE_URL}/compare`;
 
 interface Message {
   id: string;
@@ -29,54 +27,28 @@ interface SessionInfo {
   sessionId: string | null;
 }
 
-interface UserInfo {
-  email: string;
-  role: string;
-  full_name: string | null;
-  is_active: boolean;
-}
-
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState<UserInfo | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [session, setSession] = useState<SessionInfo>({ userId: null, sessionId: null });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [selectedAgent, setSelectedAgent] = useState<'benchmarking' | 'pcm'>('benchmarking');
+  const [showAgentDropdown, setShowAgentDropdown] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Check authentication status on mount
-  useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    const accessToken = localStorage.getItem('access_token');
-
-    if (storedUser && accessToken) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-        setIsAuthenticated(true);
-      } catch (error) {
-        console.error('Failed to parse user data:', error);
-        handleLogout();
-      }
-    }
-  }, []);
-
   // Load session from cookies on mount
   useEffect(() => {
-    if (isAuthenticated) {
-      const savedSession = getSessionFromCookies();
-      if (savedSession.userId && savedSession.sessionId) {
-        setSession(savedSession);
-        console.log('Loaded session from cookies:', savedSession);
-      }
+    const savedSession = getSessionFromCookies();
+    if (savedSession.userId && savedSession.sessionId) {
+      setSession(savedSession);
+      console.log('Loaded session from cookies:', savedSession);
     }
-  }, [isAuthenticated]);
+  }, []);
 
   // Auto-scroll to bottom
   const scrollToBottom = () => {
@@ -101,36 +73,9 @@ function App() {
     return () => container?.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const handleLoginSuccess = () => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      setUser(parsedUser);
-      setIsAuthenticated(true);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await fetch(LOGOUT_URL, {
-        method: 'POST',
-        credentials: 'include',
-      });
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      localStorage.removeItem('user');
-      localStorage.removeItem('access_token');
-      clearSessionCookies();
-      setUser(null);
-      setIsAuthenticated(false);
-      setMessages([]);
-      setSession({ userId: null, sessionId: null });
-    }
-  };
-
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    console.log('File selected:', file);
     if (file) {
       if (file.type !== 'application/pdf') {
         alert('Please select a PDF file');
@@ -141,6 +86,7 @@ function App() {
         return;
       }
       setSelectedFile(file);
+      console.log('File set to state:', file.name);
     }
   };
 
@@ -176,7 +122,9 @@ function App() {
 
     setIsLoading(true);
 
+    // Store selectedFile in a variable before clearing state
     const fileToUpload = selectedFile;
+    console.log('File to upload:', fileToUpload);
 
     try {
       const formData = new FormData();
@@ -184,36 +132,31 @@ function App() {
 
       if (fileToUpload) {
         formData.append('pdf_file', fileToUpload);
+        console.log('PDF file added to FormData:', fileToUpload.name);
         setSelectedFile(null);
         if (fileInputRef.current) fileInputRef.current.value = '';
+      } else {
+        console.log('No file to upload');
       }
 
-      // Build headers with session info and authentication
-      const headers: HeadersInit = {
-        'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-      };
+      // Build headers with session info (if exists)
+      const headers: HeadersInit = {};
       if (session.userId) headers['X-User-Id'] = session.userId;
       if (session.sessionId) headers['X-Session-Id'] = session.sessionId;
+
+      // Log FormData contents
+      console.log('FormData entries:');
+      for (const [key, value] of formData.entries()) {
+        console.log(key, value);
+      }
 
       const response = await fetch(API_URL, {
         method: 'POST',
         headers,
         body: formData,
-        credentials: 'include', // Include cookies
       });
 
-      // Check for authentication errors
-      if (response.status === 401 || response.status === 403) {
-        handleLogout();
-        setMessages(prev => prev.filter(m => m.id !== loadingId));
-        setMessages(prev => [...prev, {
-          id: Date.now().toString(),
-          role: 'assistant',
-          content: '🔒 Session expired. Please log in again.',
-          timestamp: new Date(),
-        }]);
-        return;
-      }
+      console.log('Response status:', response.status);
 
       const data = await response.json();
 
@@ -222,6 +165,7 @@ function App() {
         const newSession = { userId: data.user_id, sessionId: data.session_id };
         setSession(newSession);
         saveSessionToCookies(newSession);
+        console.log('Session saved to cookies:', newSession);
       }
 
       // Remove loading message and add actual response
@@ -266,9 +210,10 @@ function App() {
     clearSessionCookies();
     setSelectedFile(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    console.log('Session cleared');
   };
 
-  // Utility functions
+  // Utility functions to extract structured data from response
   const extractReportUrl = (text: string): string | undefined => {
     const match = text?.match(/https:\/\/storage\.googleapis\.com\/[^\s]+/);
     return match ? match[0] : undefined;
@@ -284,30 +229,19 @@ function App() {
     return match ? `${match[1]}s` : undefined;
   };
 
+  // Format message text with markdown-style bold
   const formatMessageText = (text: string) => {
+    // Split by ** and alternate between normal and bold
     const parts = text.split(/(\*\*.*?\*\*)/g);
     return parts.map((part, index) => {
       if (part.startsWith('**') && part.endsWith('**')) {
+        // Remove ** and make bold
         const boldText = part.slice(2, -2);
         return <strong key={index}>{boldText}</strong>;
       }
       return part;
     });
   };
-
-  const getAgentName = (role: string): string => {
-    const roleMap: Record<string, string> = {
-      'VB': 'Vehicle Benchmarking Agent',
-      'PP': 'Product Planning Agent',
-      'VD': 'Vehicle Development Agent',
-    };
-    return roleMap[role] || 'Benchmarking Agent';
-  };
-
-  // Show login page if not authenticated
-  if (!isAuthenticated) {
-    return <Login onLoginSuccess={handleLoginSuccess} />;
-  }
 
   return (
     <div className="app">
@@ -322,10 +256,52 @@ function App() {
         </div>
 
         <div className="nav-center">
-          <div className="nav-agent-display">
-            <Car size={16} />
-            <span>{getAgentName(user?.role || '')}</span>
+          <div className="nav-dropdown">
+            <button
+              className="dropdown-btn"
+              onClick={() => setShowAgentDropdown(!showAgentDropdown)}
+            >
+              <Car size={16} />
+              <span>{selectedAgent === 'benchmarking' ? 'Benchmarking Agent' : 'PCM Agent'}</span>
+              <ChevronDown size={16} />
+            </button>
+            {showAgentDropdown && (
+              <div className="dropdown-menu">
+                <button
+                  className="dropdown-item"
+                  onClick={() => {
+                    setSelectedAgent('benchmarking');
+                    setShowAgentDropdown(false);
+                    startNewConversation();
+                  }}
+                >
+                  <Car size={16} />
+                  <span>Benchmarking Agent</span>
+                </button>
+                <button
+                  className="dropdown-item"
+                  onClick={() => {
+                    setSelectedAgent('pcm');
+                    setShowAgentDropdown(false);
+                    startNewConversation();
+                  }}
+                >
+                  <Settings size={16} />
+                  <span>PCM Agent</span>
+                </button>
+              </div>
+            )}
           </div>
+
+          <button className="nav-btn">
+            <BarChart3 size={16} />
+            <span>Reports</span>
+          </button>
+
+          <button className="nav-btn">
+            <FileText size={16} />
+            <span>History</span>
+          </button>
         </div>
 
         <div className="nav-right">
@@ -334,8 +310,8 @@ function App() {
               <User size={18} />
             </div>
             <div className="user-info">
-              <div className="user-name">{user?.full_name || user?.email}</div>
-              <div className="user-credits">{user?.role} Role</div>
+              <div className="user-name">Mahindra User</div>
+              <div className="user-credits">Active Session</div>
             </div>
           </div>
 
@@ -343,16 +319,12 @@ function App() {
             <Plus size={18} />
             <span>New Chat</span>
           </button>
-
-          <button className="logout-btn" onClick={handleLogout}>
-            <LogOut size={18} />
-            <span>Logout</span>
-          </button>
         </div>
       </header>
 
       {/* Main Container */}
       <div className="main-container">
+        {/* Chat Container */}
         <div className="chat-container" ref={chatContainerRef}>
         {messages.length === 0 ? (
           <div className="welcome-screen">
@@ -360,7 +332,6 @@ function App() {
               <h2>Car Benchmarking Platform</h2>
               <p className="welcome-description">
                 Compare prototype and production vehicles using internal datasets and curated external intelligence.
-                You're using the <strong>{getAgentName(user?.role || '')}</strong>.
               </p>
             </div>
 
@@ -399,6 +370,8 @@ function App() {
                 </button>
               </div>
             </div>
+
+          
           </div>
         ) : (
           <div className="messages-list">
@@ -425,6 +398,7 @@ function App() {
                       {message.reportUrl ? (
                         <div className="report-card">
                           <div className="report-header">
+                            
                             <span>Comparison Complete!</span>
                           </div>
 
@@ -472,7 +446,10 @@ function App() {
 
       {/* Scroll to Bottom Button */}
       {showScrollButton && (
-        <button className="scroll-bottom-btn" onClick={scrollToBottom}>
+        <button
+          className="scroll-bottom-btn"
+          onClick={scrollToBottom}
+        >
           <ChevronDown size={20} />
         </button>
       )}

@@ -10,3 +10,15 @@ google-cloud-storage
 python-dotenv
 uvicorn
 json-repair
+
+# Authentication dependencies
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+email-validator
+
+# MongoDB dependencies
+motor
+pymongo
+dnspython
+certifi

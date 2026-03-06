@@ -1,21 +1,37 @@
 """
-Car Benchmarking Agent - FastAPI Server with ADK Runner
+Car Benchmarking Agent - FastAPI Server with ADK Runner and RBAC
+Industry-standard JWT authentication with role-based agent routing
 """
 import os
 import sys
 import uuid
 import logging
+from datetime import timedelta
 from typing import Optional
 
 import uvicorn
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Header
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Header, Depends, Response
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.datastructures import UploadFile as StarletteUploadFile
 from google.adk.runners import Runner, InMemorySessionService
 from google.genai import types
 from typing import Union
+
+# Authentication imports
+from auth.models import LoginRequest, LoginResponse, User, UserRole
+from auth.jwt_handler import (
+    authenticate_user,
+    create_access_token,
+    get_current_user,
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+)
+from auth.database import (
+    connect_to_mongodb,
+    close_mongodb_connection,
+    check_database_health,
+)
 
 # Force unbuffered output
 sys.stdout.reconfigure(line_buffering=True)
@@ -30,65 +46,186 @@ logger = logging.getLogger(__name__)
 
 
 # Configuration
-APP_NAME = "car_benchmarking_agent"
+APP_NAME_BENCHMARKING = "car_benchmarking_agent"
+APP_NAME_PRODUCT_PLANNING = "product_planning_agent"
+APP_NAME_VEHICLE_DEVELOPMENT = "vehicle_development_agent"
 
-# Initialize session service (shared across requests)
+# Initialize session service (shared across all agents)
 session_service = InMemorySessionService()
 
-# Initialize ADK Runner once at startup
-from benchmarking_agent.agent import root_agent
+# Initialize all three agents based on roles
+from benchmarking_agent.agent import root_agent as benchmarking_agent
+from product_planning_agent.agent import root_agent as product_planning_agent
+from vehicle_development_agent.agent import root_agent as vehicle_development_agent
 
-runner = Runner(
-    agent=root_agent,
-    app_name=APP_NAME,
+# Create runners for each agent
+benchmarking_runner = Runner(
+    agent=benchmarking_agent,
+    app_name=APP_NAME_BENCHMARKING,
     session_service=session_service,
-    auto_create_session=False  # We manage sessions explicitly in the endpoint
+    auto_create_session=False
 )
+
+product_planning_runner = Runner(
+    agent=product_planning_agent,
+    app_name=APP_NAME_PRODUCT_PLANNING,
+    session_service=session_service,
+    auto_create_session=False
+)
+
+vehicle_development_runner = Runner(
+    agent=vehicle_development_agent,
+    app_name=APP_NAME_VEHICLE_DEVELOPMENT,
+    session_service=session_service,
+    auto_create_session=False
+)
+
+# Map roles to their respective runners and app names
+ROLE_TO_RUNNER = {
+    UserRole.VB: (benchmarking_runner, APP_NAME_BENCHMARKING, "Vehicle Benchmarking"),
+    UserRole.PP: (product_planning_runner, APP_NAME_PRODUCT_PLANNING, "Product Planning"),
+    UserRole.VD: (vehicle_development_runner, APP_NAME_VEHICLE_DEVELOPMENT, "Vehicle Development"),
+}
+
 
 @asynccontextmanager
 async def lifespan(fastapi_app: FastAPI):
     # Startup
-    logger.info("=" * 60)
-    logger.info("CAR BENCHMARKING AGENT - SERVER STARTED")
-    logger.info("=" * 60)
-    logger.info(f"App: {APP_NAME}  |  Agent: {root_agent.name}  |  Model: {root_agent.model}")
+    logger.info("=" * 80)
+    logger.info("CAR BENCHMARKING PLATFORM - RBAC WITH MONGODB")
+    logger.info("=" * 80)
+
+    # Connect to MongoDB
+    try:
+        await connect_to_mongodb()
+        db_health = await check_database_health()
+        logger.info(f"MongoDB: {db_health['status']} | Users: {db_health.get('users_count', 0)}")
+    except Exception as e:
+        logger.error(f"MongoDB connection failed: {e}")
+        logger.warning("⚠️  Server will start but authentication will fail!")
+
+    logger.info("=" * 80)
+    logger.info(f"Benchmarking Agent: {benchmarking_agent.name}  |  Model: {benchmarking_agent.model}")
+    logger.info(f"Product Planning Agent: {product_planning_agent.name}  |  Model: {product_planning_agent.model}")
+    logger.info(f"Vehicle Development Agent: {vehicle_development_agent.name}  |  Model: {vehicle_development_agent.model}")
+    logger.info("=" * 80)
+    logger.info("Authentication: JWT-based RBAC with MongoDB")
+    logger.info("Roles: VB (Benchmarking) | PP (Product Planning) | VD (Vehicle Development)")
+    logger.info("=" * 80)
     logger.info("Ready to accept requests!")
+
     yield
+
     # Shutdown
     logger.info("Shutting down...")
     try:
-        await runner.close()
-    except Exception:
-        pass
+        await benchmarking_runner.close()
+        await product_planning_runner.close()
+        await vehicle_development_runner.close()
+        await close_mongodb_connection()
+    except Exception as e:
+        logger.error(f"Error during shutdown: {e}")
 
 
 # Create FastAPI app
 app = FastAPI(
-    title="Car Benchmarking Agent",
-    description="AI-powered car comparison with 87 specifications",
-    version="2.0.0",
+    title="Car Benchmarking Platform with RBAC",
+    description="AI-powered car comparison with 87 specifications and role-based access control",
+    version="3.0.0",
     lifespan=lifespan
 )
 
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # In production, specify exact origins
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-@app.post("/compare")
+# ============================================
+# AUTHENTICATION ENDPOINTS
+# ============================================
+
+@app.post("/api/auth/login", response_model=LoginResponse)
+async def login(login_data: LoginRequest, response: Response):
+    """
+    Authenticate user and return JWT token
+
+    **Test Credentials:**
+    - VB Role: vb@mahindra.com / vb123
+    - PP Role: pp@mahindra.com / pp123
+    - VD Role: vd@mahindra.com / vd123
+    """
+    logger.info(f"[AUTH] Login attempt for: {login_data.email}")
+
+    user = await authenticate_user(login_data.email, login_data.password)
+    if not user:
+        logger.warning(f"[AUTH] Failed login attempt for: {login_data.email}")
+        raise HTTPException(
+            status_code=401,
+            detail="Incorrect email or password"
+        )
+
+    # Create access token
+    access_token = create_access_token(
+        data={"sub": user.email, "role": user.role.value},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+
+    # Set cookie (httpOnly for security)
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        samesite="lax",  # or "strict" for better security
+        secure=False,  # Set to True in production with HTTPS
+    )
+
+    logger.info(f"[AUTH] Successful login: {user.email} | Role: {user.role.value}")
+
+    return LoginResponse(
+        access_token=access_token,
+        token_type="bearer",
+        user=user
+    )
+
+
+@app.post("/api/auth/logout")
+async def logout(response: Response):
+    """Logout user by clearing the auth cookie"""
+    response.delete_cookie(key="access_token")
+    return {"status": "success", "message": "Logged out successfully"}
+
+
+@app.get("/api/auth/me", response_model=User)
+async def get_me(current_user: User = Depends(get_current_user)):
+    """Get current authenticated user"""
+    return current_user
+
+
+# ============================================
+# PROTECTED AGENT ENDPOINTS
+# ============================================
+
+@app.post("/api/compare")
 async def compare_cars(
     query: str = Form(..., description="Your query (e.g., 'Summarize this', 'Compare cars in this with Thar', 'Compare Thar and Swift')"),
     pdf_file: Optional[Union[UploadFile, str]] = File(None, description="Optional PDF with car specifications or reviews"),
     x_user_id: Optional[str] = Header(None, alias="X-User-Id", description="User ID from previous response. Pass to continue conversation."),
     x_session_id: Optional[str] = Header(None, alias="X-Session-Id", description="Session ID from previous response. Pass to continue conversation."),
+    current_user: User = Depends(get_current_user),  # JWT authentication required
 ):
     """
-    Send a query to the car benchmarking agent. Optionally attach a PDF.
+    Send a query to the appropriate agent based on user role.
+
+    **Role-based Agent Routing:**
+    - VB Role → Vehicle Benchmarking Agent
+    - PP Role → Product Planning Agent
+    - VD Role → Vehicle Development Agent
 
     **PDF modes (determined by your query):**
     - `"summarize this"` → returns a document summary
@@ -103,12 +240,14 @@ async def compare_cars(
     - Pass them in headers `X-User-Id` and `X-Session-Id` to continue the conversation
     """
     try:
+        # Get the appropriate runner based on user role
+        runner, app_name, agent_type = ROLE_TO_RUNNER[current_user.role]
+
         logger.info("=" * 60)
-        logger.info("[COMPARE] New request received")
+        logger.info("[COMPARE] New authenticated request")
+        logger.info(f"[AUTH] User: {current_user.email} | Role: {current_user.role.value} | Agent: {agent_type}")
         logger.info(f"[COMPARE] Query: {query[:100]}")
         logger.info(f"[COMPARE] PDF: {pdf_file is not None}")
-        logger.info(f"[COMPARE] PDF type: {type(pdf_file)}")
-        logger.info(f"[COMPARE] PDF value: {pdf_file}")
         logger.info("=" * 60)
 
         # Get session IDs from headers (secure method)
@@ -120,7 +259,7 @@ async def compare_cars(
             # Try to retrieve existing session to verify it exists
             try:
                 existing_session = await session_service.get_session(
-                    app_name=APP_NAME,
+                    app_name=app_name,
                     user_id=user_id,
                     session_id=session_id
                 )
@@ -131,7 +270,7 @@ async def compare_cars(
                 logger.warning(f"[SESSION] Provided session not found, creating new session: {e}")
                 user_id = f"user_{uuid.uuid4().hex[:8]}"
                 session = await session_service.create_session(
-                    app_name=APP_NAME,
+                    app_name=app_name,
                     user_id=user_id
                 )
                 session_id = session.id
@@ -140,7 +279,7 @@ async def compare_cars(
             # No session provided, create a new one
             user_id = f"user_{uuid.uuid4().hex[:8]}"
             session = await session_service.create_session(
-                app_name=APP_NAME,
+                app_name=app_name,
                 user_id=user_id
             )
             session_id = session.id
@@ -180,8 +319,8 @@ async def compare_cars(
 
         message = types.Content(role="user", parts=parts)
 
-        # Run agent
-        logger.info("[AGENT] Starting execution...")
+        # Run the appropriate agent based on user role
+        logger.info(f"[AGENT] Starting {agent_type} agent execution...")
         full_response = ""
         event_count = 0
 
@@ -218,7 +357,7 @@ async def compare_cars(
         # Log session state after agent run
         try:
             final_session = await session_service.get_session(
-                app_name=APP_NAME,
+                app_name=app_name,
                 user_id=user_id,
                 session_id=session_id
             )
@@ -229,8 +368,10 @@ async def compare_cars(
         logger.info("[SUCCESS] Returning response")
         return JSONResponse(content={
             "status": "success",
+            "agent_type": agent_type,
+            "user_role": current_user.role.value,
             "query": query,
-            "has_pdf": pdf_file is not None and bool(pdf_file.filename),
+            "has_pdf": pdf_file is not None,
             "response": full_response,
             "user_id": user_id,
             "session_id": session_id
@@ -245,26 +386,51 @@ async def compare_cars(
         raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
 
 
+# ============================================
+# PUBLIC ENDPOINTS
+# ============================================
+
 @app.get("/health")
 async def health_check():
     return {
         "status": "healthy",
-        "service": "Car Benchmarking Agent",
-        "version": "2.0.0",
-        "endpoints": {"compare": "/compare", "docs": "/docs"}
+        "service": "Car Benchmarking Platform with RBAC",
+        "version": "3.0.0",
+        "agents": {
+            "benchmarking": "Vehicle Benchmarking Agent (VB)",
+            "product_planning": "Product Planning Agent (PP)",
+            "vehicle_development": "Vehicle Development Agent (VD)"
+        },
+        "endpoints": {
+            "login": "POST /api/auth/login",
+            "compare": "POST /api/compare (protected)",
+            "docs": "GET /docs"
+        }
     }
 
 
 @app.get("/")
 async def root():
     return {
-        "service": "Car Benchmarking Agent API",
-        "version": "2.0.0",
-        "description": "AI-powered car comparison with 87 specifications",
+        "service": "Car Benchmarking Platform API with RBAC",
+        "version": "3.0.0",
+        "description": "AI-powered car comparison with 87 specifications and role-based access control",
+        "authentication": {
+            "type": "JWT Bearer Token",
+            "roles": ["VB (Vehicle Benchmarking)", "PP (Product Planning)", "VD (Vehicle Development)"]
+        },
         "endpoints": {
-            "compare_cars": "POST /compare",
+            "login": "POST /api/auth/login",
+            "logout": "POST /api/auth/logout",
+            "me": "GET /api/auth/me (protected)",
+            "compare_cars": "POST /api/compare (protected)",
             "health_check": "GET /health",
             "api_docs": "GET /docs"
+        },
+        "test_credentials": {
+            "vb": {"email": "vb@mahindra.com", "password": "vb123"},
+            "pp": {"email": "pp@mahindra.com", "password": "pp123"},
+            "vd": {"email": "vd@mahindra.com", "password": "vd123"}
         }
     }
 
