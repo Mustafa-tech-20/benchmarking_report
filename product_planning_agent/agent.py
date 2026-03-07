@@ -144,8 +144,9 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
       3. Leave blank (blank/empty)
 
     Args:
-        car_names: Comma-separated list of car names (minimum 2, maximum 10)
-                   Example: "CODE:PROTO1, Mahindra Thar, Maruti Jimny"
+        car_names: Comma-separated list of car names (minimum 1, maximum 10)
+                   Example: "Mahindra Thar" or "CODE:PROTO1, Mahindra Thar, Maruti Jimny"
+                   Can be single car for individual analysis or multiple for comparison
         user_decision: User's choice for code cars: 'manual', 'rag', or 'blank'
         use_custom_search: If True (default), use Custom Search API; if False, use Gemini URL parsing
 
@@ -155,10 +156,10 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
     car_list = [c.strip() for c in car_names.split(",")]
 
     # Validation
-    if len(car_list) < 2:
+    if len(car_list) < 1 or not car_list[0]:
         return json.dumps({
             "status": "error",
-            "error": f"Please provide at least 2 cars to compare. You provided {len(car_list)}."
+            "error": f"Please provide at least 1 car. You provided {len(car_list)}."
         })
 
     if len(car_list) > 10:
@@ -359,6 +360,21 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
         #         "source_url": "N/A",
         #         "citation_text": "Code car - sales data not applicable",
         #     }
+
+        # Extract variant walk data (only for product planning agent)
+        if not car_data.get('is_code_car'):
+            print(f"[{car}] Extracting variant walk data...")
+            from product_planning_agent.extraction.variant_walk import extract_variant_walk
+            variant_data = extract_variant_walk(car)
+            if variant_data and variant_data.get('variants'):
+                car_data['variant_walk'] = variant_data
+                print(f"[{car}] ✓ Extracted {len(variant_data.get('variants', {}))} variants")
+            else:
+                print(f"[{car}] ✗ No variant data found")
+                car_data['variant_walk'] = None
+        else:
+            print(f"[{car}] Skipping variant walk (code car)")
+            car_data['variant_walk'] = None
 
         # Count actually found specs (exclude all empty/not-found variations)
         empty_values = ("Not Available", "N/A", "Not found", "not found", None, "", "—", "-", "None")

@@ -737,6 +737,580 @@ def generate_checklist_table(comparison_data: Dict[str, Any]) -> str:
     return html
 
 
+def generate_variant_walk_section(comparison_data: Dict[str, Any]) -> str:
+    """
+    Generate variant walk section showing features across different variants.
+
+    Args:
+        comparison_data: Dictionary with car comparison data
+
+    Returns:
+        HTML string for variant walk section
+    """
+    if not comparison_data:
+        return "<p>No variant data available.</p>"
+
+    html = """
+    <style>
+        .variant-walk-container {
+            overflow-x: auto;
+            margin: 30px 0;
+        }
+
+        .variant-walk-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 800px;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .variant-walk-table th {
+            background: #000;
+            color: white;
+            padding: 20px 15px;
+            text-align: center;
+            font-size: 1.3em;
+            font-weight: 700;
+            border: 1px solid #fff;
+        }
+
+        .variant-walk-table td {
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            vertical-align: top;
+            font-size: 0.9em;
+            line-height: 1.8;
+        }
+
+        .variant-features {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .variant-features li {
+            padding: 5px 0 5px 20px;
+            position: relative;
+        }
+
+        .variant-features li:before {
+            content: "•";
+            position: absolute;
+            left: 5px;
+            font-weight: bold;
+        }
+
+        .feature-added {
+            color: #10b981;
+            font-weight: 500;
+        }
+
+        .feature-added:before {
+            content: "+ ";
+            color: #10b981;
+            font-weight: bold;
+        }
+
+        .feature-deleted {
+            color: #dd032b;
+            font-weight: 500;
+        }
+
+        .feature-deleted:before {
+            content: "- ";
+            color: #dd032b;
+            font-weight: bold;
+        }
+
+        .feature-standard:before {
+            color: #000;
+        }
+
+        .variant-section-title {
+            font-weight: 700;
+            color: #000;
+            margin-top: 10px;
+            margin-bottom: 5px;
+        }
+
+        .variant-sub-section {
+            font-size: 0.85em;
+            color: #6b7280;
+            font-style: italic;
+            margin-top: 15px;
+            margin-bottom: 5px;
+        }
+    </style>
+
+    <div class="variant-walk-container">
+"""
+
+    # For each car, generate its variant walk
+    for car_name, car_data in comparison_data.items():
+        if isinstance(car_data, dict) and "error" not in car_data:
+            # Get variant walk data
+            variant_walk = car_data.get('variant_walk', {})
+            variants = variant_walk.get('variants', {})
+
+            if not variants:
+                # Fallback to generic variant display if no data
+                html += f"""
+        <h3 style="color: #1a1f71; margin: 30px 0 20px 0;">{car_name} - Variant Walk</h3>
+        <p style="color: #6b7280; font-style: italic;">No variant data available for this car.</p>
+"""
+                continue
+
+            # Get variant names for header
+            variant_names = [v.get('name', k) for k, v in variants.items()]
+
+            html += f"""
+        <h3 style="color: #1a1f71; margin: 30px 0 20px 0;">{car_name} - Variant Walk</h3>
+        <table class="variant-walk-table">
+            <thead>
+                <tr>
+"""
+
+            # Generate header with actual variant names
+            for variant_name in variant_names:
+                html += f'                    <th>{variant_name}</th>\n'
+
+            html += """
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+"""
+
+            # Generate columns for each variant
+            is_first_variant = True
+            for variant_key, variant_data in variants.items():
+                variant_name = variant_data.get('name', variant_key)
+                features = variant_data.get('features', [])
+                features_added = variant_data.get('features_added', [])
+                features_deleted = variant_data.get('features_deleted', [])
+
+                html += """
+                    <td>
+"""
+
+                # Show section title
+                if is_first_variant:
+                    html += """
+                        <div class="variant-section-title">Standard Features:</div>
+"""
+                    is_first_variant = False
+                else:
+                    prev_variant = list(variants.keys())[list(variants.keys()).index(variant_key) - 1]
+                    prev_name = variants[prev_variant].get('name', prev_variant)
+                    html += f"""
+                        <div class="variant-section-title">In addition to {prev_name}:</div>
+"""
+
+                # Show features added (or all features for base variant)
+                if features_added:
+                    html += """
+                        <ul class="variant-features">
+"""
+                    for feature in features_added:
+                        html += f'                            <li class="feature-added">{feature}</li>\n'
+                    html += """
+                        </ul>
+"""
+                elif features:
+                    html += """
+                        <ul class="variant-features">
+"""
+                    for feature in features[:10]:  # Limit to first 10 for base variant
+                        html += f'                            <li class="feature-standard">{feature}</li>\n'
+                    html += """
+                        </ul>
+"""
+
+                # Show features deleted if any
+                if features_deleted:
+                    html += """
+                        <div class="variant-sub-section">Features deleted:</div>
+                        <ul class="variant-features">
+"""
+                    for feature in features_deleted:
+                        html += f'                            <li class="feature-deleted">{feature}</li>\n'
+                    html += """
+                        </ul>
+"""
+
+                html += """
+                    </td>
+"""
+
+            html += """
+                </tr>
+            </tbody>
+        </table>
+"""
+
+    html += """
+    </div>
+    <div style="margin-top: 20px; padding: 15px; background: #f9fafb; border-radius: 6px; font-size: 0.9em; border-left: 4px solid #dd032b;">
+        <strong>Note:</strong> Variant walk shows progressive feature additions across trim levels.
+        <span style="color: #10b981;">Green text</span> indicates new features added,
+        <span style="color: #dd032b;">red text</span> indicates features removed.
+    </div>
+"""
+
+    return html
+
+
+def generate_price_ladder_section(comparison_data: Dict[str, Any]) -> str:
+    """
+    Generate price ladder section showing petrol and diesel prices across variants.
+
+    Args:
+        comparison_data: Dictionary with car comparison data including variant_walk
+
+    Returns:
+        HTML string for price ladder sections
+    """
+    if not comparison_data:
+        return "<p>No pricing data available.</p>"
+
+    def extract_price_value(price_str: str) -> float:
+        """Extract numeric value from price string for sorting."""
+        if not price_str or price_str == "Not Available":
+            return 0.0
+        # Remove currency symbols, 'lakh', and extract first number
+        import re
+        price_str = price_str.replace('₹', '').replace('lakh', '').strip()
+        # Extract first number (handles cases like "14.83 (1.5 MPI IVT)")
+        match = re.search(r'(\d+\.?\d*)', price_str)
+        if match:
+            return float(match.group(1))
+        return 0.0
+
+    html = """
+    <style>
+        .price-ladder-container {
+            margin: 30px 0;
+        }
+
+        .price-ladder-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 40px;
+            margin-bottom: 30px;
+        }
+
+        .price-ladder-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            padding: 30px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .price-ladder-title {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #000;
+            margin-bottom: 25px;
+            text-align: center;
+            padding-bottom: 15px;
+            letter-spacing: 1px;
+        }
+
+        .ladder-chart-container {
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-end;
+            min-height: 500px;
+            padding: 30px 20px;
+            position: relative;
+            background: white;
+        }
+
+        .ladder-column {
+            display: flex;
+            flex-direction: column-reverse;
+            align-items: center;
+            position: relative;
+            flex: 1;
+            max-width: 200px;
+        }
+
+        .ladder-column-title {
+            position: absolute;
+            top: -30px;
+            font-weight: 600;
+            font-size: 1em;
+            color: #374151;
+            text-align: center;
+        }
+
+        .ladder-line {
+            width: 2px;
+            background: #d1d5db;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .ladder-point {
+            position: relative;
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+        }
+
+        .ladder-dot {
+            width: 10px;
+            height: 10px;
+            background: #6b7280;
+            border-radius: 50%;
+            position: relative;
+            z-index: 2;
+        }
+
+        .ladder-label {
+            position: absolute;
+            left: 15px;
+            white-space: nowrap;
+            font-size: 0.75em;
+            color: #1f2937;
+            font-weight: 500;
+        }
+
+        .ladder-label .variant-name {
+            font-weight: 600;
+            color: #000;
+        }
+
+        .ladder-label .price {
+            color: #dd032b;
+            font-weight: 700;
+        }
+
+        .transmission-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        .transmission-tab {
+            padding: 10px 25px;
+            background: #f3f4f6;
+            border: 2px solid #e5e7eb;
+            border-radius: 6px;
+            font-weight: 600;
+            color: #6b7280;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .transmission-tab.active {
+            background: white;
+            border-color: #dd032b;
+            color: #dd032b;
+        }
+
+        .fuel-badge {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            font-weight: 700;
+            margin-bottom: 20px;
+            letter-spacing: 0.5px;
+        }
+
+        .fuel-badge.petrol {
+            background: #f3f4f6;
+            color: #1f2937;
+            border: 2px solid #d1d5db;
+        }
+
+        .fuel-badge.diesel {
+            background: #f3f4f6;
+            color: #1f2937;
+            border: 2px solid #d1d5db;
+        }
+    </style>
+
+    <div class="price-ladder-container">
+"""
+
+    # For each car, generate its price ladders
+    for car_name, car_data in comparison_data.items():
+        if isinstance(car_data, dict) and "error" not in car_data:
+            variant_walk = car_data.get('variant_walk', {})
+            price_ladder = variant_walk.get('price_ladder', {})
+
+            if not price_ladder:
+                continue
+
+            html += f"""
+        <h3 style="color: #000000; margin: 30px 0 20px 0;">{car_name} - Price Ladder</h3>
+        <div class="price-ladder-grid">
+"""
+
+            # Petrol Price Ladder
+            petrol_data = price_ladder.get('petrol', {})
+            if petrol_data:
+                html += """
+            <div class="price-ladder-card">
+                <div style="text-align: center;">
+                    <span class="fuel-badge petrol">PETROL</span>
+                </div>
+                <div class="price-ladder-title">PRICE LADDER PETROL MT & AT</div>
+                <div class="ladder-chart-container">
+"""
+
+                # MT Column
+                mt_variants = petrol_data.get('MT', {})
+                if mt_variants:
+                    # Sort by price (extract numeric value)
+                    sorted_mt = sorted(mt_variants.items(),
+                                      key=lambda x: extract_price_value(x[1]))
+
+                    html += """
+                    <div class="ladder-column">
+                        <div class="ladder-column-title">MT</div>
+                        <div class="ladder-line" style="height: 400px;">
+"""
+                    for variant_name, price in sorted_mt:
+                        if price and price != "Not Available":
+                            clean_price = price.replace('₹', '').strip()
+                            html += f"""
+                            <div class="ladder-point">
+                                <div class="ladder-dot"></div>
+                                <div class="ladder-label">
+                                    <span class="variant-name">{variant_name}</span>, <span class="price">{clean_price}</span>
+                                </div>
+                            </div>
+"""
+                    html += """
+                        </div>
+                    </div>
+"""
+
+                # AT Column
+                at_variants = petrol_data.get('AT', {})
+                if at_variants:
+                    sorted_at = sorted(at_variants.items(),
+                                      key=lambda x: extract_price_value(x[1]))
+
+                    html += """
+                    <div class="ladder-column">
+                        <div class="ladder-column-title">AT</div>
+                        <div class="ladder-line" style="height: 400px;">
+"""
+                    for variant_name, price in sorted_at:
+                        if price and price != "Not Available":
+                            clean_price = price.replace('₹', '').strip()
+                            html += f"""
+                            <div class="ladder-point">
+                                <div class="ladder-dot"></div>
+                                <div class="ladder-label">
+                                    <span class="variant-name">{variant_name}</span>, <span class="price">{clean_price}</span>
+                                </div>
+                            </div>
+"""
+                    html += """
+                        </div>
+                    </div>
+"""
+
+                html += """
+                </div>
+            </div>
+"""
+
+            # Diesel Price Ladder
+            diesel_data = price_ladder.get('diesel', {})
+            if diesel_data:
+                html += """
+            <div class="price-ladder-card">
+                <div style="text-align: center;">
+                    <span class="fuel-badge diesel">DIESEL</span>
+                </div>
+                <div class="price-ladder-title">PRICE LADDER DIESEL MT & AT</div>
+                <div class="ladder-chart-container">
+"""
+
+                # MT Column
+                mt_variants = diesel_data.get('MT', {})
+                if mt_variants:
+                    sorted_mt = sorted(mt_variants.items(),
+                                      key=lambda x: extract_price_value(x[1]))
+
+                    html += """
+                    <div class="ladder-column">
+                        <div class="ladder-column-title">MT</div>
+                        <div class="ladder-line" style="height: 400px;">
+"""
+                    for variant_name, price in sorted_mt:
+                        if price and price != "Not Available":
+                            clean_price = price.replace('₹', '').strip()
+                            html += f"""
+                            <div class="ladder-point">
+                                <div class="ladder-dot"></div>
+                                <div class="ladder-label">
+                                    <span class="variant-name">{variant_name}</span>, <span class="price">{clean_price}</span>
+                                </div>
+                            </div>
+"""
+                    html += """
+                        </div>
+                    </div>
+"""
+
+                # AT Column
+                at_variants = diesel_data.get('AT', {})
+                if at_variants:
+                    sorted_at = sorted(at_variants.items(),
+                                      key=lambda x: extract_price_value(x[1]))
+
+                    html += """
+                    <div class="ladder-column">
+                        <div class="ladder-column-title">AT</div>
+                        <div class="ladder-line" style="height: 400px;">
+"""
+                    for variant_name, price in sorted_at:
+                        if price and price != "Not Available":
+                            clean_price = price.replace('₹', '').strip()
+                            html += f"""
+                            <div class="ladder-point">
+                                <div class="ladder-dot"></div>
+                                <div class="ladder-label">
+                                    <span class="variant-name">{variant_name}</span>, <span class="price">{clean_price}</span>
+                                </div>
+                            </div>
+"""
+                    html += """
+                        </div>
+                    </div>
+"""
+
+                html += """
+                </div>
+            </div>
+"""
+
+            html += """
+        </div>
+"""
+
+    html += """
+    </div>
+    <div style="margin-top: 20px; padding: 15px; background: #f9fafb; border-radius: 6px; font-size: 0.9em; border-left: 4px solid #dd032b;">
+        <strong>Note:</strong> Prices shown are ex-showroom and may vary by location. Price ladder shows progressive pricing across trim levels.
+    </div>
+"""
+
+    return html
+
+
 def generate_proscons_table(proscons_data: Dict[str, Any]) -> str:
     """
     Generate pros/cons comparison table from YouTube reviews.
@@ -807,7 +1381,11 @@ def generate_proscons_table(proscons_data: Dict[str, Any]) -> str:
                         <td class="serial-cell">{row_num}</td>
                         <td class="car-cell"><strong>{car_name}</strong></td>
                         <td class="publication-cell">{publication}</td>
-                        <td class="link-cell"><a href="{link}" target="_blank" rel="noopener noreferrer">🔍 Search</a></td>
+                        <td class="link-cell">
+                            <a href="{link}" target="_blank" rel="noopener noreferrer" class="youtube-citation-box">
+                                {publication}
+                            </a>
+                        </td>
                         <td class="positives-cell">{positives_html}</td>
                         <td class="negatives-cell">{negatives_html}</td>
                     </tr>
@@ -1156,7 +1734,7 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str, 
         .main-group-header td:not(:first-child) {{
             background: #fff;
         }}
-        #comparison-section, #analytics-section, #summary-section {{ scroll-margin-top: 90px; }}
+        #comparison-section, #variant-walk-section, #price-ladder-section, #summary-section {{ scroll-margin-top: 90px; }}
         .print-btn {{ background: transparent; color: #333; padding: 8px 12px; border: 1px solid #ced4da; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s ease; display: flex; align-items: center; gap: 8px; }}
         .print-btn:hover {{ color: #dd032b; border-color: #dd032b; background-color: #fff5f7; }}
         .content {{ padding: 50px 60px; }}
@@ -2415,7 +2993,8 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str, 
             }}
 
             .proscons-table tbody tr:hover {{
-                background-color: #f8f9fa;
+                background-color: #fff5f7;
+                border-left: 3px solid #dd032b;
             }}
 
             .proscons-table .serial-cell {{
@@ -2437,18 +3016,43 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str, 
             }}
 
             .proscons-table .link-cell a {{
-                color: #3498db;
+                color: #000000;
                 text-decoration: none;
                 font-weight: 600;
                 padding: 5px 10px;
-                border: 1px solid #3498db;
+                background: #ffffff;
+                border: 1px solid #000000;
                 border-radius: 4px;
                 transition: all 0.3s ease;
             }}
 
             .proscons-table .link-cell a:hover {{
-                background: #3498db;
-                color: white;
+                background: #000000;
+                color: #ffffff;
+                border-color: #000000;
+            }}
+
+            /* YouTube Citation Box Styling */
+            .youtube-citation-box {{
+                display: inline-block;
+                padding: 6px 12px;
+                background: #ffffff;
+                border: 1.5px solid #e0e0e0;
+                border-radius: 6px;
+                color: #2c3e50;
+                text-decoration: none;
+                font-weight: 500;
+                font-size: 0.85em;
+                transition: all 0.3s ease;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+            }}
+
+            .youtube-citation-box:hover {{
+                background: #f8f9fa;
+                border-color: #dd032b;
+                color: #dd032b;
+                box-shadow: 0 4px 8px rgba(221,3,43,0.15);
+                transform: translateY(-1px);
             }}
 
             .proscons-table .positives-cell {{
@@ -2525,7 +3129,8 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str, 
                 <a href="#exterior-section">Exterior</a>
                 <a href="#interior-section">Interior</a>
                 <a href="#technology-section">Technology</a>
-                <a href="#analytics-section">Analytics</a>
+                <a href="#variant-walk-section">Variant Walk</a>
+                <a href="#price-ladder-section">Price Ladder</a>
                 <a href="#summary-section">Pros & Cons</a>
                 <a href="#review-section">Analysis</a>
                 <a href="#" id="citations-toggle" onclick="toggleCitations(event)">Citations</a>
@@ -2553,11 +3158,27 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str, 
         {generate_image_gallery_section("Comfort Highlights", comparison_data, "comfort", "comfort-section")}
         {generate_image_gallery_section("Safety Highlights", comparison_data, "safety", "safety-section")}
         <div class="content">
-            <div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3v9H3zM9 8h3v13H9zM15 4h3v17h-3zM21 20h-3"/></svg></div><h2 id="analytics-section">Visual Analytics</h2></div>
-            <div class="charts-grid">
-                <div class="chart-container animate-on-scroll"><h3>Price Comparison (₹ Lakhs)</h3><canvas id="priceChart"></canvas></div><div class="chart-container animate-on-scroll"><h3>Mileage Comparison (kmpl)</h3><canvas id="mileageChart"></canvas></div>
-                <div class="chart-container animate-on-scroll"><h3>User Ratings (out of 5)</h3><canvas id="ratingChart"></canvas></div><div class="chart-container animate-on-scroll"><h3>Seating Capacity</h3><canvas id="seatingChart"></canvas></div>
-<!-- <h5>Sales Performance (Volume vs Price)</h5><div class="chart-container animate-on-scroll"><canvas id="salesChart"></canvas></div> -->            </div>
+            <div class="section-header">
+                <div class="icon-wrapper">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                    </svg>
+                </div>
+                <h2 id="variant-walk-section">Variant Walk</h2>
+            </div>
+            <div class="variant-walk-section animate-on-scroll">{generate_variant_walk_section(comparison_data)}</div>
+        </div>
+        <div class="content">
+            <div class="section-header">
+                <div class="icon-wrapper">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+                    </svg>
+                </div>
+                <h2 id="price-ladder-section">Price Ladder</h2>
+            </div>
+            <div class="price-ladder-section animate-on-scroll">{generate_price_ladder_section(comparison_data)}</div>
         </div>
         <div class="content">
             <div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z"></path></svg></div><h2 id="summary-section">YouTube Pros & Cons Analysis</h2></div>
@@ -2604,19 +3225,21 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str, 
         function toggleExpand(button) {{ const content = button.previousElementSibling; content.classList.toggle('expanded'); button.textContent = content.classList.contains('expanded') ? 'Read less' : 'Read more'; }}
         function toggleCitations(event) {{ event.preventDefault(); const citationsSection = document.getElementById('citations-section'); const mainContent = document.querySelectorAll('.content:not(#citations-section)'); const toggleButton = document.getElementById('citations-toggle'); const navLinks = document.querySelectorAll('.main-nav a:not(#citations-toggle)'); if (citationsSection.style.display === 'none') {{ citationsSection.style.display = 'block'; mainContent.forEach(section => {{ section.style.display = 'none'; }}); navLinks.forEach(link => {{ link.style.display = 'none'; }}); toggleButton.textContent = 'Go Back'; }} else {{ citationsSection.style.display = 'none'; mainContent.forEach(section => {{ section.style.display = 'block'; }}); navLinks.forEach(link => {{ link.style.display = 'block'; }}); toggleButton.textContent = 'Citations'; }} window.scrollTo({{ top: 0, behavior: 'smooth' }}); }}
         
-        const carLabels = {json.dumps(cars)}; 
-        const priceData = {json.dumps(prices)}; 
-        const mileageData = {json.dumps(mileages)}; 
-        const ratingData = {json.dumps(ratings)}; 
-        const seatingData = {json.dumps(seating)}; 
+        /* Chart.js code commented out - replaced with Variant Walk
+        const carLabels = {json.dumps(cars)};
+        const priceData = {json.dumps(prices)};
+        const mileageData = {json.dumps(mileages)};
+        const ratingData = {json.dumps(ratings)};
+        const seatingData = {json.dumps(seating)};
         const salesVolumes = {json.dumps(sales_volumes)};
         const primaryColor = '#2E3B4E', secondaryColor = '#dd032b';
         const isMobile = window.innerWidth < 768;
-        
-        new Chart(document.getElementById('priceChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: priceData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: {{ plugins: {{ legend: {{ display: false }} }} }} }});        
+
+        new Chart(document.getElementById('priceChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: priceData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: {{ plugins: {{ legend: {{ display: false }} }} }} }});
         new Chart(document.getElementById('mileageChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: mileageData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: {{ plugins: {{ legend: {{ display: false }} }} }} }});
         new Chart(document.getElementById('ratingChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: ratingData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: {{ scales: {{ y: {{ max: 5 }} }}, plugins: {{ legend: {{ display: false }} }} }} }});
         new Chart(document.getElementById('seatingChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: seatingData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: {{ plugins: {{ legend: {{ display: false }} }} }} }});
+        */
         
         /* Sales chart commented out
         new Chart(document.getElementById('salesChart'), {{
