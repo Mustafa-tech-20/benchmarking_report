@@ -602,13 +602,13 @@ def _generate_detailed_reviews_html(detailed_reviews: Dict[str, Any]) -> str:
 
 def generate_checklist_table(comparison_data: Dict[str, Any]) -> str:
     """
-    Generate checklist comparison table with ✓, ✗, numbers, and short text values.
+    Generate checklist comparison with accordion sections and ✓, ✗, numbers, and short text values.
 
     Args:
         comparison_data: Dictionary containing car comparison data
 
     Returns:
-        HTML string for the checklist table
+        HTML string for the checklist sections
     """
     # Transform all cars to checklist format
     checklists = {}
@@ -623,34 +623,47 @@ def generate_checklist_table(comparison_data: Dict[str, Any]) -> str:
     if not car_names:
         return "<p>No data available for checklist comparison.</p>"
 
-    # Generate table HTML
-    html = """
-    <div class="checklist-table-container">
-        <div class="table-responsive">
-            <table class="checklist-table">
-                <thead>
-                    <tr>
-                        <th class="category-col">Category</th>
-                        <th class="feature-col">Feature</th>
-"""
+    # Helper function to generate a section
+    def generate_section(section_title, subcategory_name, features, section_id):
+        section_html = f'''
+        <div class="checklist-section">
+            <div class="checklist-category-header" onclick="toggleChecklistSection('{section_id}')">
+                <span>{section_title}</span>
+                <span class="checklist-toggle-icon">▼</span>
+            </div>
+            <div class="checklist-section-content" id="{section_id}">
+                <table class="checklist-table">
+                    <thead>
+                        <tr>
+                            <th class="category-col">Category</th>
+                            <th class="feature-col">Feature</th>
+'''
+        for car_name in car_names:
+            section_html += f'                            <th class="car-col">{car_name}</th>\n'
+        section_html += '''                        </tr>
+                    </thead>
+                    <tbody>
+'''
+        for idx, (feature_name, category, key) in enumerate(features):
+            section_html += f'                        <tr>\n'
+            if idx == 0:
+                section_html += f'                            <td class="category-cell" rowspan="{len(features)}">{subcategory_name}</td>\n'
+            section_html += f'                            <td class="feature-cell">{feature_name}</td>\n'
+            for car_name in car_names:
+                value = checklists[car_name][category][key]
+                section_html += f'                            <td class="value-cell">{format_checklist_value(value)}</td>\n'
+            section_html += f'                        </tr>\n'
+        section_html += '''                    </tbody>
+                </table>
+            </div>
+        </div>
+'''
+        return section_html
 
-    # Add car name columns
-    for car_name in car_names:
-        html += f'                        <th class="car-col">{car_name}</th>\n'
-
-    html += """
-                    </tr>
-                </thead>
-                <tbody>
-"""
+    # Start building HTML
+    html = '<div class="checklist-accordion-container">\n'
 
     # Safety & Airbags Section
-    html += """
-                    <tr class="category-header">
-                        <td colspan="{}" class="category-name">Safety & Airbags</td>
-                    </tr>
-""".format(len(car_names) + 2)
-
     safety_features = [
         ("Number of Airbags", "safety", "airbag_total"),
         ("Knee Airbag", "safety", "airbag_knee"),
@@ -664,24 +677,9 @@ def generate_checklist_table(comparison_data: Dict[str, Any]) -> str:
         ("TPMS (Tyre Pressure Monitor)", "safety", "tpms"),
         ("ISOFIX Child Seat Anchors", "safety", "isofix"),
     ]
-
-    for idx, (feature_name, category, key) in enumerate(safety_features):
-        html += f'                    <tr>\n'
-        if idx == 0:
-            html += f'                        <td class="category-cell" rowspan="{len(safety_features)}">Safety</td>\n'
-        html += f'                        <td class="feature-cell">{feature_name}</td>\n'
-        for car_name in car_names:
-            value = checklists[car_name][category][key]
-            html += f'                        <td class="value-cell">{format_checklist_value(value)}</td>\n'
-        html += f'                    </tr>\n'
+    html += generate_section("Safety & Airbags", "Safety", safety_features, "checklist-safety")
 
     # Seats & Comfort Section
-    html += """
-                    <tr class="category-header">
-                        <td colspan="{}" class="category-name">Seats & Comfort</td>
-                    </tr>
-""".format(len(car_names) + 2)
-
     seat_features = [
         ("Seat Material", "seats", "material"),
         ("Backrest Split Ratio", "seats", "backrest_split"),
@@ -692,47 +690,17 @@ def generate_checklist_table(comparison_data: Dict[str, Any]) -> str:
         ("Rear Seat Folding", "seats", "rear_fold"),
         ("Rear Center Armrest", "seats", "rear_armrest"),
     ]
-
-    for idx, (feature_name, category, key) in enumerate(seat_features):
-        html += f'                    <tr>\n'
-        if idx == 0:
-            html += f'                        <td class="category-cell" rowspan="{len(seat_features)}">Seats</td>\n'
-        html += f'                        <td class="feature-cell">{feature_name}</td>\n'
-        for car_name in car_names:
-            value = checklists[car_name][category][key]
-            html += f'                        <td class="value-cell">{format_checklist_value(value)}</td>\n'
-        html += f'                    </tr>\n'
+    html += generate_section("Seats & Comfort", "Seats", seat_features, "checklist-seats")
 
     # Seatbelt Section
-    html += """
-                    <tr class="category-header">
-                        <td colspan="{}" class="category-name">Seatbelt Features</td>
-                    </tr>
-""".format(len(car_names) + 2)
-
     seatbelt_features = [
         ("Pretensioner", "seatbelts", "pretensioner"),
         ("Load Limiter", "seatbelts", "load_limiter"),
         ("Height Adjuster", "seatbelts", "height_adjuster"),
     ]
-
-    for idx, (feature_name, category, key) in enumerate(seatbelt_features):
-        html += f'                    <tr>\n'
-        if idx == 0:
-            html += f'                        <td class="category-cell" rowspan="{len(seatbelt_features)}">Seatbelt</td>\n'
-        html += f'                        <td class="feature-cell">{feature_name}</td>\n'
-        for car_name in car_names:
-            value = checklists[car_name][category][key]
-            html += f'                        <td class="value-cell">{format_checklist_value(value)}</td>\n'
-        html += f'                    </tr>\n'
+    html += generate_section("Seatbelt Features", "Seatbelt", seatbelt_features, "checklist-seatbelt")
 
     # Technology Section
-    html += """
-                    <tr class="category-header">
-                        <td colspan="{}" class="category-name">Technology</td>
-                    </tr>
-""".format(len(car_names) + 2)
-
     tech_features = [
         ("Touchscreen Size", "technology", "infotainment_size"),
         ("Digital Instrument Cluster", "technology", "digital_display"),
@@ -743,24 +711,9 @@ def generate_checklist_table(comparison_data: Dict[str, Any]) -> str:
         ("Parking Sensors", "technology", "parking_sensors"),
         ("Push Button Start", "technology", "push_button_start"),
     ]
-
-    for idx, (feature_name, category, key) in enumerate(tech_features):
-        html += f'                    <tr>\n'
-        if idx == 0:
-            html += f'                        <td class="category-cell" rowspan="{len(tech_features)}">Technology</td>\n'
-        html += f'                        <td class="feature-cell">{feature_name}</td>\n'
-        for car_name in car_names:
-            value = checklists[car_name][category][key]
-            html += f'                        <td class="value-cell">{format_checklist_value(value)}</td>\n'
-        html += f'                    </tr>\n'
+    html += generate_section("Technology", "Technology", tech_features, "checklist-tech")
 
     # Comfort Features Section
-    html += """
-                    <tr class="category-header">
-                        <td colspan="{}" class="category-name">Comfort Features</td>
-                    </tr>
-""".format(len(car_names) + 2)
-
     comfort_features = [
         ("Sunroof / Panoramic Sunroof", "comfort", "sunroof"),
         ("Climate Control", "comfort", "climate_control"),
@@ -771,24 +724,9 @@ def generate_checklist_table(comparison_data: Dict[str, Any]) -> str:
         ("Power Adjustable ORVM", "comfort", "power_orvm"),
         ("Electronic Parking Brake", "comfort", "epb"),
     ]
-
-    for idx, (feature_name, category, key) in enumerate(comfort_features):
-        html += f'                    <tr>\n'
-        if idx == 0:
-            html += f'                        <td class="category-cell" rowspan="{len(comfort_features)}">Comfort</td>\n'
-        html += f'                        <td class="feature-cell">{feature_name}</td>\n'
-        for car_name in car_names:
-            value = checklists[car_name][category][key]
-            html += f'                        <td class="value-cell">{format_checklist_value(value)}</td>\n'
-        html += f'                    </tr>\n'
+    html += generate_section("Comfort Features", "Comfort", comfort_features, "checklist-comfort")
 
     # Exterior Features Section
-    html += """
-                    <tr class="category-header">
-                        <td colspan="{}" class="category-name">Exterior Features</td>
-                    </tr>
-""".format(len(car_names) + 2)
-
     exterior_features = [
         ("LED Headlights", "exterior", "led_headlights"),
         ("LED DRLs", "exterior", "led_drls"),
@@ -797,24 +735,9 @@ def generate_checklist_table(comparison_data: Dict[str, Any]) -> str:
         ("Wheel Size", "exterior", "wheel_size"),
         ("Tyre Size", "exterior", "tyre_size"),
     ]
-
-    for idx, (feature_name, category, key) in enumerate(exterior_features):
-        html += f'                    <tr>\n'
-        if idx == 0:
-            html += f'                        <td class="category-cell" rowspan="{len(exterior_features)}">Exterior</td>\n'
-        html += f'                        <td class="feature-cell">{feature_name}</td>\n'
-        for car_name in car_names:
-            value = checklists[car_name][category][key]
-            html += f'                        <td class="value-cell">{format_checklist_value(value)}</td>\n'
-        html += f'                    </tr>\n'
+    html += generate_section("Exterior Features", "Exterior", exterior_features, "checklist-exterior")
 
     # Dimensions & Specs Section
-    html += """
-                    <tr class="category-header">
-                        <td colspan="{}" class="category-name">Dimensions & Specs</td>
-                    </tr>
-""".format(len(car_names) + 2)
-
     dimension_features = [
         ("Wheelbase", "dimensions", "wheelbase"),
         ("Ground Clearance", "dimensions", "ground_clearance"),
@@ -823,23 +746,9 @@ def generate_checklist_table(comparison_data: Dict[str, Any]) -> str:
         ("Fuel Type", "dimensions", "fuel_type"),
         ("Engine Displacement", "dimensions", "engine_displacement"),
     ]
+    html += generate_section("Dimensions & Specs", "Dimensions", dimension_features, "checklist-dimensions")
 
-    for idx, (feature_name, category, key) in enumerate(dimension_features):
-        html += f'                    <tr>\n'
-        if idx == 0:
-            html += f'                        <td class="category-cell" rowspan="{len(dimension_features)}">Dimensions</td>\n'
-        html += f'                        <td class="feature-cell">{feature_name}</td>\n'
-        for car_name in car_names:
-            value = checklists[car_name][category][key]
-            html += f'                        <td class="value-cell">{format_checklist_value(value)}</td>\n'
-        html += f'                    </tr>\n'
-
-    html += """
-                </tbody>
-            </table>
-        </div>
-    </div>
-"""
+    html += '</div>\n'
 
     return html
 
@@ -927,6 +836,7 @@ def create_comparison_chart_html(
     warranty_years, kerb_weight_data = [], []
     acceleration_data, fuel_tank_data = [], []
     wheelbase_data = []
+    overall_rating_data = []
 
     if comparative_graphs:
         perf_comp = comparative_graphs.get("performance_comparison", {})
@@ -938,6 +848,7 @@ def create_comparison_chart_html(
         warranty_comp = comparative_graphs.get("warranty_comparison", {})
         weight_data = comparative_graphs.get("kerb_weight", {})
         accel_data = comparative_graphs.get("acceleration_0_100", {})
+        overall_rating = comparative_graphs.get("overall_rating", {})
 
         for car in cars:
             # Performance & Torque
@@ -969,6 +880,9 @@ def create_comparison_chart_html(
             # Weight & Acceleration
             kerb_weight_data.append(weight_data.get(car, 0))
             acceleration_data.append(accel_data.get(car, 0))
+
+            # Overall Rating
+            overall_rating_data.append(overall_rating.get(car, 0))
 
     # Format AI-powered summary
     formatted_summary = format_summary(summary)
@@ -2457,6 +2371,7 @@ def create_comparison_chart_html(
                 background: white;
                 box-shadow: 0 2px 8px rgba(0,0,0,0.1);
                 font-size: 14px;
+                table-layout: auto;
             }}
 
             .checklist-table thead {{
@@ -2495,33 +2410,104 @@ def create_comparison_chart_html(
                 background-color: #f9f9f9;
             }}
 
-            .checklist-table .category-header td {{
+            /* Checklist Accordion Styles */
+            .checklist-accordion-container {{
+                margin: 20px 0;
+            }}
+
+            .checklist-section {{
+                margin-bottom: 0;
+                border: 1px solid #e0e0e0;
+                border-bottom: none;
+            }}
+
+            .checklist-section:last-child {{
+                border-bottom: 1px solid #e0e0e0;
+            }}
+
+            .checklist-category-header {{
                 background: linear-gradient(90deg, #3d4357 0%, #c41e3a 100%);
                 color: white;
                 font-weight: 600;
                 padding: 14px 20px;
                 font-size: 15px;
-                letter-spacing: 0.3px;
+                cursor: pointer;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }}
+
+            .checklist-category-header:hover {{
+                opacity: 0.95;
+            }}
+
+            .checklist-toggle-icon {{
+                font-size: 12px;
+                transition: transform 0.3s ease;
+            }}
+
+            .checklist-section.collapsed .checklist-toggle-icon {{
+                transform: rotate(-90deg);
+            }}
+
+            .checklist-section-content {{
+                overflow: hidden;
+                transition: max-height 0.3s ease;
+            }}
+
+            .checklist-section.collapsed .checklist-section-content {{
+                display: none;
+            }}
+
+            .checklist-section .checklist-table {{
+                border: none;
+                box-shadow: none;
+                margin: 0;
+            }}
+
+            .checklist-section .checklist-table thead {{
+                background: #f8f9fa;
+            }}
+
+            @media print {{
+                .checklist-category-header {{
+                    background: linear-gradient(90deg, #3d4357 0%, #c41e3a 100%) !important;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }}
+
+                .checklist-section.collapsed .checklist-section-content {{
+                    display: block !important;
+                }}
+
+                .checklist-toggle-icon {{
+                    display: none !important;
+                }}
             }}
 
             .checklist-table .category-cell {{
                 background: #ececec;
-                color: #333333;
+                color: #2c3e50;
                 font-weight: 600;
-                padding: 12px 20px;
+                padding: 14px 20px;
                 border-right: 1px solid #d0d0d0;
-                width: 120px;
+                width: 150px;
                 text-align: left;
                 vertical-align: top;
+                font-size: 14px;
             }}
 
             .checklist-table .feature-cell {{
                 padding: 14px 20px;
-                color: #333333;
+                color: #2c3e50;
                 border-right: 1px solid #e0e0e0;
-                width: 250px;
+                width: auto;
                 background: white;
-                font-weight: 400;
+                font-weight: 500;
+                font-size: 14px;
+                text-align: center;
             }}
 
             .checklist-table .value-cell {{
@@ -2529,6 +2515,7 @@ def create_comparison_chart_html(
                 text-align: center;
                 border-right: 1px solid #e0e0e0;
                 background: white;
+                font-size: 14px;
             }}
 
             .checklist-table .value-cell:last-child {{
@@ -2596,6 +2583,7 @@ def create_comparison_chart_html(
                 grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
                 gap: 30px;
                 margin: 20px 0;
+                align-items: start;
             }}
 
             .review-card {{
@@ -2604,6 +2592,9 @@ def create_comparison_chart_html(
                 padding: 25px;
                 box-shadow: 0 2px 8px rgba(0,0,0,0.08);
                 border: 1px solid #e9ecef;
+                overflow: hidden;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
             }}
 
             .review-header {{
@@ -2654,6 +2645,7 @@ def create_comparison_chart_html(
                 background: #f8f9fa;
                 border-radius: 8px;
                 padding: 15px;
+                overflow: hidden;
             }}
 
             .category-header {{
@@ -2700,6 +2692,9 @@ def create_comparison_chart_html(
                 color: #2f4538;
                 line-height: 1.5;
                 padding-left: 8px;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                white-space: normal;
             }}
 
             .negative-point {{
@@ -2707,6 +2702,9 @@ def create_comparison_chart_html(
                 color: #c92a2a;
                 line-height: 1.5;
                 padding-left: 8px;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                white-space: normal;
             }}
 
             /* Consolidated Review Table Styles */
@@ -2805,8 +2803,18 @@ def create_comparison_chart_html(
         {generate_image_gallery_section("Comfort Highlights", comparison_data, "comfort", "comfort-section")}
         {generate_image_gallery_section("Safety Highlights", comparison_data, "safety", "safety-section")}
         <div class="content">
+            <div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg></div><h2 id="summary-section">Features Checklist</h2></div>
+            <div class="checklist-section animate-on-scroll">{checklist_html}</div>
+        </div>
+        <div class="content">
+            <div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l10 5v3L12 5 2 10V7l10-5zM2 10v3l10 5 10-5v-3l-10 5-10-5z"/></svg></div><h2 id="consolidated-review-section">Consolidated Review Summary</h2></div>
+            <div class="consolidated-review-section animate-on-scroll">{consolidated_review_html}</div>
+        </div>
+        {detailed_reviews_html}
+        <div class="content">
             <div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3v9H3zM9 8h3v13H9zM15 4h3v17h-3zM21 20h-3"/></svg></div><h2 id="analytics-section">Visual Analytics</h2></div>
             <div class="charts-grid">
+                <div class="chart-container animate-on-scroll"><h3>Overall Expert Rating (out of 10)</h3><canvas id="overallRatingChart"></canvas></div>
                 <div class="chart-container animate-on-scroll"><h3>Price Comparison (₹ Lakhs)</h3><canvas id="priceChart"></canvas></div>
                 <div class="chart-container animate-on-scroll"><h3>Mileage Comparison (kmpl)</h3><canvas id="mileageChart"></canvas></div>
                 <div class="chart-container animate-on-scroll"><h3>Performance (HP)</h3><canvas id="performanceChart"></canvas></div>
@@ -2825,15 +2833,6 @@ def create_comparison_chart_html(
             </div>
         </div>
         <div class="content">
-            <div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg></div><h2 id="summary-section">Features Checklist</h2></div>
-            <div class="checklist-section animate-on-scroll">{checklist_html}</div>
-        </div>
-        <div class="content">
-            <div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l10 5v3L12 5 2 10V7l10-5zM2 10v3l10 5 10-5v-3l-10 5-10-5z"/></svg></div><h2 id="consolidated-review-section">Consolidated Review Summary</h2></div>
-            <div class="consolidated-review-section animate-on-scroll">{consolidated_review_html}</div>
-        </div>
-        {detailed_reviews_html}
-        <div class="content">
             <div class="section-header">
                 <div class="icon-wrapper">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
@@ -2850,6 +2849,11 @@ def create_comparison_chart_html(
     </div>
     <footer class="footer"><span>Copyright© 2026 Mahindra&Mahindra Ltd. All Rights Reserved.</span></footer>
     <script>
+            function toggleChecklistSection(sectionId) {{
+                const section = document.getElementById(sectionId).parentElement;
+                section.classList.toggle('collapsed');
+            }}
+
             function toggleAccordion(headerRow) {{
     headerRow.classList.toggle('active');
     let currentRow = headerRow.nextElementSibling;
@@ -2891,12 +2895,14 @@ def create_comparison_chart_html(
         const accelerationData = {json.dumps(acceleration_data)};
         const fuelTankData = {json.dumps(fuel_tank_data)};
         const wheelbaseData = {json.dumps(wheelbase_data)};
+        const overallRatingData = {json.dumps(overall_rating_data)};
 
         const primaryColor = '#2E3B4E', secondaryColor = '#dd032b';
         const isMobile = window.innerWidth < 768;
 
         const chartOptions = {{ plugins: {{ legend: {{ display: false }} }} }};
 
+        new Chart(document.getElementById('overallRatingChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: overallRatingData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: {{ scales: {{ y: {{ max: 10 }} }}, plugins: {{ legend: {{ display: false }} }} }} }});
         new Chart(document.getElementById('priceChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: priceData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: chartOptions }});
         new Chart(document.getElementById('mileageChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: mileageData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: chartOptions }});
         new Chart(document.getElementById('performanceChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: performanceData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: chartOptions }});

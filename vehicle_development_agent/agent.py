@@ -407,13 +407,13 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
     summary = generate_comparison_summary(results["comparison_data"])
     results["summary"] = summary
 
-    print("\n STEP 3: Extracting comparative graphs data...")
-    comparative_graphs = extract_comparative_graphs_data(car_list, results["comparison_data"])
-    results["comparative_graphs"] = comparative_graphs
-
-    print("\n STEP 4: Extracting detailed reviews from automotive publications...")
+    print("\n STEP 3: Extracting detailed reviews from automotive publications...")
     detailed_reviews = extract_detailed_reviews(car_list, SEARCH_SITES)
     results["detailed_reviews"] = detailed_reviews
+
+    print("\n STEP 4: Extracting comparative graphs data with overall ratings...")
+    comparative_graphs = extract_comparative_graphs_data(car_list, results["comparison_data"], detailed_reviews)
+    results["comparative_graphs"] = comparative_graphs
 
     print("\n STEP 5: Creating enhanced interactive HTML report...")
     html_content = create_comparison_chart_html(

@@ -7,14 +7,15 @@ from typing import Dict, Any, List
 from vertexai.generative_models import GenerativeModel
 
 
-def extract_comparative_graphs_data(car_names: List[str], existing_spec_data: Dict[str, Any] = None) -> Dict[str, Any]:
+def extract_comparative_graphs_data(car_names: List[str], existing_spec_data: Dict[str, Any] = None, detailed_reviews: Dict[str, Any] = None) -> Dict[str, Any]:
     """
     Extract comparative data for 10-15 graphs using Gemini.
-    Uses existing spec data where available to avoid redundant calls.
+    Uses existing spec data and detailed reviews (with overall ratings) where available.
 
     Args:
         car_names: List of car names to compare
         existing_spec_data: Dictionary of already extracted spec data for each car
+        detailed_reviews: Dictionary with detailed reviews including overall_rating for each car
 
     Returns:
         Dictionary with graph data for multiple comparison categories
@@ -44,15 +45,33 @@ def extract_comparative_graphs_data(car_names: List[str], existing_spec_data: Di
                     }
                     existing_data_context += f"\n{car_name}: {json.dumps(relevant_specs, indent=2)}"
 
+        # Extract overall ratings from detailed reviews if available
+        ratings_context = ""
+        overall_ratings = {}
+        if detailed_reviews:
+            ratings_context = "\n\nOVERALL RATINGS FROM DETAILED REVIEWS (include these in graphs):\n"
+            for car_name in car_names:
+                review_data = detailed_reviews.get(car_name, {})
+                if review_data and isinstance(review_data, dict):
+                    overall_rating = review_data.get("overall_rating", None)
+                    if overall_rating is not None:
+                        overall_ratings[car_name] = overall_rating
+                        ratings_context += f"{car_name}: {overall_rating}/10\n"
+
         prompt = f"""Extract comparative data for visual graphs comparing these cars: {cars_list}
-{existing_data_context}
+{existing_data_context}{ratings_context}
 
 TASK:
 Provide detailed numerical data for creating 15 comparison graphs. For each car, extract specific numeric values.
 Use existing data provided above where available. For missing data, provide from your knowledge.
+IMPORTANT: Include the overall_rating values from the detailed reviews data provided above.
 
 Return ONLY valid JSON in this exact format:
 {{
+    "overall_rating": {{
+        "car1_name": 7.6,
+        "car2_name": 8.1
+    }},
     "price_comparison": {{
         "car1_name": {{"base": 10.5, "top": 15.0}},
         "car2_name": {{"base": 12.0, "top": 17.5}}
@@ -141,6 +160,11 @@ CRITICAL RULES:
             response_text = response_text.split("```")[1].split("```")[0].strip()
 
         graphs_data = json.loads(response_text)
+
+        # Ensure overall_rating is included from detailed_reviews
+        if overall_ratings:
+            graphs_data["overall_rating"] = overall_ratings
+
         return graphs_data
 
     except json.JSONDecodeError as e:
