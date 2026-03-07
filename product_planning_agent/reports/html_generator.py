@@ -9,10 +9,6 @@ from benchmarking_agent.reports.image_sections import (
     generate_image_gallery_section,
     get_image_section_styles
 )
-from benchmarking_agent.reports.checklist_transformer import (
-    transform_to_checklist,
-    format_checklist_value
-)
 
 
 # ============================================================================
@@ -741,7 +737,94 @@ def generate_checklist_table(comparison_data: Dict[str, Any]) -> str:
     return html
 
 
-def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) -> str:
+def generate_proscons_table(proscons_data: Dict[str, Any]) -> str:
+    """
+    Generate pros/cons comparison table from YouTube reviews.
+
+    Args:
+        proscons_data: Dictionary containing pros/cons data for each car
+                      Format: {car_name: [
+                          {positives: [...], negatives: [...], publication: str, link: str},
+                          ...
+                      ]}
+
+    Returns:
+        HTML string for the pros/cons table
+    """
+    if not proscons_data:
+        return "<p>No pros/cons data available.</p>"
+
+    car_names = list(proscons_data.keys())
+
+    # Generate table HTML
+    html = """
+    <div class="proscons-table-container">
+        <div class="table-responsive">
+            <table class="proscons-table">
+                <thead>
+                    <tr>
+                        <th class="serial-col">Sr No</th>
+                        <th class="car-col">Car</th>
+                        <th class="publication-col">Publication</th>
+                        <th class="link-col">Link</th>
+                        <th class="positives-col">Positives</th>
+                        <th class="negatives-col">Negatives</th>
+                    </tr>
+                </thead>
+                <tbody>
+"""
+
+    # Generate rows for each car and each review
+    row_num = 1
+    for car_name in car_names:
+        reviews = proscons_data[car_name]
+
+        # Handle both list and dict formats for backward compatibility
+        if not isinstance(reviews, list):
+            reviews = [reviews]
+
+        for review in reviews:
+            publication = review.get("publication", "N/A")
+            link = review.get("link", "#")
+            positives = review.get("positives", [])
+            negatives = review.get("negatives", [])
+
+            # Format positives as bullet points
+            positives_html = "<ul class='proscons-list'>"
+            for positive in positives:
+                positives_html += f"<li>{positive}</li>"
+            positives_html += "</ul>"
+
+            # Format negatives as bullet points
+            negatives_html = "<ul class='proscons-list'>"
+            for negative in negatives:
+                negatives_html += f"<li>{negative}</li>"
+            negatives_html += "</ul>"
+
+            # Create row
+            html += f"""
+                    <tr>
+                        <td class="serial-cell">{row_num}</td>
+                        <td class="car-cell"><strong>{car_name}</strong></td>
+                        <td class="publication-cell">{publication}</td>
+                        <td class="link-cell"><a href="{link}" target="_blank" rel="noopener noreferrer">🔍 Search</a></td>
+                        <td class="positives-cell">{positives_html}</td>
+                        <td class="negatives-cell">{negatives_html}</td>
+                    </tr>
+"""
+            row_num += 1
+
+    html += """
+                </tbody>
+            </table>
+        </div>
+    </div>
+"""
+
+    return html
+
+
+def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str, proscons_data: Optional[Dict[str, Dict[str, Any]]] = None) -> str:
     """
     Create interactive HTML report with enhanced design featuring grouped specifications.
     Specifications are grouped into collapsible accordions for better readability.
@@ -792,8 +875,11 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
             # Extract sales using robust helper
             sales_volumes.append(extract_sales(car_data.get("monthly_sales", "")))
 
-    # Generate checklist comparison table
-    checklist_html = generate_checklist_table(comparison_data)
+    # Generate pros/cons comparison table (if provided)
+    if proscons_data:
+        proscons_html = generate_proscons_table(proscons_data)
+    else:
+        proscons_html = "<p>YouTube pros/cons analysis not available. Enable YouTube Data API to get detailed pros/cons.</p>"
 
     # Format AI-powered summary
     formatted_summary = format_summary(summary)
@@ -2264,19 +2350,19 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
             /* Image Section Styles */
             {get_image_section_styles()}
 
-            /* Checklist Table Styles */
-            .checklist-table-container {{
+            /* Pros/Cons Table Styles */
+            .proscons-table-container {{
                 margin: 20px 0;
                 overflow-x: auto;
             }}
 
-            .checklist-table-container h3 {{
+            .proscons-table-container h3 {{
                 margin-bottom: 15px;
                 color: #2c3e50;
                 font-size: 1.5em;
             }}
 
-            .checklist-table {{
+            .proscons-table {{
                 width: 100%;
                 border-collapse: collapse;
                 background: white;
@@ -2284,128 +2370,148 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
                 font-size: 14px;
             }}
 
-            .checklist-table thead {{
+            .proscons-table thead {{
                 background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
                 color: white;
             }}
 
-            .checklist-table thead th {{
+            .proscons-table thead th {{
                 padding: 15px 10px;
                 text-align: left;
                 font-weight: 600;
                 border-right: 1px solid rgba(255,255,255,0.2);
             }}
 
-            .checklist-table .category-col {{
-                width: 120px;
-                min-width: 120px;
-            }}
-
-            .checklist-table .feature-col {{
-                width: 250px;
-                min-width: 250px;
-            }}
-
-            .checklist-table .car-col {{
-                width: 150px;
+            .proscons-table .serial-col {{
+                width: 80px;
+                min-width: 80px;
                 text-align: center;
             }}
 
-            .checklist-table tbody tr {{
+            .proscons-table .publication-col {{
+                width: 150px;
+                min-width: 150px;
+            }}
+
+            .proscons-table .link-col {{
+                width: 120px;
+                min-width: 120px;
+                text-align: center;
+            }}
+
+            .proscons-table .positives-col {{
+                width: 40%;
+                background: rgba(39, 174, 96, 0.1);
+            }}
+
+            .proscons-table .negatives-col {{
+                width: 40%;
+                background: rgba(231, 76, 60, 0.1);
+            }}
+
+            .proscons-table tbody tr {{
                 border-bottom: 1px solid #e0e0e0;
                 transition: background-color 0.2s ease;
             }}
 
-            .checklist-table tbody tr:hover {{
+            .proscons-table tbody tr:hover {{
                 background-color: #f8f9fa;
             }}
 
-            .checklist-table .category-header td {{
-                background: linear-gradient(135deg, #2e3b4e 0%, #dd032b 100%);
-                color: white;
-                font-weight: 600;
-                padding: 12px 15px;
-                font-size: 15px;
-            }}
-
-            .checklist-table .category-cell {{
-                background: #ecf0f1;
-                color: #34495e;
-                font-weight: 600;
-                padding: 10px 15px;
-                border-right: 1px solid #d0d0d0;
-                width: 120px;
-            }}
-
-            .checklist-table .feature-cell {{
-                padding: 10px 15px;
-                color: #2c3e50;
-                border-right: 1px solid #e0e0e0;
-                width: 250px;
-            }}
-
-            .checklist-table .value-cell {{
-                padding: 10px;
+            .proscons-table .serial-cell {{
                 text-align: center;
-                border-right: 1px solid #e0e0e0;
-            }}
-
-            .checklist-table .value-cell:last-child {{
-                border-right: none;
-            }}
-
-            /* Checklist value styling */
-            .check-yes {{
-                color: #27ae60;
-                font-size: 20px;
-                font-weight: bold;
-            }}
-
-            .check-no {{
-                color: #e74c3c;
-                font-size: 18px;
-                font-weight: bold;
-            }}
-
-            .check-number {{
-                color: #2980b9;
                 font-weight: 600;
-                font-size: 16px;
+                padding: 15px 10px;
+                color: #2c3e50;
             }}
 
-            .check-text {{
+            .proscons-table .publication-cell {{
+                padding: 15px 10px;
+                font-weight: 600;
                 color: #34495e;
-                font-size: 14px;
+            }}
+
+            .proscons-table .link-cell {{
+                text-align: center;
+                padding: 15px 10px;
+            }}
+
+            .proscons-table .link-cell a {{
+                color: #3498db;
+                text-decoration: none;
+                font-weight: 600;
+                padding: 5px 10px;
+                border: 1px solid #3498db;
+                border-radius: 4px;
+                transition: all 0.3s ease;
+            }}
+
+            .proscons-table .link-cell a:hover {{
+                background: #3498db;
+                color: white;
+            }}
+
+            .proscons-table .positives-cell {{
+                padding: 15px;
+                background: rgba(39, 174, 96, 0.05);
+                border-left: 3px solid #27ae60;
+            }}
+
+            .proscons-table .negatives-cell {{
+                padding: 15px;
+                background: rgba(231, 76, 60, 0.05);
+                border-left: 3px solid #e74c3c;
+            }}
+
+            .proscons-list {{
+                margin: 0;
+                padding-left: 20px;
+                list-style-type: disc;
+            }}
+
+            .proscons-list li {{
+                margin: 8px 0;
+                line-height: 1.6;
+                color: #2c3e50;
+            }}
+
+            .positives-cell .proscons-list li::marker {{
+                color: #27ae60;
+            }}
+
+            .negatives-cell .proscons-list li::marker {{
+                color: #e74c3c;
             }}
 
             /* Responsive */
             @media (max-width: 1024px) {{
-                .checklist-table {{
+                .proscons-table {{
                     font-size: 12px;
                 }}
 
-                .checklist-table .category-col {{
+                .proscons-table .serial-col {{
+                    width: 60px;
+                    min-width: 60px;
+                }}
+
+                .proscons-table .publication-col {{
+                    width: 120px;
+                    min-width: 120px;
+                }}
+
+                .proscons-table .link-col {{
                     width: 100px;
                     min-width: 100px;
-                }}
-
-                .checklist-table .feature-col {{
-                    width: 200px;
-                    min-width: 200px;
-                }}
-
-                .checklist-table .car-col {{
-                    width: 120px;
                 }}
             }}
 
             @media print {{
-                .checklist-table {{
+                .proscons-table {{
                     page-break-inside: avoid;
                 }}
 
-                .checklist-table .category-header {{
-                    page-break-after: avoid;
+                .proscons-table tbody tr {{
+                    page-break-inside: avoid;
                 }}
             }}
             </style>
@@ -2420,7 +2526,7 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
                 <a href="#interior-section">Interior</a>
                 <a href="#technology-section">Technology</a>
                 <a href="#analytics-section">Analytics</a>
-                <a href="#summary-section">Checklist</a>
+                <a href="#summary-section">Pros & Cons</a>
                 <a href="#review-section">Analysis</a>
                 <a href="#" id="citations-toggle" onclick="toggleCitations(event)">Citations</a>
             </nav>
@@ -2454,8 +2560,8 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
 <!-- <h5>Sales Performance (Volume vs Price)</h5><div class="chart-container animate-on-scroll"><canvas id="salesChart"></canvas></div> -->            </div>
         </div>
         <div class="content">
-            <div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg></div><h2 id="summary-section">Features Checklist</h2></div>
-            <div class="checklist-section animate-on-scroll">{checklist_html}</div>
+            <div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z"></path></svg></div><h2 id="summary-section">YouTube Pros & Cons Analysis</h2></div>
+            <div class="proscons-section animate-on-scroll">{proscons_html}</div>
         </div>
          <div class="content">
             <div class="section-header">

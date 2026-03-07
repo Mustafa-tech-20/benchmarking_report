@@ -8,7 +8,7 @@ from typing import Dict, Any, List, Optional
 from google.adk.agents import Agent
 from vertexai.generative_models import GenerativeModel
 
-from benchmarking_agent.config import SIGNED_URL_EXPIRATION_HOURS
+from benchmarking_agent.config import SIGNED_URL_EXPIRATION_HOURS, GOOGLE_API_KEY
 from benchmarking_agent.utils.helpers import is_code_car
 from benchmarking_agent.core.scraper import (
     scrape_car_data,
@@ -24,7 +24,10 @@ from benchmarking_agent.core.internal_car_tools import (
     add_code_car_specs_bulk_tool,
     CAR_SPECS,
 )
-from benchmarking_agent.reports.html_generator import create_comparison_chart_html
+from product_planning_agent.reports.html_generator import create_comparison_chart_html
+from product_planning_agent.extraction.youtube_proscons import get_multiple_cars_proscons
+from product_planning_agent.reports.youtube_proscons_html import save_youtube_proscons_html
+from product_planning_agent.reports.technical_specs_html import save_technical_specs_html
 
 
 def generate_comparison_summary(comparison_data: Dict[str, Any]) -> str:
@@ -404,8 +407,28 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
     summary = generate_comparison_summary(results["comparison_data"])
     results["summary"] = summary
 
+    print("\n STEP 2.5: Extracting YouTube pros & cons from trusted channels...")
+    proscons_data = None
+    try:
+        # Get only non-code cars for YouTube analysis
+        youtube_car_names = [
+            car for car in car_list
+            if not results["comparison_data"].get(car, {}).get('is_code_car')
+        ]
+
+        if youtube_car_names:
+            # Extract pros/cons from 2 YouTube channels per car
+            proscons_data = get_multiple_cars_proscons(youtube_car_names, num_channels=2)
+            print(f"✓ YouTube pros/cons extracted for {len(proscons_data)} cars from 2 channels each")
+            results["youtube_proscons"] = proscons_data
+        else:
+            print("ℹ Only code cars detected - skipping YouTube analysis")
+    except Exception as e:
+        print(f"✗ YouTube pros/cons extraction failed: {e}")
+        print("  Continuing without YouTube data...")
+
     print("\n STEP 3: Creating enhanced interactive HTML report...")
-    html_content = create_comparison_chart_html(results["comparison_data"], summary)
+    html_content = create_comparison_chart_html(results["comparison_data"], summary, proscons_data)
 
     # Upload HTML directly to GCS (viewable in browser)
     html_gcs_uri, html_signed_url = save_chart_to_gcs(html_content, folder_name)
@@ -469,6 +492,219 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
     }
 
     return json.dumps(response, indent=2)
+
+
+def generate_technical_specs_report_tool(car_names: str) -> str:
+    """
+    Generate a technical specifications report for specified cars.
+
+    This tool creates a professional technical specifications report with detailed
+    comparisons across engine specs, performance, features, safety, and pricing.
+
+    Args:
+        car_names: Comma-separated list of car names (e.g., "Hyundai Creta, Kia Seltos")
+
+    Returns:
+        JSON string with report file path and summary
+
+    Example:
+        generate_technical_specs_report_tool("Hyundai Creta, Kia Seltos, Maruti Grand Vitara")
+    """
+    import time
+    from datetime import datetime
+
+    start_time = time.time()
+
+    # Parse car names
+    car_list = [c.strip() for c in car_names.split(",")]
+
+    if not car_list:
+        return json.dumps({
+            "status": "error",
+            "error": "Please provide at least one car name"
+        })
+
+    if len(car_list) > 10:
+        return json.dumps({
+            "status": "error",
+            "error": f"Maximum 10 cars can be analyzed at once. You provided {len(car_list)}."
+        })
+
+    print(f"\n{'='*70}")
+    print(f"TECHNICAL SPECIFICATIONS REPORT")
+    print(f"{'='*70}")
+    print(f"Cars: {', '.join(car_list)}")
+    print(f"{'='*70}\n")
+
+    try:
+        # Scrape car data (use internal scraping logic)
+        print("Scraping car specifications...")
+
+        comparison_data = {}
+        for car_name in car_list:
+            print(f"  Scraping {car_name}...")
+            car_data = scrape_car_data(car_name)
+            comparison_data[car_name] = car_data
+
+        # Generate technical specs HTML report
+        print("\nGenerating technical specifications report...")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"technical_specs_report_{timestamp}.html"
+        report_path = save_technical_specs_html(comparison_data, filename)
+
+        # Calculate statistics
+        total_specs_found = sum(
+            len([v for k, v in car_data.items() if v and v not in ["Not Available", "Not found", "N/A", ""]])
+            for car_data in comparison_data.values()
+            if isinstance(car_data, dict)
+        )
+
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+
+        print(f"\n{'='*70}")
+        print(f"REPORT GENERATED SUCCESSFULLY!")
+        print(f"{'='*70}")
+        print(f"File: {report_path}")
+        print(f"Cars analyzed: {len(car_list)}")
+        print(f"Total specifications: {total_specs_found}")
+        print(f"Time taken: {elapsed_time:.2f} seconds")
+        print(f"{'='*70}\n")
+
+        response = {
+            "status": "success",
+            "message": f"Technical Specifications report generated successfully!",
+            "report_file": report_path,
+            "cars_analyzed": car_list,
+            "total_cars": len(car_list),
+            "total_specifications": total_specs_found,
+            "elapsed_time": f"{elapsed_time:.2f} seconds",
+            "instructions": f"Open {report_path} in your browser to view the report with tables and charts"
+        }
+
+        return json.dumps(response, indent=2)
+
+    except Exception as e:
+        print(f"\n✗ Error: {e}")
+        return json.dumps({
+            "status": "error",
+            "error": str(e)
+        })
+
+
+def generate_youtube_proscons_report_tool(car_names: str, num_channels: int = 2) -> str:
+    """
+    Generate a standalone YouTube Pros & Cons report for specified cars.
+
+    This tool analyzes car reviews from trusted Indian YouTube channels and generates
+    a professional HTML report with detailed pros and cons from multiple sources.
+
+    Args:
+        car_names: Comma-separated list of car names (e.g., "Mahindra Thar, Tata Punch")
+        num_channels: Number of YouTube channels to analyze per car (default: 2, max: 5)
+
+    Returns:
+        JSON string with report file path and summary
+
+    Example:
+        generate_youtube_proscons_report_tool("Mahindra Thar, Hyundai Creta", num_channels=2)
+    """
+    import time
+    from datetime import datetime
+
+    start_time = time.time()
+
+    # Parse car names
+    car_list = [c.strip() for c in car_names.split(",")]
+
+    if not car_list:
+        return json.dumps({
+            "status": "error",
+            "error": "Please provide at least one car name"
+        })
+
+    if len(car_list) > 10:
+        return json.dumps({
+            "status": "error",
+            "error": f"Maximum 10 cars can be analyzed at once. You provided {len(car_list)}."
+        })
+
+    if num_channels < 1 or num_channels > 5:
+        return json.dumps({
+            "status": "error",
+            "error": "num_channels must be between 1 and 5"
+        })
+
+    print(f"\n{'='*70}")
+    print(f"YOUTUBE PROS & CONS ANALYSIS")
+    print(f"{'='*70}")
+    print(f"Cars: {', '.join(car_list)}")
+    print(f"Channels per car: {num_channels}")
+    print(f"{'='*70}\n")
+
+    try:
+        # Extract pros/cons from YouTube
+        print("Extracting pros/cons from YouTube reviews...")
+        proscons_data = get_multiple_cars_proscons(car_list, num_channels=num_channels)
+
+        # Generate HTML report
+        print("\nGenerating HTML report...")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"youtube_proscons_report_{timestamp}.html"
+        report_path = save_youtube_proscons_html(proscons_data, filename)
+
+        # Calculate statistics
+        total_channels = sum(len(reviews) for reviews in proscons_data.values())
+        total_pros = sum(
+            len(review.get('positives', []))
+            for reviews in proscons_data.values()
+            for review in reviews
+        )
+        total_cons = sum(
+            len(review.get('negatives', []))
+            for reviews in proscons_data.values()
+            for review in reviews
+        )
+
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+
+        print(f"\n{'='*70}")
+        print(f"REPORT GENERATED SUCCESSFULLY!")
+        print(f"{'='*70}")
+        print(f"File: {report_path}")
+        print(f"Cars analyzed: {len(car_list)}")
+        print(f"Total reviews: {total_channels}")
+        print(f"Total pros: {total_pros}")
+        print(f"Total cons: {total_cons}")
+        print(f"Time taken: {elapsed_time:.2f} seconds")
+        print(f"{'='*70}\n")
+
+        response = {
+            "status": "success",
+            "message": f"YouTube Pros & Cons report generated successfully!",
+            "report_file": report_path,
+            "cars_analyzed": car_list,
+            "total_cars": len(car_list),
+            "channels_per_car": num_channels,
+            "total_reviews": total_channels,
+            "statistics": {
+                "total_pros": total_pros,
+                "total_cons": total_cons,
+                "total_points": total_pros + total_cons
+            },
+            "elapsed_time": f"{elapsed_time:.2f} seconds",
+            "instructions": f"Open {report_path} in your browser to view the interactive report"
+        }
+
+        return json.dumps(response, indent=2)
+
+    except Exception as e:
+        print(f"\n✗ Error: {e}")
+        return json.dumps({
+            "status": "error",
+            "error": str(e)
+        })
 
 
 root_agent = Agent(
@@ -590,6 +826,8 @@ For follow-up questions (CODE car handling), keep responses brief and focused.""
         save_pdf_car_specs_tool,
         add_code_car_specs_tool,
         add_code_car_specs_bulk_tool,
+        generate_youtube_proscons_report_tool,
+        generate_technical_specs_report_tool,
     ]
 )
 
