@@ -2285,15 +2285,16 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
             }}
 
             .checklist-table thead {{
-                background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-                color: white;
+                background: white;
+                border-bottom: 2px solid #e0e0e0;
             }}
 
             .checklist-table thead th {{
-                padding: 15px 10px;
+                padding: 16px 20px;
                 text-align: left;
                 font-weight: 600;
-                border-right: 1px solid rgba(255,255,255,0.2);
+                color: #333333;
+                border-right: none;
             }}
 
             .checklist-table .category-col {{
@@ -2313,41 +2314,46 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
 
             .checklist-table tbody tr {{
                 border-bottom: 1px solid #e0e0e0;
-                transition: background-color 0.2s ease;
             }}
 
             .checklist-table tbody tr:hover {{
-                background-color: #f8f9fa;
+                background-color: #f9f9f9;
             }}
 
             .checklist-table .category-header td {{
-                background: linear-gradient(135deg, #2e3b4e 0%, #dd032b 100%);
+                background: linear-gradient(90deg, #3d4357 0%, #c41e3a 100%);
                 color: white;
                 font-weight: 600;
-                padding: 12px 15px;
+                padding: 14px 20px;
                 font-size: 15px;
+                letter-spacing: 0.3px;
             }}
 
             .checklist-table .category-cell {{
-                background: #ecf0f1;
-                color: #34495e;
+                background: #ececec;
+                color: #333333;
                 font-weight: 600;
-                padding: 10px 15px;
+                padding: 12px 20px;
                 border-right: 1px solid #d0d0d0;
                 width: 120px;
+                text-align: left;
+                vertical-align: top;
             }}
 
             .checklist-table .feature-cell {{
-                padding: 10px 15px;
-                color: #2c3e50;
+                padding: 14px 20px;
+                color: #333333;
                 border-right: 1px solid #e0e0e0;
                 width: 250px;
+                background: white;
+                font-weight: 400;
             }}
 
             .checklist-table .value-cell {{
-                padding: 10px;
+                padding: 14px 20px;
                 text-align: center;
                 border-right: 1px solid #e0e0e0;
+                background: white;
             }}
 
             .checklist-table .value-cell:last-child {{

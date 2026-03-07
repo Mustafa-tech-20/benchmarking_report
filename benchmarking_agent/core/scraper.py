@@ -6,9 +6,9 @@ FLOW:
    - Query: "{car_name} latest {spec_keyword}"
    - Gemini extracts value + source URL from snippets
 
-2. Phase 2: AutoCarIndia fallback for missing specs
-   - Build autocarindia.com spec page URL
-   - Extract missing specs in batches of 7 (parallel)
+2. Phase 2: CarDekho fallback for missing specs
+   - Build cardekho.com spec page URL
+   - Extract missing specs in batches of 10 (parallel)
 """
 import asyncio
 import json
@@ -853,13 +853,37 @@ def phase1_per_spec_search(car_name: str, existing_specs: Dict[str, str] = None)
 # PHASE 2: AUTOCARINDIA URL FALLBACK (BATCHED)
 # ============================================================================
 
-def build_autocarindia_url(car_name: str) -> str:
-    """Build AutoCarIndia spec page URL."""
-    parts = car_name.strip().lower().split()
-    make = parts[0] if parts else ""
-    model = "-".join(parts[1:]) if len(parts) > 1 else ""
+def get_brand_name(car_name: str) -> str:
+    """Extract brand name from car name."""
+    brands = ["mahindra", "tata", "hyundai", "mg", "toyota", "maruti", "kia",
+              "honda", "ford", "jeep", "skoda", "volkswagen", "nissan", "renault", "citroen"]
 
-    return f"https://www.autocarindia.com/cars/{make}/{model}/specifications"
+    car_name_lower = car_name.lower()
+    for brand in brands:
+        if brand in car_name_lower:
+            return brand
+
+    return car_name.split()[0].lower()
+
+
+def normalize_car_name_for_url(car_name: str) -> str:
+    """Normalize car name for URL format."""
+    brands = ["mahindra", "tata", "hyundai", "mg", "toyota", "maruti", "suzuki", "kia",
+              "honda", "ford", "jeep", "skoda", "volkswagen", "nissan", "renault", "citroen"]
+
+    car_name_lower = car_name.lower()
+    for brand in brands:
+        car_name_lower = car_name_lower.replace(brand + " ", "")
+
+    url_name = car_name_lower.strip().replace(" ", "-")
+    return url_name
+
+
+def build_cardekho_url(car_name: str) -> str:
+    """Build CarDekho spec page URL."""
+    brand = get_brand_name(car_name)
+    url_car_name = normalize_car_name_for_url(car_name)
+    return f"https://www.cardekho.com/{brand}/{url_car_name}/specs"
 
 
 def extract_specs_from_url(car_name: str, url: str, spec_batch: List[str]) -> Dict[str, str]:
@@ -917,9 +941,9 @@ Return ONLY the JSON object."""
         return {}
 
 
-def phase2_autocarindia_fallback(car_name: str, current_specs: Dict[str, str]) -> Dict[str, Any]:
+def phase2_cardekho_fallback(car_name: str, current_specs: Dict[str, str]) -> Dict[str, Any]:
     """
-    Phase 2: Extract missing specs from AutoCarIndia in batches of 10 (parallel).
+    Phase 2: Extract missing specs from CarDekho in batches of 10 (parallel).
     Gemini fetches the URL itself instead of receiving HTML content.
 
     Returns: {specs: {spec_name: value}, citations: {spec_name: {source_url}}}
@@ -934,11 +958,11 @@ def phase2_autocarindia_fallback(car_name: str, current_specs: Dict[str, str]) -
         return {"specs": {}, "citations": {}}
 
     print(f"\n{'='*60}")
-    print(f"PHASE 2: AUTOCARINDIA FALLBACK ({len(missing_specs)} missing specs)")
+    print(f"PHASE 2: CARDEKHO FALLBACK ({len(missing_specs)} missing specs)")
     print(f"{'='*60}\n")
 
-    autocar_url = build_autocarindia_url(car_name)
-    print(f"  URL: {autocar_url}")
+    cardekho_url = build_cardekho_url(car_name)
+    print(f"  URL: {cardekho_url}")
     print(f"  Extracting in batches of 10 (parallel, URL-based)...\n")
 
     # Split into batches of 10
@@ -951,9 +975,9 @@ def phase2_autocarindia_fallback(car_name: str, current_specs: Dict[str, str]) -
         """Extract one batch by letting Gemini visit the URL."""
         json_template = ",\n".join([f'  "{spec}": "value or Not Available"' for spec in batch])
 
-        prompt = f"""Visit this AutoCarIndia specifications page and extract car data for {car_name}:
+        prompt = f"""Visit this CarDekho specifications page and extract car data for {car_name}:
 
-**URL to visit:** {autocar_url}
+**URL to visit:** {cardekho_url}
 
 **Extract these {len(batch)} specifications:**
 {chr(10).join([f"- {spec}" for spec in batch])}
@@ -1019,8 +1043,8 @@ def phase2_autocarindia_fallback(car_name: str, current_specs: Dict[str, str]) -
                     if value and value not in ["Not found", "Not Available", ""]:
                         specs[spec_name] = value
                         citations[spec_name] = {
-                            "source_url": autocar_url,
-                            "citation_text": "Extracted from AutoCarIndia",
+                            "source_url": cardekho_url,
+                            "citation_text": "Extracted from CarDekho",
                         }
                         batch_found += 1
                         recovered += 1
@@ -1074,7 +1098,7 @@ def scrape_car_data_with_custom_search(car_name: str) -> Dict[str, Any]:
             citations[spec_name] = citation
 
     # Phase 2: AutoCarIndia fallback
-    phase2_result = phase2_autocarindia_fallback(car_name, specs)
+    phase2_result = phase2_cardekho_fallback(car_name, specs)
 
     # Merge Phase 2 results
     for spec_name, value in phase2_result["specs"].items():
@@ -1136,7 +1160,7 @@ def scrape_car_data_with_custom_search(car_name: str) -> Dict[str, Any]:
     # Count by source
     official_count = sum(1 for s in CAR_SPECS if citations.get(s, {}).get("engine") == "OFFICIAL")
     search_count = sum(1 for s in CAR_SPECS if citations.get(s, {}).get("engine") == "SEARCH")
-    autocar_count = sum(1 for s in CAR_SPECS if "autocarindia" in str(citations.get(s, {}).get("source_url", "")).lower())
+    cardekho_count = sum(1 for s in CAR_SPECS if "cardekho" in str(citations.get(s, {}).get("source_url", "")).lower())
 
     elapsed = time.time() - start_time
     accuracy = (final_found / len(CAR_SPECS) * 100) if CAR_SPECS else 0
@@ -1144,7 +1168,7 @@ def scrape_car_data_with_custom_search(car_name: str) -> Dict[str, Any]:
     print(f"\n{'='*60}")
     print(f"COMPLETE: {final_found}/{len(CAR_SPECS)} specs ({accuracy:.1f}%)")
     print(f"Time: {elapsed:.1f}s | Sources: {len(car_data['source_urls'])}")
-    print(f"  Official: {official_count} | Search: {search_count} | AutoCar: {autocar_count}")
+    print(f"  Official: {official_count} | Search: {search_count} | CarDekho: {cardekho_count}")
     print(f"{'='*60}\n")
 
     return car_data
@@ -1365,7 +1389,7 @@ async def async_scrape_car_data(car_name: str) -> Dict[str, Any]:
             citations[spec_name] = citation
 
     # Phase 2: AutoCarIndia fallback (still sync for now)
-    phase2_result = phase2_autocarindia_fallback(car_name, specs)
+    phase2_result = phase2_cardekho_fallback(car_name, specs)
 
     # Merge Phase 2 results
     for spec_name, value in phase2_result["specs"].items():
@@ -1426,7 +1450,7 @@ async def async_scrape_car_data(car_name: str) -> Dict[str, Any]:
     # Count by source
     official_count = sum(1 for s in CAR_SPECS if citations.get(s, {}).get("engine") == "OFFICIAL")
     search_count = sum(1 for s in CAR_SPECS if citations.get(s, {}).get("engine") in ["SEARCH", "SEARCH_ASYNC"])
-    autocar_count = sum(1 for s in CAR_SPECS if "autocarindia" in str(citations.get(s, {}).get("source_url", "")).lower())
+    cardekho_count = sum(1 for s in CAR_SPECS if "cardekho" in str(citations.get(s, {}).get("source_url", "")).lower())
 
     elapsed = time.time() - start_time
     accuracy = (final_found / len(CAR_SPECS) * 100) if CAR_SPECS else 0
@@ -1434,7 +1458,7 @@ async def async_scrape_car_data(car_name: str) -> Dict[str, Any]:
     print(f"\n{'='*60}")
     print(f"ASYNC COMPLETE: {final_found}/{len(CAR_SPECS)} specs ({accuracy:.1f}%)")
     print(f"Time: {elapsed:.1f}s | Sources: {len(car_data['source_urls'])}")
-    print(f"  Official: {official_count} | Search: {search_count} | AutoCar: {autocar_count}")
+    print(f"  Official: {official_count} | Search: {search_count} | CarDekho: {cardekho_count}")
     print(f"{'='*60}\n")
 
     return car_data

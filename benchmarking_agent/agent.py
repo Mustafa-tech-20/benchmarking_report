@@ -141,8 +141,8 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
       3. Leave blank (blank/empty)
 
     Args:
-        car_names: Comma-separated list of car names (minimum 2, maximum 10)
-                   Example: "CODE:PROTO1, Mahindra Thar, Maruti Jimny"
+        car_names: Comma-separated list of car names (minimum 1, maximum 10)
+                   Example: "Mahindra Thar" or "CODE:PROTO1, Mahindra Thar, Maruti Jimny"
         user_decision: User's choice for code cars: 'manual', 'rag', or 'blank'
         use_custom_search: If True (default), use Custom Search API; if False, use Gemini URL parsing
 
@@ -152,10 +152,10 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
     car_list = [c.strip() for c in car_names.split(",")]
 
     # Validation
-    if len(car_list) < 2:
+    if len(car_list) < 1:
         return json.dumps({
             "status": "error",
-            "error": f"Please provide at least 2 cars to compare. You provided {len(car_list)}."
+            "error": f"Please provide at least 1 car. You provided {len(car_list)}."
         })
 
     if len(car_list) > 10:
@@ -474,9 +474,9 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
 root_agent = Agent(
     name="Car_Comparison_AI_Agent",
     model="gemini-2.5-flash",
-    description="AI agent for comprehensive car comparison with 87 specs using Custom Search API. Supports PDFs, prototypes, and market vehicles.",
+    description="AI agent for comprehensive car analysis and comparison with 87 specs using Custom Search API. Supports single car analysis or multi-car comparison. Handles PDFs, prototypes, and market vehicles.",
 
-    instruction="""You are a car benchmarking specialist. You compare vehicles using 87 specifications.
+    instruction="""You are a car benchmarking specialist. You analyze and compare vehicles using 87 specifications. You can analyze a single car or compare multiple cars (up to 10).
 
 ## IMPORTANT: PDF HANDLING
 
@@ -600,11 +600,11 @@ def run_car_comparison(car_names: List[str], use_custom_search: bool = True):
     Results are uploaded to GCS and viewable in browser via signed URLs.
 
     Args:
-        car_names: List of car names to compare
+        car_names: List of car names to analyze/compare
         use_custom_search: If True (default), use Custom Search API
     """
-    if len(car_names) < 2:
-        print(f"Error: Need at least 2 cars to compare, got {len(car_names)}")
+    if len(car_names) < 1:
+        print(f"Error: Need at least 1 car to analyze, got {len(car_names)}")
         return
 
     if len(car_names) > 10:

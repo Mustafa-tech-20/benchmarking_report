@@ -62,13 +62,16 @@ def generate_hero_section(comparison_data: Dict[str, Any]) -> str:
             </div>
             '''
 
+    # Conditional subtitle based on number of cars
+    subtitle_text = "SPEC & FEATURES ANALYSIS" if len(car_names) == 1 else "SPEC & FEATURES COMPARISON"
+
     html = f'''
     <div class="hero-section">
         <div class="hero-content">
             <h1 class="hero-title">{title}</h1>
             <p class="hero-subtitle">2025 COMPREHENSIVE BENCHMARKING REPORT</p>
             <div class="hero-divider"></div>
-            <p class="hero-description">SPEC & FEATURES COMPARISON</p>
+            <p class="hero-description">{subtitle_text}</p>
         </div>
         <div class="hero-images-grid">
             {image_html}

@@ -497,6 +497,109 @@ def _generate_consolidated_review_html(comparison_data: Dict[str, Any]) -> str:
     return review_html
 
 
+def _generate_detailed_reviews_html(detailed_reviews: Dict[str, Any]) -> str:
+    """
+    Generate detailed professional reviews section with ratings and feedback.
+    Styled similar to Edmunds.com/AutoCar format with category ratings.
+
+    Args:
+        detailed_reviews: Dictionary with review data for each car from extract_detailed_reviews
+
+    Returns:
+        HTML string for detailed reviews section
+    """
+    if not detailed_reviews:
+        return ""
+
+    html = """
+    <div class="content">
+        <div class="section-header">
+            <div class="icon-wrapper">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <path d="M10 9H8"></path>
+                </svg>
+            </div>
+            <h2 id="detailed-reviews-section">Professional Reviews</h2>
+        </div>
+        <div class="detailed-reviews-grid">
+    """
+
+    for car_name, review_data in detailed_reviews.items():
+        if not review_data or not isinstance(review_data, dict):
+            continue
+
+        overall_rating = review_data.get("overall_rating", "N/A")
+        publication = review_data.get("publication", "Automotive Review")
+        categories = review_data.get("categories", {})
+
+        html += f"""
+        <div class="review-card animate-on-scroll">
+            <div class="review-header">
+                <h3>{car_name}</h3>
+                <div class="overall-rating">
+                    <span class="rating-label">Overall:</span>
+                    <span class="rating-value">{overall_rating}/10</span>
+                </div>
+                <div class="publication-name">{publication}</div>
+            </div>
+            <div class="review-categories">
+        """
+
+        for category_name, category_data in categories.items():
+            if not isinstance(category_data, dict):
+                continue
+
+            rating = category_data.get("rating", "N/A")
+            positives = category_data.get("positives", [])
+            negatives = category_data.get("negatives", [])
+
+            # Convert rating to progress bar width percentage
+            rating_percent = 0
+            if isinstance(rating, (int, float)):
+                rating_percent = (rating / 10.0) * 100
+
+            html += f"""
+                <div class="review-category">
+                    <div class="category-header">
+                        <span class="category-name">{category_name.replace('_', ' ').title()}</span>
+                        <span class="category-rating">{rating}/10</span>
+                    </div>
+                    <div class="rating-bar">
+                        <div class="rating-fill" style="width: {rating_percent}%"></div>
+                    </div>
+                    <div class="review-points">
+            """
+
+            if positives:
+                for positive in positives:
+                    html += f'<div class="positive-point">▸ {positive}</div>'
+
+            if negatives:
+                for negative in negatives:
+                    html += f'<div class="negative-point">▸ {negative}</div>'
+
+            html += """
+                    </div>
+                </div>
+            """
+
+        html += """
+            </div>
+        </div>
+        """
+
+    html += """
+        </div>
+    </div>
+    """
+
+    return html
+
+
 def generate_checklist_table(comparison_data: Dict[str, Any]) -> str:
     """
     Generate checklist comparison table with ✓, ✗, numbers, and short text values.
@@ -741,12 +844,17 @@ def generate_checklist_table(comparison_data: Dict[str, Any]) -> str:
     return html
 
 
-def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) -> str:
+def create_comparison_chart_html(
+    comparison_data: Dict[str, Any],
+    summary: str,
+    comparative_graphs: Dict[str, Any] = None,
+    detailed_reviews: Dict[str, Any] = None
+) -> str:
     """
     Create interactive HTML report with enhanced design featuring grouped specifications.
     Specifications are grouped into collapsible accordions for better readability.
     Optimized for PDF printing with proper page breaks and layout.
-    
+
     Features:
     - Grouped specification table with accordion functionality
     - Sticky header with smooth-scrolling navigation
@@ -754,14 +862,25 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
     - Alternating color charts (dark blue and Mahindra red)
     - Scroll animations for all components
     - PDF-optimized printing (2 charts per page, landscape table)
-    
+    - 10-15 comparative graphs with detailed data
+    - Detailed review sections from automotive publications
+    - Consolidated review summary table
+
     Args:
         comparison_data: Dictionary containing car comparison data
         summary: Text summary of the comparison
-        
+        comparative_graphs: Dictionary with comparative graph data (optional)
+        detailed_reviews: Dictionary with detailed review data from publications (optional)
+
     Returns:
         Complete HTML string ready to be saved as a file
     """
+
+    # Set defaults if not provided
+    if comparative_graphs is None:
+        comparative_graphs = {}
+    if detailed_reviews is None:
+        detailed_reviews = {}
     
     # Helper function for summary formatting
     def format_summary(summary_text: str) -> str:
@@ -794,6 +913,62 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
 
     # Generate checklist comparison table
     checklist_html = generate_checklist_table(comparison_data)
+
+    # Generate consolidated review summary table
+    consolidated_review_html = _generate_consolidated_review_html(comparison_data)
+
+    # Generate detailed reviews section
+    detailed_reviews_html = _generate_detailed_reviews_html(detailed_reviews)
+
+    # Extract additional graph data from comparative_graphs
+    performance_data, torque_data = [], []
+    ground_clearance_data, boot_space_data = [], []
+    turning_radius_data, safety_airbags = [], []
+    warranty_years, kerb_weight_data = [], []
+    acceleration_data, fuel_tank_data = [], []
+    wheelbase_data = []
+
+    if comparative_graphs:
+        perf_comp = comparative_graphs.get("performance_comparison", {})
+        dim_comp = comparative_graphs.get("dimensions_comparison", {})
+        cap_comp = comparative_graphs.get("capacity_comparison", {})
+        gc_data = comparative_graphs.get("ground_clearance", {})
+        tr_data = comparative_graphs.get("turning_radius", {})
+        safety_comp = comparative_graphs.get("safety_features", {})
+        warranty_comp = comparative_graphs.get("warranty_comparison", {})
+        weight_data = comparative_graphs.get("kerb_weight", {})
+        accel_data = comparative_graphs.get("acceleration_0_100", {})
+
+        for car in cars:
+            # Performance & Torque
+            perf = perf_comp.get(car, {})
+            performance_data.append(perf.get("horsepower", 0) if isinstance(perf, dict) else 0)
+            torque_data.append(perf.get("torque", 0) if isinstance(perf, dict) else 0)
+
+            # Dimensions
+            dims = dim_comp.get(car, {})
+            wheelbase_data.append(dims.get("wheelbase", 0) if isinstance(dims, dict) else 0)
+
+            # Capacity
+            cap = cap_comp.get(car, {})
+            boot_space_data.append(cap.get("boot_space", 0) if isinstance(cap, dict) else 0)
+            fuel_tank_data.append(cap.get("fuel_tank", 0) if isinstance(cap, dict) else 0)
+
+            # Ground clearance & Turning radius
+            ground_clearance_data.append(gc_data.get(car, 0))
+            turning_radius_data.append(tr_data.get(car, 0))
+
+            # Safety
+            safety = safety_comp.get(car, {})
+            safety_airbags.append(safety.get("airbags", 0) if isinstance(safety, dict) else 0)
+
+            # Warranty
+            warr = warranty_comp.get(car, {})
+            warranty_years.append(warr.get("years", 0) if isinstance(warr, dict) else 0)
+
+            # Weight & Acceleration
+            kerb_weight_data.append(weight_data.get(car, 0))
+            acceleration_data.append(accel_data.get(car, 0))
 
     # Format AI-powered summary
     formatted_summary = format_summary(summary)
@@ -2285,15 +2460,16 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
             }}
 
             .checklist-table thead {{
-                background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-                color: white;
+                background: white;
+                border-bottom: 2px solid #e0e0e0;
             }}
 
             .checklist-table thead th {{
-                padding: 15px 10px;
+                padding: 16px 20px;
                 text-align: left;
                 font-weight: 600;
-                border-right: 1px solid rgba(255,255,255,0.2);
+                color: #333333;
+                border-right: none;
             }}
 
             .checklist-table .category-col {{
@@ -2313,41 +2489,46 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
 
             .checklist-table tbody tr {{
                 border-bottom: 1px solid #e0e0e0;
-                transition: background-color 0.2s ease;
             }}
 
             .checklist-table tbody tr:hover {{
-                background-color: #f8f9fa;
+                background-color: #f9f9f9;
             }}
 
             .checklist-table .category-header td {{
-                background: linear-gradient(135deg, #2e3b4e 0%, #dd032b 100%);
+                background: linear-gradient(90deg, #3d4357 0%, #c41e3a 100%);
                 color: white;
                 font-weight: 600;
-                padding: 12px 15px;
+                padding: 14px 20px;
                 font-size: 15px;
+                letter-spacing: 0.3px;
             }}
 
             .checklist-table .category-cell {{
-                background: #ecf0f1;
-                color: #34495e;
+                background: #ececec;
+                color: #333333;
                 font-weight: 600;
-                padding: 10px 15px;
+                padding: 12px 20px;
                 border-right: 1px solid #d0d0d0;
                 width: 120px;
+                text-align: left;
+                vertical-align: top;
             }}
 
             .checklist-table .feature-cell {{
-                padding: 10px 15px;
-                color: #2c3e50;
+                padding: 14px 20px;
+                color: #333333;
                 border-right: 1px solid #e0e0e0;
                 width: 250px;
+                background: white;
+                font-weight: 400;
             }}
 
             .checklist-table .value-cell {{
-                padding: 10px;
+                padding: 14px 20px;
                 text-align: center;
                 border-right: 1px solid #e0e0e0;
+                background: white;
             }}
 
             .checklist-table .value-cell:last-child {{
@@ -2408,6 +2589,181 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
                     page-break-after: avoid;
                 }}
             }}
+
+            /* Detailed Reviews Section Styles */
+            .detailed-reviews-grid {{
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+                gap: 30px;
+                margin: 20px 0;
+            }}
+
+            .review-card {{
+                background: white;
+                border-radius: 12px;
+                padding: 25px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+                border: 1px solid #e9ecef;
+            }}
+
+            .review-header {{
+                border-bottom: 2px solid #f1f3f5;
+                padding-bottom: 15px;
+                margin-bottom: 20px;
+            }}
+
+            .review-header h3 {{
+                font-size: 22px;
+                color: #1c2a39;
+                margin: 0 0 10px 0;
+                font-weight: 600;
+            }}
+
+            .overall-rating {{
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin: 8px 0;
+            }}
+
+            .rating-label {{
+                font-size: 14px;
+                color: #6c757d;
+                font-weight: 500;
+            }}
+
+            .rating-value {{
+                font-size: 20px;
+                color: #dd032b;
+                font-weight: 700;
+            }}
+
+            .publication-name {{
+                font-size: 13px;
+                color: #868e96;
+                font-style: italic;
+            }}
+
+            .review-categories {{
+                display: flex;
+                flex-direction: column;
+                gap: 18px;
+            }}
+
+            .review-category {{
+                background: #f8f9fa;
+                border-radius: 8px;
+                padding: 15px;
+            }}
+
+            .category-header {{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 8px;
+            }}
+
+            .category-name {{
+                font-size: 14px;
+                font-weight: 600;
+                color: #495057;
+            }}
+
+            .category-rating {{
+                font-size: 15px;
+                font-weight: 700;
+                color: #2E3B4E;
+            }}
+
+            .rating-bar {{
+                height: 8px;
+                background: #dee2e6;
+                border-radius: 4px;
+                overflow: hidden;
+                margin-bottom: 12px;
+            }}
+
+            .rating-fill {{
+                height: 100%;
+                background: linear-gradient(90deg, #dd032b 0%, #ff6b6b 100%);
+                transition: width 0.3s ease;
+            }}
+
+            .review-points {{
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }}
+
+            .positive-point {{
+                font-size: 13px;
+                color: #2f4538;
+                line-height: 1.5;
+                padding-left: 8px;
+            }}
+
+            .negative-point {{
+                font-size: 13px;
+                color: #c92a2a;
+                line-height: 1.5;
+                padding-left: 8px;
+            }}
+
+            /* Consolidated Review Table Styles */
+            .review-table-container {{
+                overflow-x: auto;
+                margin: 20px 0;
+            }}
+
+            .review-table {{
+                width: 100%;
+                border-collapse: collapse;
+                background: white;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+                border-radius: 8px;
+                overflow: hidden;
+            }}
+
+            .review-table thead {{
+                background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+                color: white;
+            }}
+
+            .review-table thead th {{
+                padding: 15px 12px;
+                text-align: left;
+                font-weight: 600;
+                font-size: 14px;
+                border-right: 1px solid rgba(255,255,255,0.2);
+            }}
+
+            .review-table tbody tr {{
+                border-bottom: 1px solid #e9ecef;
+            }}
+
+            .review-table tbody tr:hover {{
+                background: #f8f9fa;
+            }}
+
+            .review-table tbody td {{
+                padding: 14px 12px;
+                font-size: 13px;
+                color: #495057;
+                line-height: 1.6;
+                vertical-align: top;
+            }}
+
+            .review-category {{
+                font-weight: 600;
+                color: #2c3e50;
+                white-space: nowrap;
+            }}
+
+            @media (max-width: 768px) {{
+                .detailed-reviews-grid {{
+                    grid-template-columns: 1fr;
+                }}
+            }}
             </style>
 </head>
 <body>
@@ -2421,6 +2777,8 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
                 <a href="#technology-section">Technology</a>
                 <a href="#analytics-section">Analytics</a>
                 <a href="#summary-section">Checklist</a>
+                <a href="#consolidated-review-section">Reviews</a>
+                <a href="#detailed-reviews-section">Pro Reviews</a>
                 <a href="#review-section">Analysis</a>
                 <a href="#" id="citations-toggle" onclick="toggleCitations(event)">Citations</a>
             </nav>
@@ -2449,15 +2807,33 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
         <div class="content">
             <div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3v9H3zM9 8h3v13H9zM15 4h3v17h-3zM21 20h-3"/></svg></div><h2 id="analytics-section">Visual Analytics</h2></div>
             <div class="charts-grid">
-                <div class="chart-container animate-on-scroll"><h3>Price Comparison (₹ Lakhs)</h3><canvas id="priceChart"></canvas></div><div class="chart-container animate-on-scroll"><h3>Mileage Comparison (kmpl)</h3><canvas id="mileageChart"></canvas></div>
-                <div class="chart-container animate-on-scroll"><h3>User Ratings (out of 5)</h3><canvas id="ratingChart"></canvas></div><div class="chart-container animate-on-scroll"><h3>Seating Capacity</h3><canvas id="seatingChart"></canvas></div>
-<!-- <h5>Sales Performance (Volume vs Price)</h5><div class="chart-container animate-on-scroll"><canvas id="salesChart"></canvas></div> -->            </div>
+                <div class="chart-container animate-on-scroll"><h3>Price Comparison (₹ Lakhs)</h3><canvas id="priceChart"></canvas></div>
+                <div class="chart-container animate-on-scroll"><h3>Mileage Comparison (kmpl)</h3><canvas id="mileageChart"></canvas></div>
+                <div class="chart-container animate-on-scroll"><h3>Performance (HP)</h3><canvas id="performanceChart"></canvas></div>
+                <div class="chart-container animate-on-scroll"><h3>Torque (Nm)</h3><canvas id="torqueChart"></canvas></div>
+                <div class="chart-container animate-on-scroll"><h3>Ground Clearance (mm)</h3><canvas id="groundClearanceChart"></canvas></div>
+                <div class="chart-container animate-on-scroll"><h3>Boot Space (Liters)</h3><canvas id="bootSpaceChart"></canvas></div>
+                <div class="chart-container animate-on-scroll"><h3>Seating Capacity</h3><canvas id="seatingChart"></canvas></div>
+                <div class="chart-container animate-on-scroll"><h3>Turning Radius (m)</h3><canvas id="turningRadiusChart"></canvas></div>
+                <div class="chart-container animate-on-scroll"><h3>Safety Features</h3><canvas id="safetyChart"></canvas></div>
+                <div class="chart-container animate-on-scroll"><h3>Warranty (Years)</h3><canvas id="warrantyChart"></canvas></div>
+                <div class="chart-container animate-on-scroll"><h3>Kerb Weight (kg)</h3><canvas id="kerbWeightChart"></canvas></div>
+                <div class="chart-container animate-on-scroll"><h3>0-100 km/h (seconds)</h3><canvas id="accelerationChart"></canvas></div>
+                <div class="chart-container animate-on-scroll"><h3>Fuel Tank (Liters)</h3><canvas id="fuelTankChart"></canvas></div>
+                <div class="chart-container animate-on-scroll"><h3>Wheelbase (mm)</h3><canvas id="wheelbaseChart"></canvas></div>
+                <div class="chart-container animate-on-scroll"><h3>User Ratings (out of 5)</h3><canvas id="ratingChart"></canvas></div>
+            </div>
         </div>
         <div class="content">
             <div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg></div><h2 id="summary-section">Features Checklist</h2></div>
             <div class="checklist-section animate-on-scroll">{checklist_html}</div>
         </div>
-         <div class="content">
+        <div class="content">
+            <div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l10 5v3L12 5 2 10V7l10-5zM2 10v3l10 5 10-5v-3l-10 5-10-5z"/></svg></div><h2 id="consolidated-review-section">Consolidated Review Summary</h2></div>
+            <div class="consolidated-review-section animate-on-scroll">{consolidated_review_html}</div>
+        </div>
+        {detailed_reviews_html}
+        <div class="content">
             <div class="section-header">
                 <div class="icon-wrapper">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
@@ -2498,19 +2874,44 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
         function toggleExpand(button) {{ const content = button.previousElementSibling; content.classList.toggle('expanded'); button.textContent = content.classList.contains('expanded') ? 'Read less' : 'Read more'; }}
         function toggleCitations(event) {{ event.preventDefault(); const citationsSection = document.getElementById('citations-section'); const mainContent = document.querySelectorAll('.content:not(#citations-section)'); const toggleButton = document.getElementById('citations-toggle'); const navLinks = document.querySelectorAll('.main-nav a:not(#citations-toggle)'); if (citationsSection.style.display === 'none') {{ citationsSection.style.display = 'block'; mainContent.forEach(section => {{ section.style.display = 'none'; }}); navLinks.forEach(link => {{ link.style.display = 'none'; }}); toggleButton.textContent = 'Go Back'; }} else {{ citationsSection.style.display = 'none'; mainContent.forEach(section => {{ section.style.display = 'block'; }}); navLinks.forEach(link => {{ link.style.display = 'block'; }}); toggleButton.textContent = 'Citations'; }} window.scrollTo({{ top: 0, behavior: 'smooth' }}); }}
         
-        const carLabels = {json.dumps(cars)}; 
-        const priceData = {json.dumps(prices)}; 
-        const mileageData = {json.dumps(mileages)}; 
-        const ratingData = {json.dumps(ratings)}; 
-        const seatingData = {json.dumps(seating)}; 
+        const carLabels = {json.dumps(cars)};
+        const priceData = {json.dumps(prices)};
+        const mileageData = {json.dumps(mileages)};
+        const ratingData = {json.dumps(ratings)};
+        const seatingData = {json.dumps(seating)};
         const salesVolumes = {json.dumps(sales_volumes)};
+        const performanceData = {json.dumps(performance_data)};
+        const torqueData = {json.dumps(torque_data)};
+        const groundClearanceData = {json.dumps(ground_clearance_data)};
+        const bootSpaceData = {json.dumps(boot_space_data)};
+        const turningRadiusData = {json.dumps(turning_radius_data)};
+        const safetyAirbagsData = {json.dumps(safety_airbags)};
+        const warrantyYearsData = {json.dumps(warranty_years)};
+        const kerbWeightData = {json.dumps(kerb_weight_data)};
+        const accelerationData = {json.dumps(acceleration_data)};
+        const fuelTankData = {json.dumps(fuel_tank_data)};
+        const wheelbaseData = {json.dumps(wheelbase_data)};
+
         const primaryColor = '#2E3B4E', secondaryColor = '#dd032b';
         const isMobile = window.innerWidth < 768;
-        
-        new Chart(document.getElementById('priceChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: priceData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: {{ plugins: {{ legend: {{ display: false }} }} }} }});        
-        new Chart(document.getElementById('mileageChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: mileageData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: {{ plugins: {{ legend: {{ display: false }} }} }} }});
+
+        const chartOptions = {{ plugins: {{ legend: {{ display: false }} }} }};
+
+        new Chart(document.getElementById('priceChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: priceData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: chartOptions }});
+        new Chart(document.getElementById('mileageChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: mileageData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: chartOptions }});
+        new Chart(document.getElementById('performanceChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: performanceData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: chartOptions }});
+        new Chart(document.getElementById('torqueChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: torqueData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: chartOptions }});
+        new Chart(document.getElementById('groundClearanceChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: groundClearanceData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: chartOptions }});
+        new Chart(document.getElementById('bootSpaceChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: bootSpaceData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: chartOptions }});
+        new Chart(document.getElementById('seatingChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: seatingData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: chartOptions }});
+        new Chart(document.getElementById('turningRadiusChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: turningRadiusData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: chartOptions }});
+        new Chart(document.getElementById('safetyChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: safetyAirbagsData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: chartOptions }});
+        new Chart(document.getElementById('warrantyChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: warrantyYearsData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: chartOptions }});
+        new Chart(document.getElementById('kerbWeightChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: kerbWeightData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: chartOptions }});
+        new Chart(document.getElementById('accelerationChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: accelerationData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: chartOptions }});
+        new Chart(document.getElementById('fuelTankChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: fuelTankData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: chartOptions }});
+        new Chart(document.getElementById('wheelbaseChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: wheelbaseData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: chartOptions }});
         new Chart(document.getElementById('ratingChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: ratingData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: {{ scales: {{ y: {{ max: 5 }} }}, plugins: {{ legend: {{ display: false }} }} }} }});
-        new Chart(document.getElementById('seatingChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: seatingData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: {{ plugins: {{ legend: {{ display: false }} }} }} }});
         
         /* Sales chart commented out
         new Chart(document.getElementById('salesChart'), {{
