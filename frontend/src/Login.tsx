@@ -191,7 +191,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
           {/* Footer */}
           <div className="login-footer">
-            <p>Secure authentication with industry-standard JWT</p>
+            <p>End-to-End Encrypted</p>
           </div>
         </div>
       </div>
