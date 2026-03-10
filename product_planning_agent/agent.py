@@ -137,11 +137,66 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
     Tool to scrape car data using Custom Search API OR Gemini's direct URL analysis with ALL 19 specifications.
 
     IMPORTANT FOR CODE CARS:
-    - If code cars are detected (names with "CODE:" prefix or ALL CAPS format),
-      the agent should FIRST ask the user with three options:
-      1. Manual entry (yes/manual)
-      2. RAG corpus query (rag/gcs)
-      3. Leave blank (blank/empty)
+    If CODE CARS are detected (names with "CODE:" prefix or ALL CAPS format):
+
+    STEP 1: Call 'scrape_cars_tool' FIRST to identify the code cars.
+
+    STEP 2: If the response status is "awaiting_code_car_specs", ask the user:
+
+    > "Is this a **released car** or an **internal product**?"
+
+    ---
+
+    🚗 If user says **RELEASED CAR / NOT INTERNAL / PUBLIC**:
+    - Treat it as a normal car.
+    - Call `scrape_cars_tool` with `use_custom_search=True` to fetch data via Google Custom Search API.
+    - Proceed with standard web scraping workflow.
+
+    ---
+
+    If user says **INTERNAL PRODUCT / PROTOTYPE / CODE CAR**:
+    Ask how they want to provide specifications:
+
+    > "Would you like to manually specify specifications for the code car(s)?"
+
+    Provide **three options**:
+
+    1. **MANUAL ENTRY** (ONE-BY-ONE or BULK)
+    2. **RAG CORPUS** (Vertex RAG query)
+    3. **BLANK** (Leave all fields empty)
+
+    ---
+
+    📝 If user says **YES / MANUAL**:
+    Ask how they want to enter the data:
+
+    1. ONE-BY-ONE METHOD
+       - Call:
+         add_code_car_specs_tool(car_name="CODE:PROTO1")
+       - The ADK automatically prompts for all **91 specifications**, one at a time.
+       - User must type a value for each spec or respond with 'skip', 'n/a', or blank to leave it empty.
+       - After completion (status "success"), call `scrape_cars_tool` again to generate the comparison report.
+
+    2. BULK / ALL-AT-ONCE METHOD
+       - Call:
+         add_code_car_specs_bulk_tool(car_name="CODE:PROTO1", specifications="{...}")
+       - User provides all 91 specs in JSON format at once.
+       - Faster but requires properly formatted JSON.
+       - After this call, execute `scrape_cars_tool` again to generate the report.
+
+    ---
+
+    📚 If user says **RAG / GCS / CORPUS / VERTEX RAG / RAG CORPUS**:
+    - Call 'scrape_cars_tool' with user_decision="rag"
+    - System queries Vertex RAG corpus for specifications
+    - Proceeds automatically after RAG query
+
+    ---
+
+    ⭕ If user says **BLANK / EMPTY / LEAVE**:
+    - The agent marks all fields as "Not Available".
+    - No manual entry or web scraping is done.
+    - Call `scrape_cars_tool` again with `user_decision="blank"`.
 
     Args:
         car_names: Comma-separated list of car names (minimum 1, maximum 10)
@@ -782,6 +837,36 @@ infotainment_screen, apple_carplay, sunroof, boot_space, wheelbase, parking, off
   b) RAG: Set `user_decision="rag"` to query Vertex corpus
   c) Blank: Set `user_decision="blank"` for empty specs
 
+## HANDLING TOOL RESPONSE STATUSES
+
+**When scrape_cars_tool returns a JSON response, check the "status" field:**
+
+1. **"status": "awaiting_code_car_specs"**
+   - Meaning: CODE car detected, need user decision
+   - Action: Display the "message" field to user and wait for their response
+   - Next: User will say "manual", "rag", or "blank"
+
+2. **"status": "needs_manual_entry"**
+   - Meaning: User chose manual entry, need to pick method
+   - Action: Display the "message" field to user asking ONE-BY-ONE or BULK
+   - Next: If user says "one by one" → call `add_code_car_specs_tool(car_name="CODE:XXX")`
+   - Next: If user says "bulk" → call `add_code_car_specs_bulk_tool(car_name="CODE:XXX", specifications="{...}")`
+   - After specs tool completes: Call `scrape_cars_tool` again (same car_names, no user_decision)
+
+3. **"status": "success"**
+   - Meaning: Comparison complete
+   - Action: Display the HTML report URL
+
+4. **"status": "error"**
+   - Meaning: Something failed
+   - Action: Display the "error" field to user
+
+**CRITICAL: When you get "awaiting_code_car_specs" or "needs_manual_entry", you MUST:**
+- Show the message to user
+- Wait for user response
+- Then call the appropriate tool based on their answer
+- Do NOT proceed to generate report until specs are collected
+
 ## WORKFLOW EXAMPLES
 
 **Standard comparison (no PDF):**
@@ -808,11 +893,26 @@ infotainment_screen, apple_carplay, sunroof, boot_space, wheelbase, parking, off
    → Mahindra Thar: fully scraped as normal
 6. Present HTML report URL
 
-**Code Car:**
-1. Detect CODE car: "Compare CODE:PROTO1 with Thar"
-2. Ask: "Manual/RAG/Blank for CODE:PROTO1?"
-3. User picks manual → `add_code_car_specs_tool(car_name="CODE:PROTO1")`
-4. After specs collected → `scrape_cars_tool(car_names="CODE:PROTO1, Mahindra Thar")`
+**Code Car (Multi-Step Flow):**
+1. User: "Compare CODE:PROTO1 with Thar"
+2. Call: `scrape_cars_tool(car_names="CODE:PROTO1, Mahindra Thar")`
+   → Returns: `"status": "awaiting_code_car_specs"` with message
+3. Show the message to user and wait for their decision
+4. User says: "manual" (or "yes", "manual entry", etc.)
+5. Call: `scrape_cars_tool(car_names="CODE:PROTO1, Mahindra Thar", user_decision="manual")`
+   → Returns: `"status": "needs_manual_entry"` asking for ONE-BY-ONE or BULK
+6. Show the message to user and wait for their choice
+7a. If user says "one by one" (or "interactive", "step by step"):
+    Call: `add_code_car_specs_tool(car_name="CODE:PROTO1")`
+    → Tool will interactively prompt for all 91 specs
+    → After completion, call: `scrape_cars_tool(car_names="CODE:PROTO1, Mahindra Thar")`
+7b. If user says "bulk" (or "all at once", "json"):
+    Call: `add_code_car_specs_bulk_tool(car_name="CODE:PROTO1", specifications="{...}")`
+    → User provides JSON with all specs
+    → After completion, call: `scrape_cars_tool(car_names="CODE:PROTO1, Mahindra Thar")`
+8. Alternative decisions at step 4:
+   - User says "rag": Call `scrape_cars_tool(car_names="...", user_decision="rag")`
+   - User says "blank": Call `scrape_cars_tool(car_names="...", user_decision="blank")`
 
 ## 87 SPECIFICATIONS
 
