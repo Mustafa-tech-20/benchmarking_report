@@ -78,16 +78,6 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     }
   };
 
-  const fillTestCredentials = (role: 'VB' | 'PP' | 'VD') => {
-    const credentials = {
-      VB: { email: 'vb@mahindra.com', password: 'vb123' },
-      PP: { email: 'pp@mahindra.com', password: 'pp123' },
-      VD: { email: 'vd@mahindra.com', password: 'vd123' },
-    };
-    setEmail(credentials[role].email);
-    setPassword(credentials[role].password);
-    setError('');
-  };
 
   return (
     <div className="login-container">
@@ -167,50 +157,6 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             </button>
           </form>
 
-          {/* Test Credentials */}
-          <div className="test-credentials">
-            <div className="divider">
-              <span>Test Credentials</span>
-            </div>
-
-            <div className="role-badges">
-              <button
-                type="button"
-                className="role-badge"
-                onClick={() => fillTestCredentials('VB')}
-                disabled={isLoading}
-              >
-                <div className="role-badge-content">
-                  <div className="role-badge-name">VB</div>
-                  <div className="role-badge-desc">Vehicle Benchmarking</div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                className="role-badge"
-                onClick={() => fillTestCredentials('PP')}
-                disabled={isLoading}
-              >
-                <div className="role-badge-content">
-                  <div className="role-badge-name">PP</div>
-                  <div className="role-badge-desc">Product Planning</div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                className="role-badge"
-                onClick={() => fillTestCredentials('VD')}
-                disabled={isLoading}
-              >
-                <div className="role-badge-content">
-                  <div className="role-badge-name">VD</div>
-                  <div className="role-badge-desc">Vehicle Development</div>
-                </div>
-              </button>
-            </div>
-          </div>
 
           {/* Footer */}
           <div className="login-footer">

@@ -578,43 +578,16 @@ async def health_check():
     return {
         "status": "healthy",
         "service": "Car Benchmarking Platform with RBAC",
-        "version": "3.0.0",
-        "agents": {
-            "benchmarking": "Vehicle Benchmarking Agent (VB)",
-            "product_planning": "Product Planning Agent (PP)",
-            "vehicle_development": "Vehicle Development Agent (VD)"
-        },
-        "endpoints": {
-            "login": "POST /api/auth/login",
-            "compare": "POST /api/compare (protected)",
-            "docs": "GET /docs"
-        }
+        "version": "3.1",
     }
 
 
 @app.get("/")
 async def root():
     return {
-        "service": "Car Benchmarking Platform API with RBAC",
-        "version": "3.0.0",
-        "description": "AI-powered car comparison with 87 specifications and role-based access control",
-        "authentication": {
-            "type": "JWT Bearer Token",
-            "roles": ["VB (Vehicle Benchmarking)", "PP (Product Planning)", "VD (Vehicle Development)"]
-        },
-        "endpoints": {
-            "login": "POST /api/auth/login",
-            "logout": "POST /api/auth/logout",
-            "me": "GET /api/auth/me (protected)",
-            "compare_cars": "POST /api/compare (protected)",
-            "health_check": "GET /health",
-            "api_docs": "GET /docs"
-        },
-        "test_credentials": {
-            "vb": {"email": "vb@mahindra.com", "password": "vb123"},
-            "pp": {"email": "pp@mahindra.com", "password": "pp123"},
-            "vd": {"email": "vd@mahindra.com", "password": "vd123"}
-        }
+        "service": "Car Benchmarking Platform API",
+        "version": "3.1",
+        "status": "running"
     }
 
 
