@@ -17,7 +17,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# Cloud Run sets PORT environment variable - app will use it
+# Expose common ports for documentation
+EXPOSE 8000 8080
 
-EXPOSE 8080
+# Set default PORT if not provided by Cloud Run
+ENV PORT=8080
 
 CMD ["python", "main.py"]
