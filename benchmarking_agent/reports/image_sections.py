@@ -22,7 +22,7 @@ def generate_hero_section(comparison_data: Dict[str, Any]) -> str:
     for car_name, car_data in comparison_data.items():
         if isinstance(car_data, dict) and "error" not in car_data:
             car_names.append(car_name)
-            images = car_data.get("images", {})
+            images = car_data.get("images") or {}
             hero_imgs = images.get("hero", [])
             if hero_imgs:
                 # Handle multiple formats: list, tuple, or string
@@ -105,7 +105,7 @@ def generate_image_gallery_section(
 
     for car_name, car_data in comparison_data.items():
         if isinstance(car_data, dict) and "error" not in car_data:
-            images = car_data.get("images", {})
+            images = car_data.get("images") or {}
             category_images = images.get(image_category, [])
 
             # Handle multiple formats: list, tuple, or string

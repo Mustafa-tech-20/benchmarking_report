@@ -463,7 +463,7 @@ def _generate_consolidated_review_html(comparison_data: Dict[str, Any]) -> str:
         """
 
         for car_name in car_names:
-            car_data = comparison_data.get(car_name, {})
+            car_data = comparison_data.get(car_name) or {}
 
             # Get combined review from multiple spec fields
             combined_review = get_combined_review(car_data, spec_fields)
@@ -534,7 +534,7 @@ def _generate_detailed_reviews_html(detailed_reviews: Dict[str, Any]) -> str:
 
         overall_rating = review_data.get("overall_rating", "N/A")
         publication = review_data.get("publication", "Automotive Review")
-        categories = review_data.get("categories", {})
+        categories = review_data.get("categories") or {}
 
         html += f"""
         <div class="review-card animate-on-scroll">
@@ -839,50 +839,50 @@ def create_comparison_chart_html(
     overall_rating_data = []
 
     if comparative_graphs:
-        perf_comp = comparative_graphs.get("performance_comparison", {})
-        dim_comp = comparative_graphs.get("dimensions_comparison", {})
-        cap_comp = comparative_graphs.get("capacity_comparison", {})
-        gc_data = comparative_graphs.get("ground_clearance", {})
-        tr_data = comparative_graphs.get("turning_radius", {})
-        safety_comp = comparative_graphs.get("safety_features", {})
-        warranty_comp = comparative_graphs.get("warranty_comparison", {})
-        weight_data = comparative_graphs.get("kerb_weight", {})
-        accel_data = comparative_graphs.get("acceleration_0_100", {})
-        overall_rating = comparative_graphs.get("overall_rating", {})
+        perf_comp = comparative_graphs.get("performance_comparison") or {}
+        dim_comp = comparative_graphs.get("dimensions_comparison") or {}
+        cap_comp = comparative_graphs.get("capacity_comparison") or {}
+        gc_data = comparative_graphs.get("ground_clearance") or {}
+        tr_data = comparative_graphs.get("turning_radius") or {}
+        safety_comp = comparative_graphs.get("safety_features") or {}
+        warranty_comp = comparative_graphs.get("warranty_comparison") or {}
+        weight_data = comparative_graphs.get("kerb_weight") or {}
+        accel_data = comparative_graphs.get("acceleration_0_100") or {}
+        overall_rating = comparative_graphs.get("overall_rating") or {}
 
         for car in cars:
             # Performance & Torque
-            perf = perf_comp.get(car, {})
+            perf = perf_comp.get(car) or {}
             performance_data.append(perf.get("horsepower", 0) if isinstance(perf, dict) else 0)
             torque_data.append(perf.get("torque", 0) if isinstance(perf, dict) else 0)
 
             # Dimensions
-            dims = dim_comp.get(car, {})
+            dims = dim_comp.get(car) or {}
             wheelbase_data.append(dims.get("wheelbase", 0) if isinstance(dims, dict) else 0)
 
             # Capacity
-            cap = cap_comp.get(car, {})
+            cap = cap_comp.get(car) or {}
             boot_space_data.append(cap.get("boot_space", 0) if isinstance(cap, dict) else 0)
             fuel_tank_data.append(cap.get("fuel_tank", 0) if isinstance(cap, dict) else 0)
 
             # Ground clearance & Turning radius
-            ground_clearance_data.append(gc_data.get(car, 0))
-            turning_radius_data.append(tr_data.get(car, 0))
+            ground_clearance_data.append(gc_data.get(car, 0) if gc_data else 0)
+            turning_radius_data.append(tr_data.get(car, 0) if tr_data else 0)
 
             # Safety
-            safety = safety_comp.get(car, {})
+            safety = safety_comp.get(car) or {}
             safety_airbags.append(safety.get("airbags", 0) if isinstance(safety, dict) else 0)
 
             # Warranty
-            warr = warranty_comp.get(car, {})
+            warr = warranty_comp.get(car) or {}
             warranty_years.append(warr.get("years", 0) if isinstance(warr, dict) else 0)
 
             # Weight & Acceleration
-            kerb_weight_data.append(weight_data.get(car, 0))
-            acceleration_data.append(accel_data.get(car, 0))
+            kerb_weight_data.append(weight_data.get(car, 0) if weight_data else 0)
+            acceleration_data.append(accel_data.get(car, 0) if accel_data else 0)
 
             # Overall Rating
-            overall_rating_data.append(overall_rating.get(car, 0))
+            overall_rating_data.append(overall_rating.get(car, 0) if overall_rating else 0)
 
     # Format AI-powered summary
     formatted_summary = format_summary(summary)

@@ -269,11 +269,13 @@ def create_youtube_proscons_html(proscons_data: Dict[str, List[Dict[str, Any]]])
 
         # Add each channel's review for this car
         for review in reviews:
+            if not review or not isinstance(review, dict):
+                continue
             channel = review.get('publication', 'N/A')
             video_title = review.get('video_title', 'N/A')
             link = review.get('link', '#')
-            positives = review.get('positives', [])
-            negatives = review.get('negatives', [])
+            positives = review.get('positives') or []
+            negatives = review.get('negatives') or []
 
             html += f"""
             <div class="channel-review">

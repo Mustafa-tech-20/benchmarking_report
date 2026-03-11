@@ -34,7 +34,7 @@ def extract_comparative_graphs_data(car_names: List[str], existing_spec_data: Di
         if existing_spec_data:
             existing_data_context = "\nEXISTING DATA (use this where available):\n"
             for car_name in car_names:
-                car_data = existing_spec_data.get(car_name, {})
+                car_data = existing_spec_data.get(car_name) or {}
                 if car_data and isinstance(car_data, dict):
                     relevant_specs = {
                         "mileage": car_data.get("mileage", ""),
@@ -54,7 +54,7 @@ def extract_comparative_graphs_data(car_names: List[str], existing_spec_data: Di
         if detailed_reviews:
             ratings_context = "\n\nOVERALL RATINGS FROM DETAILED REVIEWS (include these in graphs):\n"
             for car_name in car_names:
-                review_data = detailed_reviews.get(car_name, {})
+                review_data = detailed_reviews.get(car_name) or {}
                 if review_data and isinstance(review_data, dict):
                     overall_rating = review_data.get("overall_rating", None)
                     if overall_rating is not None:

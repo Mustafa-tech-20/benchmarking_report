@@ -459,7 +459,7 @@ def _generate_consolidated_review_html(comparison_data: Dict[str, Any]) -> str:
         """
 
         for car_name in car_names:
-            car_data = comparison_data.get(car_name, {})
+            car_data = comparison_data.get(car_name) or {}
 
             # Get combined review from multiple spec fields
             combined_review = get_combined_review(car_data, spec_fields)
@@ -851,7 +851,7 @@ def generate_variant_walk_section(comparison_data: Dict[str, Any]) -> str:
         if isinstance(car_data, dict) and "error" not in car_data:
             # Get variant walk data with safety check for None
             variant_walk = car_data.get('variant_walk') or {}
-            variants = variant_walk.get('variants', {}) if isinstance(variant_walk, dict) else {}
+            variants = (variant_walk.get('variants') or {}) if isinstance(variant_walk, dict) else {}
 
             if not variants:
                 # Fallback to generic variant display if no data
@@ -885,10 +885,11 @@ def generate_variant_walk_section(comparison_data: Dict[str, Any]) -> str:
             # Generate columns for each variant
             is_first_variant = True
             for variant_key, variant_data in variants.items():
+                variant_data = variant_data or {}
                 variant_name = variant_data.get('name', variant_key)
-                features = variant_data.get('features', [])
-                features_added = variant_data.get('features_added', [])
-                features_deleted = variant_data.get('features_deleted', [])
+                features = variant_data.get('features') or []
+                features_added = variant_data.get('features_added') or []
+                features_deleted = variant_data.get('features_deleted') or []
 
                 html += """
                     <td>
@@ -1143,7 +1144,7 @@ def generate_price_ladder_section(comparison_data: Dict[str, Any]) -> str:
     # For each car, generate its price ladders
     for car_name, car_data in comparison_data.items():
         if isinstance(car_data, dict) and "error" not in car_data:
-            variant_walk = car_data.get('variant_walk', {})
+            variant_walk = car_data.get('variant_walk') or {}
             price_ladder = variant_walk.get('price_ladder', {})
 
             if not price_ladder:
@@ -1155,7 +1156,7 @@ def generate_price_ladder_section(comparison_data: Dict[str, Any]) -> str:
 """
 
             # Petrol Price Ladder
-            petrol_data = price_ladder.get('petrol', {})
+            petrol_data = price_ladder.get('petrol') or {}
             if petrol_data:
                 html += """
             <div class="price-ladder-card">
@@ -1167,7 +1168,7 @@ def generate_price_ladder_section(comparison_data: Dict[str, Any]) -> str:
 """
 
                 # MT Column
-                mt_variants = petrol_data.get('MT', {})
+                mt_variants = petrol_data.get('MT') or {}
                 if mt_variants:
                     # Sort by price (extract numeric value)
                     sorted_mt = sorted(mt_variants.items(),
@@ -1195,7 +1196,7 @@ def generate_price_ladder_section(comparison_data: Dict[str, Any]) -> str:
 """
 
                 # AT Column
-                at_variants = petrol_data.get('AT', {})
+                at_variants = petrol_data.get('AT') or {}
                 if at_variants:
                     sorted_at = sorted(at_variants.items(),
                                       key=lambda x: extract_price_value(x[1]))
@@ -1227,7 +1228,7 @@ def generate_price_ladder_section(comparison_data: Dict[str, Any]) -> str:
 """
 
             # Diesel Price Ladder
-            diesel_data = price_ladder.get('diesel', {})
+            diesel_data = price_ladder.get('diesel') or {}
             if diesel_data:
                 html += """
             <div class="price-ladder-card">
@@ -1239,7 +1240,7 @@ def generate_price_ladder_section(comparison_data: Dict[str, Any]) -> str:
 """
 
                 # MT Column
-                mt_variants = diesel_data.get('MT', {})
+                mt_variants = diesel_data.get('MT') or {}
                 if mt_variants:
                     sorted_mt = sorted(mt_variants.items(),
                                       key=lambda x: extract_price_value(x[1]))
@@ -1266,7 +1267,7 @@ def generate_price_ladder_section(comparison_data: Dict[str, Any]) -> str:
 """
 
                 # AT Column
-                at_variants = diesel_data.get('AT', {})
+                at_variants = diesel_data.get('AT') or {}
                 if at_variants:
                     sorted_at = sorted(at_variants.items(),
                                       key=lambda x: extract_price_value(x[1]))

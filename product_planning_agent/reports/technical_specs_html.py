@@ -406,7 +406,7 @@ def create_technical_specs_html(comparison_data: Dict[str, Any]) -> str:
 """
 
             for car_name in car_names:
-                car_data = comparison_data.get(car_name, {})
+                car_data = comparison_data.get(car_name) or {}
                 value = car_data.get(spec_key, "N/A")
                 if value in ["Not Available", "Not found", ""]:
                     value = "N/A"

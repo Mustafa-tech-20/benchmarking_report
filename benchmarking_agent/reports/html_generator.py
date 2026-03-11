@@ -463,7 +463,7 @@ def _generate_consolidated_review_html(comparison_data: Dict[str, Any]) -> str:
         """
 
         for car_name in car_names:
-            car_data = comparison_data.get(car_name, {})
+            car_data = comparison_data.get(car_name) or {}
 
             # Get combined review from multiple spec fields
             combined_review = get_combined_review(car_data, spec_fields)
