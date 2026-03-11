@@ -19,7 +19,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "start": "vite"
+    "start": "vite preview --host --port 3000"
   },
   "browserslist": {
     "production": [

@@ -5,10 +5,12 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
-    host: true,  // Expose to network (needed for Docker)
+    host: true,
+    allowedHosts: ['td-dev-benchmark.m-devsecops.com', 'localhost'],
   },
   preview: {
     port: 3000,
-    host: true  // Expose to network (needed for Docker)
+    host: true,
+    allowedHosts: ['td-dev-benchmark.m-devsecops.com', 'localhost'],
   }
 })
