@@ -1,0 +1,61 @@
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info
+dist
+build
+.eggs
+*.egg
+.pytest_cache
+.mypy_cache
+.coverage
+htmlcov
+
+# Virtual environments
+.venv
+venv
+ENV
+env
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Frontend (deploying separately)
+frontend/
+
+# Documentation
+README.md
+*.md
+
+# Logs
+*.log
+logs/
+
+# Reports and output files
+*.html
+output*.json
+report_*.html
+pp_report_*.html
+vd_report_*.html
+
+# Temporary files
+*.tmp
+*.bak
+.cache
+
+# Docker
+docker-compose*.yml
+.dockerignore
