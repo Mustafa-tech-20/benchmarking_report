@@ -6,6 +6,9 @@ This module uses Gemini to directly search and analyze YouTube videos:
 2. Extract pros & cons from video content
 3. Provide source citations with links
 """
+import sys
+sys.path.append("/app")
+from shared_utils import safe_json_parse, clean_json_response
 
 from typing import Dict, List, Any
 from vertexai.generative_models import GenerativeModel
@@ -96,7 +99,7 @@ Return ONLY a valid JSON object in this EXACT format (no markdown, no code block
             response_text = response_text[4:].strip()
 
         # Parse JSON
-        proscons_data = json.loads(response_text)
+        proscons_data = safe_json_parse(response_text, fallback={})
         proscons_data["car_name"] = car_name
 
         return proscons_data

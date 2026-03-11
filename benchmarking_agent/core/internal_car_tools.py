@@ -1,3 +1,6 @@
+import sys
+sys.path.append("/app")
+from shared_utils import safe_json_parse, clean_json_response
 
 from typing import Dict, Any
 
@@ -520,7 +523,7 @@ def add_code_car_specs_bulk_tool(
     try:
         # Try to parse as JSON first
         try:
-            spec_data = json.loads(specifications)
+            spec_data = safe_json_parse(specifications, fallback={})
         except json.JSONDecodeError:
             # If not valid JSON, try to parse as key-value pairs
             spec_data = {}
@@ -749,7 +752,7 @@ def query_rag_for_code_car_specs(car_name: str, rag_corpus: str) -> Dict[str, An
         if response_text.endswith("```"):
             response_text = response_text[:-3]
 
-        car_data = json.loads(response_text.strip())
+        car_data = safe_json_parse(response_text.strip(, fallback={}))
         car_data["source"] = "RAG Corpus"
         car_data["is_code_car"] = True
         car_data["source_urls"] = [f"RAG Corpus: {rag_corpus}"]

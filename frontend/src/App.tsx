@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Upload, X, FileText, Loader2, ChevronDown, Car, Settings, BarChart3, Plus, User, Bot, LogOut, History, MessageSquare, Trash2 } from 'lucide-react';
+import { Send, X, FileText, Loader2, ChevronDown, Car, Settings, BarChart3, Plus, Bot, LogOut, History, MessageSquare, Trash2 } from 'lucide-react';
 import { getSessionFromCookies, saveSessionToCookies, clearSessionCookies } from './utils/cookies';
 import Login from './Login';
 import './App.css';
@@ -53,6 +53,8 @@ interface ConversationDetail {
   messages: Message[];
   created_at: string;
   updated_at: string;
+  user_id?: string | null;
+  session_id?: string | null;
 }
 
 function App() {

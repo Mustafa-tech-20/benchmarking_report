@@ -8,7 +8,7 @@ const COOKIE_EXPIRY_DAYS = 7;
 export interface SessionData {
   userId: string | null;
   sessionId: string | null;
-  conversationId?: string | null;
+  conversationId: string | null;
 }
 
 /**

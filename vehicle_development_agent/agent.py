@@ -6,6 +6,7 @@ import concurrent.futures
 from typing import Dict, Any, List, Optional
 
 from google.adk.agents import Agent
+from shared_utils import safe_json_parse, clean_json_response
 from vertexai.generative_models import GenerativeModel
 
 from benchmarking_agent.config import SIGNED_URL_EXPIRATION_HOURS
@@ -107,7 +108,7 @@ def save_pdf_car_specs_tool(car_name: str, specs_json: str) -> str:
         JSON with status and count of saved specs
     """
     try:
-        specs = json.loads(specs_json)
+        specs = safe_json_parse(specs_json, fallback={})
     except Exception as e:
         return json.dumps({"status": "error", "error": f"Invalid JSON: {str(e)}"})
 
@@ -735,7 +736,7 @@ def run_car_comparison(car_names: List[str], use_custom_search: bool = True):
 
     car_names_str = ", ".join(car_names)
     result = scrape_cars_tool(car_names_str, use_custom_search=use_custom_search)
-    result_data = json.loads(result)
+    result_data = safe_json_parse(result, fallback={})
 
     if result_data.get("status") == "success":
         print(f"\n{'='*80}")

@@ -2,6 +2,9 @@
 Comparative Graphs Data Extraction for Vehicle Development Agent
 Extracts comparative data for visual graphs using Gemini.
 """
+import sys
+sys.path.append("/app")
+from shared_utils import safe_json_parse, clean_json_response
 import json
 from typing import Dict, Any, List
 from vertexai.generative_models import GenerativeModel
@@ -159,7 +162,7 @@ CRITICAL RULES:
         elif "```" in response_text:
             response_text = response_text.split("```")[1].split("```")[0].strip()
 
-        graphs_data = json.loads(response_text)
+        graphs_data = safe_json_parse(response_text, fallback={})
 
         # Ensure overall_rating is included from detailed_reviews
         if overall_ratings:

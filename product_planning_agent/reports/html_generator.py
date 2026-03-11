@@ -849,9 +849,9 @@ def generate_variant_walk_section(comparison_data: Dict[str, Any]) -> str:
     # For each car, generate its variant walk
     for car_name, car_data in comparison_data.items():
         if isinstance(car_data, dict) and "error" not in car_data:
-            # Get variant walk data
-            variant_walk = car_data.get('variant_walk', {})
-            variants = variant_walk.get('variants', {})
+            # Get variant walk data with safety check for None
+            variant_walk = car_data.get('variant_walk') or {}
+            variants = variant_walk.get('variants', {}) if isinstance(variant_walk, dict) else {}
 
             if not variants:
                 # Fallback to generic variant display if no data

@@ -35,10 +35,26 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await response.json();
+      // Check if response is valid before parsing
+      if (!response) {
+        throw new Error('No response from server. Please check your connection.');
+      }
+
+      // Check for network/CORS errors
+      if (!response.ok && response.status === 0) {
+        throw new Error('Failed to connect to server. Please try again.');
+      }
+
+      // Parse response
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        throw new Error('Invalid response from server. Please try again.');
+      }
 
       if (!response.ok) {
-        throw new Error(data.detail || 'Login failed');
+        throw new Error(data?.detail || 'Login failed');
       }
 
       // Store user info and token in localStorage
@@ -49,7 +65,14 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       onLoginSuccess();
 
     } catch (err: any) {
-      setError(err.message || 'An error occurred during login');
+      console.error('Login error:', err);
+
+      // Better error messages
+      if (err.name === 'TypeError' && err.message.includes('fetch')) {
+        setError('Failed to connect to server. Please ensure the backend is running.');
+      } else {
+        setError(err.message || 'An error occurred during login. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }

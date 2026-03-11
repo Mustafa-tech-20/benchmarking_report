@@ -2,6 +2,9 @@
 Detailed Review Extraction for Vehicle Development Agent
 Extracts detailed reviews from automotive publication sites using Gemini.
 """
+import sys
+sys.path.append("/app")
+from shared_utils import safe_json_parse, clean_json_response
 import json
 from typing import Dict, Any, List
 from vertexai.generative_models import GenerativeModel
@@ -154,7 +157,7 @@ CRITICAL RULES:
         elif "```" in response_text:
             response_text = response_text.split("```")[1].split("```")[0].strip()
 
-        reviews_data = json.loads(response_text)
+        reviews_data = safe_json_parse(response_text, fallback={})
         return reviews_data
 
     except json.JSONDecodeError as e:

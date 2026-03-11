@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
-    open: true,
+    host: true,  // Expose to network (needed for Docker)
   },
   preview: {
     port: 3000,

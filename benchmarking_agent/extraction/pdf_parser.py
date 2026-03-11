@@ -2,6 +2,9 @@
 PDF/Document Analysis Tool for Car Benchmarking Agent
 Analyzes PDFs containing car specifications or reviews.
 """
+import sys
+sys.path.append("/app")
+from shared_utils import safe_json_parse, clean_json_response
 import base64
 import json
 from typing import Optional
@@ -120,7 +123,7 @@ Return them as a list in the JSON response under "car_names_found" key."""
                     start = analysis.index("{")
                     end = analysis.rindex("}") + 1
                     json_str = analysis[start:end]
-                    parsed = json.loads(json_str)
+                    parsed = safe_json_parse(json_str, fallback={})
                     car_names_found = parsed.get("car_names_found", [])
                 else:
                     car_names_found = []

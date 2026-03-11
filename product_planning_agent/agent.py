@@ -6,6 +6,7 @@ import concurrent.futures
 from typing import Dict, Any, List, Optional
 
 from google.adk.agents import Agent
+from shared_utils import safe_json_parse, clean_json_response
 from vertexai.generative_models import GenerativeModel
 
 from benchmarking_agent.config import SIGNED_URL_EXPIRATION_HOURS, GOOGLE_API_KEY
@@ -107,7 +108,7 @@ def save_pdf_car_specs_tool(car_name: str, specs_json: str) -> str:
         JSON with status and count of saved specs
     """
     try:
-        specs = json.loads(specs_json)
+        specs = safe_json_parse(specs_json, fallback={})
     except Exception as e:
         return json.dumps({"status": "error", "error": f"Invalid JSON: {str(e)}"})
 
@@ -474,29 +475,46 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
             print(f"  {car_name}: {found}/{total} specs ({percentage:.1f}%)")
     print("=" * 60)
 
-    print("\n STEP 2: Generating AI-powered comparison summary...")
-    summary = generate_comparison_summary(results["comparison_data"])
-    results["summary"] = summary
+    print("\n STEP 2 & 2.5: Running in parallel - Comparison summary + YouTube pros/cons...")
 
-    print("\n STEP 2.5: Extracting YouTube pros & cons from trusted channels...")
-    proscons_data = None
-    try:
-        # Get only non-code cars for YouTube analysis
-        youtube_car_names = [
-            car for car in car_list
-            if not results["comparison_data"].get(car, {}).get('is_code_car')
-        ]
+    # Get only non-code cars for YouTube analysis
+    youtube_car_names = [
+        car for car in car_list
+        if not results["comparison_data"].get(car, {}).get('is_code_car')
+    ]
 
+    # Run both steps in parallel using ThreadPoolExecutor for CPU-bound tasks
+    import concurrent.futures
+
+    def run_summary():
+        return generate_comparison_summary(results["comparison_data"])
+
+    def run_youtube():
         if youtube_car_names:
-            # Extract pros/cons from 2 YouTube channels per car
-            proscons_data = get_multiple_cars_proscons(youtube_car_names, num_channels=2)
-            print(f"✓ YouTube pros/cons extracted for {len(proscons_data)} cars from 2 channels each")
-            results["youtube_proscons"] = proscons_data
+            try:
+                data = get_multiple_cars_proscons(youtube_car_names, num_channels=2)
+                print(f"✓ YouTube pros/cons extracted for {len(data)} cars from 2 channels each")
+                return data
+            except Exception as e:
+                print(f"✗ YouTube pros/cons extraction failed: {e}")
+                print("  Continuing without YouTube data...")
+                return None
         else:
             print("ℹ Only code cars detected - skipping YouTube analysis")
-    except Exception as e:
-        print(f"✗ YouTube pros/cons extraction failed: {e}")
-        print("  Continuing without YouTube data...")
+            return None
+
+    # Execute both in parallel
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        summary_future = executor.submit(run_summary)
+        youtube_future = executor.submit(run_youtube)
+
+        # Wait for both to complete
+        summary = summary_future.result()
+        proscons_data = youtube_future.result()
+
+    results["summary"] = summary
+    if proscons_data:
+        results["youtube_proscons"] = proscons_data
 
     print("\n STEP 3: Creating enhanced interactive HTML report...")
     html_content = create_comparison_chart_html(results["comparison_data"], summary, proscons_data)
@@ -973,7 +991,7 @@ def run_car_comparison(car_names: List[str], use_custom_search: bool = True):
 
     car_names_str = ", ".join(car_names)
     result = scrape_cars_tool(car_names_str, use_custom_search=use_custom_search)
-    result_data = json.loads(result)
+    result_data = safe_json_parse(result, fallback={})
 
     if result_data.get("status") == "success":
         print(f"\n{'='*80}")

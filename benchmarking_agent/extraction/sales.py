@@ -11,6 +11,9 @@ def extract_sales_data_from_url(url: str, car_name: str) -> Dict[str, Any]:
     """
     Use Gemini to extract ONLY sales data from a URL.
     """
+import sys
+sys.path.append("/app")
+from shared_utils import safe_json_parse, clean_json_response
     try:
         model = GenerativeModel("gemini-2.5-flash")
 
@@ -60,7 +63,7 @@ def extract_sales_data_from_url(url: str, car_name: str) -> Dict[str, Any]:
         if response_text.endswith("```"):
             response_text = response_text[:-3]
 
-        sales_data = json.loads(response_text.strip())
+        sales_data = safe_json_parse(response_text.strip(, fallback={}))
         return sales_data
 
     except json.JSONDecodeError as e:

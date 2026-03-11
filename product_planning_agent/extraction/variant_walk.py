@@ -5,6 +5,7 @@ Extracts variant information including features and pricing using Gemini.
 import json
 from typing import Dict, Any
 from vertexai.generative_models import GenerativeModel
+from json_repair import repair_json
 
 
 def extract_variant_walk(car_name: str) -> Dict[str, Any]:
@@ -129,11 +130,24 @@ IMPORTANT:
         if response_text.startswith("json"):
             response_text = response_text[4:].strip()
 
-        # Parse JSON
-        variant_data = json.loads(response_text)
+        # Repair and parse JSON using json-repair to handle malformed JSON
+        try:
+            repaired_json = repair_json(response_text)
+            variant_data = json.loads(repaired_json)
+        except Exception as repair_error:
+            print(f"  JSON repair failed: {str(repair_error)[:100]}")
+            # Fallback to standard JSON parsing
+            variant_data = json.loads(response_text)
 
         return variant_data
 
     except Exception as e:
         print(f"  Variant extraction error: {str(e)[:100]}")
-        return None
+        # Return empty structure instead of None to prevent downstream errors
+        return {
+            "variants": {},
+            "price_ladder": {
+                "petrol": {"MT": {}, "AT": {}},
+                "diesel": {"MT": {}, "AT": {}}
+            }
+        }
