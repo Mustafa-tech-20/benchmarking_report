@@ -8,6 +8,7 @@ const COOKIE_EXPIRY_DAYS = 7;
 export interface SessionData {
   userId: string | null;
   sessionId: string | null;
+  conversationId?: string | null;
 }
 
 /**
@@ -37,12 +38,12 @@ export function getSessionFromCookies(): SessionData {
         return JSON.parse(sessionJson);
       } catch (error) {
         console.error('Error parsing session cookie:', error);
-        return { userId: null, sessionId: null };
+        return { userId: null, sessionId: null, conversationId: null };
       }
     }
   }
 
-  return { userId: null, sessionId: null };
+  return { userId: null, sessionId: null, conversationId: null };
 }
 
 /**

@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Upload, X, FileText, Loader2, ChevronDown, Car, Settings, BarChart3, Plus, User, Bot, LogOut } from 'lucide-react';
+import { Send, Upload, X, FileText, Loader2, ChevronDown, Car, Settings, BarChart3, Plus, User, Bot, LogOut, History, MessageSquare, Trash2 } from 'lucide-react';
 import { getSessionFromCookies, saveSessionToCookies, clearSessionCookies } from './utils/cookies';
 import Login from './Login';
 import './App.css';
@@ -12,6 +12,7 @@ import './App.css';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const API_URL = `${API_BASE_URL}/api/compare`;
 const LOGOUT_URL = `${API_BASE_URL}/api/auth/logout`;
+const CONVERSATIONS_URL = `${API_BASE_URL}/api/conversations`;
 
 interface Message {
   id: string;
@@ -27,6 +28,7 @@ interface Message {
 interface SessionInfo {
   userId: string | null;
   sessionId: string | null;
+  conversationId: string | null;
 }
 
 interface UserInfo {
@@ -36,19 +38,41 @@ interface UserInfo {
   is_active: boolean;
 }
 
+interface ConversationListItem {
+  conversation_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+}
+
+interface ConversationDetail {
+  conversation_id: string;
+  user_email: string;
+  title: string;
+  messages: Message[];
+  created_at: string;
+  updated_at: string;
+}
+
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<UserInfo | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [session, setSession] = useState<SessionInfo>({ userId: null, sessionId: null });
+  const [session, setSession] = useState<SessionInfo>({ userId: null, sessionId: null, conversationId: null });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [conversations, setConversations] = useState<ConversationListItem[]>([]);
+  const [loadingConversations, setLoadingConversations] = useState(false);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const userDropdownRef = useRef<HTMLDivElement>(null);
 
   // Check authentication status on mount
   useEffect(() => {
@@ -75,8 +99,101 @@ function App() {
         setSession(savedSession);
         console.log('Loaded session from cookies:', savedSession);
       }
+      // Load conversation history
+      fetchConversations();
     }
   }, [isAuthenticated]);
+
+  // Fetch conversation history
+  const fetchConversations = async () => {
+    try {
+      setLoadingConversations(true);
+      const response = await fetch(CONVERSATIONS_URL, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+        },
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setConversations(data);
+      }
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+    } finally {
+      setLoadingConversations(false);
+    }
+  };
+
+  // Load a specific conversation
+  const loadConversation = async (conversationId: string) => {
+    try {
+      const response = await fetch(`${CONVERSATIONS_URL}/${conversationId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+        },
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        const conversation: ConversationDetail = await response.json();
+
+        // Convert conversation messages to Message format
+        // Map snake_case from backend to camelCase for frontend
+        const loadedMessages: Message[] = conversation.messages.map((msg: any, index) => ({
+          id: `${conversationId}-${index}`,
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content,
+          timestamp: new Date(msg.timestamp),
+          reportUrl: msg.report_url || msg.reportUrl,
+          carsCompared: msg.cars_compared || msg.carsCompared,
+          timeTaken: msg.time_taken || msg.timeTaken,
+        }));
+
+        setMessages(loadedMessages);
+        setSession({
+          userId: conversation.user_id || null,
+          sessionId: conversation.session_id || null,
+          conversationId: conversation.conversation_id,
+        });
+        setShowHistory(false);
+      }
+    } catch (error) {
+      console.error('Error loading conversation:', error);
+    }
+  };
+
+  // Delete a conversation
+  const deleteConversation = async (conversationId: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+
+    if (!confirm('Are you sure you want to delete this conversation?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${CONVERSATIONS_URL}/${conversationId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+        },
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        // Refresh conversations list
+        fetchConversations();
+
+        // If the deleted conversation is currently loaded, clear it
+        if (session.conversationId === conversationId) {
+          startNewConversation();
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+    }
+  };
 
   // Auto-scroll to bottom
   const scrollToBottom = () => {
@@ -101,6 +218,22 @@ function App() {
     return () => container?.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Handle click outside user dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
+        setShowUserDropdown(false);
+      }
+    };
+
+    if (showUserDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showUserDropdown]);
+
   const handleLoginSuccess = () => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
@@ -111,6 +244,7 @@ function App() {
   };
 
   const handleLogout = async () => {
+    setShowUserDropdown(false);
     try {
       await fetch(LOGOUT_URL, {
         method: 'POST',
@@ -125,7 +259,9 @@ function App() {
       setUser(null);
       setIsAuthenticated(false);
       setMessages([]);
-      setSession({ userId: null, sessionId: null });
+      setSession({ userId: null, sessionId: null, conversationId: null });
+      setConversations([]);
+      setShowHistory(false);
     }
   };
 
@@ -194,6 +330,7 @@ function App() {
       };
       if (session.userId) headers['X-User-Id'] = session.userId;
       if (session.sessionId) headers['X-Session-Id'] = session.sessionId;
+      if (session.conversationId) headers['X-Conversation-Id'] = session.conversationId;
 
       const response = await fetch(API_URL, {
         method: 'POST',
@@ -217,11 +354,21 @@ function App() {
 
       const data = await response.json();
 
-      // Save session to cookies on FIRST message only
-      if (!session.userId && data.user_id && data.session_id) {
-        const newSession = { userId: data.user_id, sessionId: data.session_id };
+      // Update session with IDs from response
+      const newSession = {
+        userId: data.user_id || session.userId,
+        sessionId: data.session_id || session.sessionId,
+        conversationId: data.conversation_id || session.conversationId,
+      };
+
+      if (newSession.userId && newSession.sessionId) {
         setSession(newSession);
         saveSessionToCookies(newSession);
+      }
+
+      // Refresh conversation list if we have a new conversation
+      if (data.conversation_id && data.conversation_id !== session.conversationId) {
+        fetchConversations();
       }
 
       // Remove loading message and add actual response
@@ -262,10 +409,11 @@ function App() {
 
   const startNewConversation = () => {
     setMessages([]);
-    setSession({ userId: null, sessionId: null });
+    setSession({ userId: null, sessionId: null, conversationId: null });
     clearSessionCookies();
     setSelectedFile(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    setShowHistory(false);
   };
 
   // Utility functions
@@ -321,35 +469,107 @@ function App() {
           />
         </div>
 
-        <div className="nav-center">
+        <div className="nav-right">
           <div className="nav-agent-display">
             <Car size={16} />
             <span>{getAgentName(user?.role || '')}</span>
           </div>
-        </div>
 
-        <div className="nav-right">
-          <div className="user-profile">
-            <div className="user-avatar">
-              <User size={18} />
-            </div>
-            <div className="user-info">
-              <div className="user-name">{user?.full_name || user?.email}</div>
-              <div className="user-credits">{user?.role} Role</div>
-            </div>
-          </div>
-
-          <button className="create-btn" onClick={startNewConversation}>
+          <button className="nav-btn" onClick={startNewConversation}>
             <Plus size={18} />
             <span>New Chat</span>
           </button>
 
-          <button className="logout-btn" onClick={handleLogout}>
-            <LogOut size={18} />
-            <span>Logout</span>
+          <button className="nav-btn" onClick={() => setShowHistory(!showHistory)}>
+            <History size={18} />
+            <span>History</span>
           </button>
+
+          <div className="user-profile-wrapper" ref={userDropdownRef}>
+            <div
+              className="user-profile-dropdown"
+              onClick={() => setShowUserDropdown(!showUserDropdown)}
+            >
+              <div className="user-avatar-circle">
+                {(user?.full_name || user?.email || 'U').substring(0, 2).toUpperCase()}
+              </div>
+              <div className="user-info">
+                <div className="user-name">{user?.full_name || user?.email}</div>
+                <div className="user-credits">{user?.role} Role</div>
+              </div>
+              <button className="user-dropdown-btn">
+                <ChevronDown size={16} />
+              </button>
+            </div>
+
+            {showUserDropdown && (
+              <div className="user-dropdown-menu">
+                <button className="user-dropdown-item" onClick={handleLogout}>
+                  <LogOut size={16} />
+                  <span>Logout</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
+
+      {/* History Sidebar */}
+      {showHistory && (
+        <>
+          <div className="history-overlay" onClick={() => setShowHistory(false)} />
+          <div className="history-sidebar">
+            <div className="history-header">
+              <h3>
+                <MessageSquare size={20} />
+                Conversation History
+              </h3>
+              <button className="close-history" onClick={() => setShowHistory(false)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="history-content">
+              {loadingConversations ? (
+                <div className="history-loading">
+                  <Loader2 className="spinner" size={24} />
+                  <p>Loading conversations...</p>
+                </div>
+              ) : conversations.length === 0 ? (
+                <div className="history-empty">
+                  <MessageSquare size={48} opacity={0.3} />
+                  <p>No conversations yet</p>
+                  <span>Start a new chat to begin</span>
+                </div>
+              ) : (
+                <div className="conversation-list">
+                  {conversations.map((conv) => (
+                    <div
+                      key={conv.conversation_id}
+                      className={`conversation-item ${session.conversationId === conv.conversation_id ? 'active' : ''}`}
+                      onClick={() => loadConversation(conv.conversation_id)}
+                    >
+                      <div className="conversation-main">
+                        <div className="conversation-title">{conv.title}</div>
+                        <div className="conversation-meta">
+                          {conv.message_count} messages • {new Date(conv.updated_at).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <button
+                        className="delete-conversation"
+                        onClick={(e) => deleteConversation(conv.conversation_id, e)}
+                        title="Delete conversation"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Main Container */}
       <div className="main-container">

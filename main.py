@@ -6,8 +6,8 @@ import os
 import sys
 import uuid
 import logging
-from datetime import timedelta
-from typing import Optional
+from datetime import datetime, timedelta
+from typing import Optional, List
 
 import uvicorn
 from contextlib import asynccontextmanager
@@ -31,6 +31,17 @@ from auth.database import (
     connect_to_mongodb,
     close_mongodb_connection,
     check_database_health,
+    create_conversation,
+    get_conversation_by_id,
+    get_user_conversations,
+    update_conversation,
+    delete_conversation,
+    delete_old_conversations,
+)
+from auth.conversation_models import (
+    Conversation,
+    ConversationMessage,
+    ConversationListItem,
 )
 
 # Force unbuffered output
@@ -208,6 +219,96 @@ async def get_me(current_user: User = Depends(get_current_user)):
 
 
 # ============================================
+# CONVERSATION HISTORY ENDPOINTS
+# ============================================
+
+@app.get("/api/conversations", response_model=List[ConversationListItem])
+async def get_conversations(current_user: User = Depends(get_current_user)):
+    """
+    Get user's recent conversations (last 4)
+    """
+    try:
+        conversations = await get_user_conversations(current_user.email, limit=4)
+
+        # Convert to list items
+        conversation_list = [
+            ConversationListItem(
+                conversation_id=conv["conversation_id"],
+                title=conv["title"],
+                created_at=conv["created_at"],
+                updated_at=conv["updated_at"],
+                message_count=len(conv.get("messages", []))
+            )
+            for conv in conversations
+        ]
+
+        return conversation_list
+
+    except Exception as e:
+        logger.error(f"Error fetching conversations: {e}")
+        raise HTTPException(status_code=500, detail="Error fetching conversations")
+
+
+@app.get("/api/conversations/{conversation_id}", response_model=Conversation)
+async def get_conversation(
+    conversation_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get a specific conversation by ID
+    """
+    try:
+        conversation = await get_conversation_by_id(conversation_id)
+
+        if not conversation:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+
+        # Verify user owns this conversation
+        if conversation["user_email"] != current_user.email:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        return Conversation(**conversation)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching conversation: {e}")
+        raise HTTPException(status_code=500, detail="Error fetching conversation")
+
+
+@app.delete("/api/conversations/{conversation_id}")
+async def delete_conversation_endpoint(
+    conversation_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Delete a conversation
+    """
+    try:
+        conversation = await get_conversation_by_id(conversation_id)
+
+        if not conversation:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+
+        # Verify user owns this conversation
+        if conversation["user_email"] != current_user.email:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        success = await delete_conversation(conversation_id)
+
+        if success:
+            return {"status": "success", "message": "Conversation deleted"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to delete conversation")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting conversation: {e}")
+        raise HTTPException(status_code=500, detail="Error deleting conversation")
+
+
+# ============================================
 # PROTECTED AGENT ENDPOINTS
 # ============================================
 
@@ -217,6 +318,7 @@ async def compare_cars(
     pdf_file: Optional[Union[UploadFile, str]] = File(None, description="Optional PDF with car specifications or reviews"),
     x_user_id: Optional[str] = Header(None, alias="X-User-Id", description="User ID from previous response. Pass to continue conversation."),
     x_session_id: Optional[str] = Header(None, alias="X-Session-Id", description="Session ID from previous response. Pass to continue conversation."),
+    x_conversation_id: Optional[str] = Header(None, alias="X-Conversation-Id", description="Conversation ID to continue existing conversation."),
     current_user: User = Depends(get_current_user),  # JWT authentication required
 ):
     """
@@ -365,6 +467,84 @@ async def compare_cars(
         except Exception as e:
             logger.warning(f"[SESSION] Could not retrieve final session state: {e}")
 
+        # ============================================
+        # SAVE CONVERSATION TO MONGODB
+        # ============================================
+        conversation_id = x_conversation_id
+        current_time = datetime.utcnow()
+
+        # Create message objects
+        user_message = {
+            "role": "user",
+            "content": query,
+            "timestamp": current_time,
+        }
+
+        assistant_message = {
+            "role": "assistant",
+            "content": full_response,
+            "timestamp": current_time,
+        }
+
+        # Extract metadata from response
+        import re
+        report_url_match = re.search(r'https://storage\.googleapis\.com/[^\s]+', full_response)
+        if report_url_match:
+            assistant_message["report_url"] = report_url_match.group(0)
+
+        cars_match = re.search(r'Compared:\s*(.+?)(?:\n|$)', full_response)
+        if cars_match:
+            assistant_message["cars_compared"] = cars_match.group(1).strip()
+
+        time_match = re.search(r'Time:\s*([\d.]+)\s*seconds?', full_response)
+        if time_match:
+            assistant_message["time_taken"] = f"{time_match.group(1)}s"
+
+        try:
+            if conversation_id:
+                # Update existing conversation
+                existing_conv = await get_conversation_by_id(conversation_id)
+                if existing_conv and existing_conv["user_email"] == current_user.email:
+                    messages = existing_conv.get("messages", [])
+                    messages.append(user_message)
+                    messages.append(assistant_message)
+
+                    await update_conversation(conversation_id, {
+                        "messages": messages,
+                        "updated_at": current_time,
+                    })
+                    logger.info(f"[CONVERSATION] Updated conversation: {conversation_id}")
+                else:
+                    conversation_id = None  # Create new if not found or access denied
+
+            if not conversation_id:
+                # Create new conversation
+                conversation_id = f"conv_{uuid.uuid4().hex[:12]}"
+
+                # Generate title from first message (truncate to 50 chars)
+                title = query[:50] + "..." if len(query) > 50 else query
+
+                conversation_data = {
+                    "conversation_id": conversation_id,
+                    "user_email": current_user.email,
+                    "title": title,
+                    "messages": [user_message, assistant_message],
+                    "created_at": current_time,
+                    "updated_at": current_time,
+                    "session_id": session_id,
+                    "user_id": user_id,
+                }
+
+                await create_conversation(conversation_data)
+                logger.info(f"[CONVERSATION] Created new conversation: {conversation_id}")
+
+                # Delete old conversations beyond limit of 4
+                await delete_old_conversations(current_user.email, keep_count=4)
+
+        except Exception as e:
+            logger.error(f"[CONVERSATION] Error saving conversation: {e}")
+            # Don't fail the request if conversation save fails
+
         logger.info("[SUCCESS] Returning response")
         return JSONResponse(content={
             "status": "success",
@@ -374,7 +554,8 @@ async def compare_cars(
             "has_pdf": pdf_file is not None,
             "response": full_response,
             "user_id": user_id,
-            "session_id": session_id
+            "session_id": session_id,
+            "conversation_id": conversation_id
         })
 
     except HTTPException:

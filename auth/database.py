@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 MONGODB_URL = os.getenv("MONGODB_URL")
 DATABASE_NAME = os.getenv("MONGODB_DATABASE", "car_benchmarking_rbac")
 USERS_COLLECTION = "users"
+CONVERSATIONS_COLLECTION = "conversations"
 
 # Validate MongoDB URL
 if not MONGODB_URL:
@@ -58,6 +59,8 @@ async def connect_to_mongodb():
 
         # Create indexes
         await _database[USERS_COLLECTION].create_index("email", unique=True)
+        await _database[CONVERSATIONS_COLLECTION].create_index([("user_email", 1), ("updated_at", -1)])
+        await _database[CONVERSATIONS_COLLECTION].create_index("conversation_id", unique=True)
 
         logger.info(f"✓ Successfully connected to MongoDB: {DATABASE_NAME}")
         return _database
@@ -104,6 +107,17 @@ def get_users_collection() -> AsyncIOMotorCollection:
     """
     db = get_database()
     return db[USERS_COLLECTION]
+
+
+def get_conversations_collection() -> AsyncIOMotorCollection:
+    """
+    Get conversations collection
+
+    Returns:
+        AsyncIOMotorCollection for conversations
+    """
+    db = get_database()
+    return db[CONVERSATIONS_COLLECTION]
 
 
 # ============================================
@@ -270,3 +284,157 @@ async def check_database_health() -> Dict[str, Any]:
             "error": str(e),
             "connected": False
         }
+
+
+# ============================================
+# CONVERSATION CRUD OPERATIONS
+# ============================================
+
+async def create_conversation(conversation_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Create a new conversation in MongoDB
+
+    Args:
+        conversation_data: Conversation document to insert
+
+    Returns:
+        Created conversation document
+    """
+    try:
+        collection = get_conversations_collection()
+        result = await collection.insert_one(conversation_data)
+
+        conversation_data["_id"] = result.inserted_id
+        logger.info(f"Created conversation: {conversation_data.get('conversation_id')} for {conversation_data.get('user_email')}")
+        return conversation_data
+
+    except Exception as e:
+        logger.error(f"Error creating conversation: {e}")
+        raise
+
+
+async def get_conversation_by_id(conversation_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Get conversation by ID
+
+    Args:
+        conversation_id: Conversation ID
+
+    Returns:
+        Conversation document or None if not found
+    """
+    try:
+        collection = get_conversations_collection()
+        conversation = await collection.find_one({"conversation_id": conversation_id})
+        return conversation
+
+    except PyMongoError as e:
+        logger.error(f"Error fetching conversation {conversation_id}: {e}")
+        return None
+
+
+async def get_user_conversations(user_email: str, limit: int = 4) -> list:
+    """
+    Get user's recent conversations (limited to last N conversations)
+
+    Args:
+        user_email: User email
+        limit: Maximum number of conversations to return (default: 4)
+
+    Returns:
+        List of conversation documents, sorted by most recent first
+    """
+    try:
+        collection = get_conversations_collection()
+        cursor = collection.find({"user_email": user_email}).sort("updated_at", -1).limit(limit)
+        conversations = await cursor.to_list(length=limit)
+        return conversations
+
+    except PyMongoError as e:
+        logger.error(f"Error fetching conversations for {user_email}: {e}")
+        return []
+
+
+async def update_conversation(conversation_id: str, update_data: Dict[str, Any]) -> bool:
+    """
+    Update conversation data
+
+    Args:
+        conversation_id: Conversation ID
+        update_data: Fields to update
+
+    Returns:
+        True if updated, False otherwise
+    """
+    try:
+        collection = get_conversations_collection()
+        result = await collection.update_one(
+            {"conversation_id": conversation_id},
+            {"$set": update_data}
+        )
+
+        if result.modified_count > 0:
+            logger.info(f"Updated conversation: {conversation_id}")
+            return True
+        return False
+
+    except PyMongoError as e:
+        logger.error(f"Error updating conversation {conversation_id}: {e}")
+        return False
+
+
+async def delete_conversation(conversation_id: str) -> bool:
+    """
+    Delete conversation
+
+    Args:
+        conversation_id: Conversation ID
+
+    Returns:
+        True if deleted, False otherwise
+    """
+    try:
+        collection = get_conversations_collection()
+        result = await collection.delete_one({"conversation_id": conversation_id})
+
+        if result.deleted_count > 0:
+            logger.info(f"Deleted conversation: {conversation_id}")
+            return True
+        return False
+
+    except PyMongoError as e:
+        logger.error(f"Error deleting conversation {conversation_id}: {e}")
+        return False
+
+
+async def delete_old_conversations(user_email: str, keep_count: int = 4) -> int:
+    """
+    Delete old conversations beyond the keep_count limit
+
+    Args:
+        user_email: User email
+        keep_count: Number of recent conversations to keep (default: 4)
+
+    Returns:
+        Number of conversations deleted
+    """
+    try:
+        collection = get_conversations_collection()
+
+        # Find conversations to delete (oldest ones beyond keep_count)
+        cursor = collection.find({"user_email": user_email}).sort("updated_at", -1).skip(keep_count)
+        conversations_to_delete = await cursor.to_list(length=None)
+
+        if not conversations_to_delete:
+            return 0
+
+        # Delete these conversations
+        conversation_ids = [conv["conversation_id"] for conv in conversations_to_delete]
+        result = await collection.delete_many({"conversation_id": {"$in": conversation_ids}})
+
+        logger.info(f"Deleted {result.deleted_count} old conversations for {user_email}")
+        return result.deleted_count
+
+    except PyMongoError as e:
+        logger.error(f"Error deleting old conversations for {user_email}: {e}")
+        return 0
