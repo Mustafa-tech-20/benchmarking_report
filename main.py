@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.datastructures import UploadFile as StarletteUploadFile
 from google.adk.runners import Runner, InMemorySessionService
+from google.adk.errors import SessionNotFoundError
 from google.genai import types
 from typing import Union
 
@@ -562,6 +563,12 @@ async def compare_cars(
 
     except HTTPException:
         raise
+    except SessionNotFoundError as e:
+        logger.error(f"[ERROR] Session not found: {session_id}")
+        raise HTTPException(
+            status_code=400,
+            detail="Session not found. Please start a new conversation."
+        )
     except Exception as e:
         import traceback
         logger.error(f"[ERROR] {str(e)}")

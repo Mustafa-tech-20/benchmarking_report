@@ -356,6 +356,34 @@ function App() {
 
       const data = await response.json();
 
+      // Check for error responses from backend
+      if (!response.ok) {
+        setMessages(prev => prev.filter(m => m.id !== loadingId));
+        const errorMessage = data.detail || data.error || data.message || 'An error occurred';
+
+        // Check if it's a session not found error
+        if (errorMessage.toLowerCase().includes('session not found') ||
+            errorMessage.toLowerCase().includes('session expired')) {
+          // Clear the invalid session and prompt user to start fresh
+          clearSessionCookies();
+          setSession({ userId: null, sessionId: null, conversationId: null });
+          setMessages(prev => [...prev, {
+            id: Date.now().toString(),
+            role: 'assistant',
+            content: '⚠️ Your previous session has expired. Please start a new conversation.',
+            timestamp: new Date(),
+          }]);
+        } else {
+          setMessages(prev => [...prev, {
+            id: Date.now().toString(),
+            role: 'assistant',
+            content: `⚠️ ${errorMessage}`,
+            timestamp: new Date(),
+          }]);
+        }
+        return;
+      }
+
       // Update session with IDs from response
       const newSession = {
         userId: data.user_id || session.userId,
