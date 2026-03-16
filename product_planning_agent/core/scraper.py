@@ -1067,42 +1067,104 @@ Return ONLY the JSON object."""
         return {"value": "Not found", "source_url": "N/A"}
 
 
+def _extract_batch_from_snippets(
+    car_name: str,
+    batch: List[str],
+    search_results_map: Dict[str, List[Dict[str, str]]]
+) -> Dict[str, Dict[str, str]]:
+    """
+    Extract up to 10 specs in ONE Gemini call.
+    Each spec's snippets are shown in a clearly labelled section to prevent
+    cross-contamination. Searches remain 1-per-spec; only Gemini is batched.
+
+    Returns: {spec_name: {"value": ..., "source_url": ...}}
+    """
+    sections = []
+    for spec_name in batch:
+        results = search_results_map.get(spec_name, [])
+        human_name = spec_name.replace("_", " ").title()
+        desc = SPEC_DESCRIPTIONS.get(spec_name, human_name)
+        section = f"--- SPEC: {spec_name} ({human_name}) ---\nDefinition: {desc}\n"
+        if results:
+            for i, r in enumerate(results[:5], 1):
+                section += f"[{i}] {r.get('domain', '')}: {r.get('snippet', '')}\n    URL: {r.get('url', '')}\n"
+        else:
+            section += "(No search results)\n"
+        sections.append(section)
+
+    json_lines = [
+        f'    "{s}": {{"value": "extracted value or Not found", "source_url": "URL from that spec\'s results only"}}'
+        for s in batch
+    ]
+
+    prompt = f"""Extract {len(batch)} specifications for the LATEST MODEL of {car_name}.
+Each specification has its own clearly labelled search results section.
+
+{"".join(sections)}
+Return ONLY this JSON (no markdown):
+{{
+{chr(10).join(json_lines)}
+}}
+
+CRITICAL RULES:
+- Use ONLY the search results from each spec's OWN section — never mix between specs
+- Include units: bhp, Nm, kmpl, mm, litres, kg, sec, etc.
+- source_url must be a real URL from THAT spec's own results, from: {_TRUSTED_DOMAINS_PROMPT_LIST}
+- NEVER return Google, Bing, Vertex AI, or redirect URLs
+- Prefer {CURRENT_YEAR} or most recent model data
+- If not clearly found in a spec's own results: return "Not found" and source_url "N/A" """
+
+    try:
+        text = call_gemini_simple(prompt)
+        if not text:
+            return {s: {"value": "Not found", "source_url": "N/A"} for s in batch}
+
+        if "```json" in text:
+            text = text.split("```json")[1].split("```")[0]
+        elif "```" in text:
+            text = text.split("```")[1].split("```")[0]
+        text = text.strip()
+        if "{" in text and "}" in text:
+            text = text[text.index("{"):text.rindex("}") + 1]
+
+        data = json_repair.loads(text)
+        if not isinstance(data, dict):
+            return {s: {"value": "Not found", "source_url": "N/A"} for s in batch}
+
+        result = {}
+        for spec_name in batch:
+            spec_data = data.get(spec_name, {})
+            if isinstance(spec_data, dict):
+                value = spec_data.get("value", "Not found")
+                raw_url = spec_data.get("source_url", "N/A")
+            else:
+                value = str(spec_data) if spec_data else "Not found"
+                raw_url = "N/A"
+            if not value or value in ["Not found", "N/A", ""]:
+                value = "Not found"
+            result[spec_name] = {"value": value, "source_url": normalize_citation_url(raw_url)}
+        return result
+
+    except Exception:
+        return {s: {"value": "Not found", "source_url": "N/A"} for s in batch}
+
+
 def phase1_per_spec_search(car_name: str, existing_specs: Dict[str, str] = None) -> Dict[str, Any]:
     """
-    Phase 1: For each remaining spec, do one search query and extract from snippets.
+    Phase 1: Per-spec CSE search (unchanged) + batched Gemini extraction.
 
-    Searches only specs not already found in Phase 0 (official site).
+    Searches: 1 Custom Search query per spec (same as before).
+    Extraction: snippets from 10 specs sent to 1 Gemini call (10x fewer Gemini calls).
 
     Returns: {specs: {spec_name: value}, citations: {spec_name: {source_url}}}
     """
+    BATCH_SIZE = 10
+
     print(f"\n{'='*60}")
-    print(f"PHASE 1: PER-SPEC SEARCH + SNIPPET EXTRACTION")
+    print(f"PHASE 1: PER-SPEC SEARCH + BATCHED SNIPPET EXTRACTION")
     print(f"{'='*60}\n")
 
     existing_specs = existing_specs or {}
-    specs = {}
-    citations = {}
-
-    def search_and_extract(spec_name):
-        """Search and extract a single spec."""
-        keyword = SPEC_KEYWORDS.get(spec_name, spec_name.replace("_", " "))
-        # Use enhanced query with "latest" for most current results
-        query = build_enhanced_query(car_name, keyword, enhance=True)
-
-        try:
-            # Search with exponential backoff
-            search_results = google_custom_search(query, SEARCH_ENGINE_ID, num_results=5)
-
-            # Extract from snippets
-            result = extract_spec_from_snippets(car_name, spec_name, search_results)
-
-            return spec_name, result["value"], result["source_url"]
-
-        except Exception as e:
-            # Log rate limit errors
-            if "429" in str(e) or "quota" in str(e).lower():
-                print(f"    Rate limit hit for {spec_name}, will retry...")
-            return spec_name, "Not found", "N/A"
 
     # Find specs not yet found
     remaining_specs = [
@@ -1110,37 +1172,49 @@ def phase1_per_spec_search(car_name: str, existing_specs: Dict[str, str] = None)
         if s not in existing_specs or existing_specs.get(s) in ["Not found", "Not Available", ""]
     ]
 
-    print(f"  Searching {len(remaining_specs)} remaining specs with SEARCH_ENGINE_ID...")
+    print(f"  Searching {len(remaining_specs)} specs | extracting in batches of {BATCH_SIZE}...\n")
+
+    # ── STEP 1: run all searches in parallel (identical to original) ──────────
+    search_results_map: Dict[str, List[Dict]] = {}
+
+    def run_search(spec_name):
+        keyword = SPEC_KEYWORDS.get(spec_name, spec_name.replace("_", " "))
+        query = build_enhanced_query(car_name, keyword, enhance=True)
+        try:
+            return spec_name, google_custom_search(query, SEARCH_ENGINE_ID, num_results=5)
+        except Exception as e:
+            if "429" in str(e) or "quota" in str(e).lower():
+                print(f"    Search rate limit: {spec_name}")
+            return spec_name, []
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=SEARCH_WORKERS) as executor:
-        futures = {executor.submit(search_and_extract, spec): spec for spec in remaining_specs}
+        for spec_name, results in executor.map(run_search, remaining_specs):
+            search_results_map[spec_name] = results
 
-        completed = 0
-        found = 0
+    # ── STEP 2: batch specs into groups of 10, one Gemini call per batch ──────
+    batches = [remaining_specs[i:i+BATCH_SIZE] for i in range(0, len(remaining_specs), BATCH_SIZE)]
+    print(f"  {len(remaining_specs)} searches done → {len(batches)} Gemini extraction calls\n")
 
-        for future in concurrent.futures.as_completed(futures):
-            spec_name = futures[future]
-            completed += 1
+    specs = {}
+    citations = {}
+    found = 0
 
-            try:
-                spec_name, value, source_url = future.result()
+    def run_batch(batch):
+        return _extract_batch_from_snippets(car_name, batch, search_results_map)
 
+    with concurrent.futures.ThreadPoolExecutor(max_workers=GEMINI_WORKERS) as executor:
+        for batch_result in executor.map(run_batch, batches):
+            for spec_name, spec_data in batch_result.items():
+                value = spec_data["value"]
+                source_url = spec_data["source_url"]
                 specs[spec_name] = value
                 citations[spec_name] = {
                     "source_url": source_url,
                     "citation_text": "From search results",
                     "engine": "SEARCH",
                 }
-
                 if value and "Not found" not in value:
                     found += 1
-
-                if completed % 20 == 0:
-                    print(f"    Progress: {completed}/{len(remaining_specs)} ({found} found)")
-
-            except Exception:
-                specs[spec_name] = "Not found"
-                citations[spec_name] = {"source_url": "N/A", "citation_text": "", "engine": "SEARCH"}
 
     accuracy = (found / len(remaining_specs) * 100) if remaining_specs else 0
     print(f"\n  Phase 1 Complete: {found}/{len(remaining_specs)} specs ({accuracy:.1f}%)")
