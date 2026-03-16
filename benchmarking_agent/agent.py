@@ -28,62 +28,86 @@ from benchmarking_agent.core.internal_car_tools import (
 from benchmarking_agent.reports.html_generator import create_comparison_chart_html
 
 
-def generate_comparison_summary(comparison_data: Dict[str, Any]) -> str:
-    """Generate industry-standard benchmarks and pointers for product team reference."""
+def generate_comparison_summary(comparison_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Generate feature comparison summary showing differences between cars."""
     try:
-        # Extract only key specs (no citations) to reduce token count
-        key_specs = [
-            "price_range", "mileage", "user_rating", "seating_capacity",
-            "performance", "torque", "transmission", "acceleration",
-            "vehicle_safety_features", "braking", "steering",
-            "ride_quality", "nvh", "off_road", "interior",
-            "infotainment_screen", "boot_space", "sunroof"
-        ]
+        # Get car names
+        car_names = [name for name, data in comparison_data.items()
+                     if isinstance(data, dict) and "error" not in data]
 
-        # Build condensed data
+        if len(car_names) < 2:
+            return {"features_not_in_car1": {}, "features_in_car1_only": {}}
+
+        car1_name = car_names[0]
+        car2_name = car_names[1]
+
+        # Build condensed data for comparison
         condensed_data = {}
         for car_name, car_data in comparison_data.items():
             if isinstance(car_data, dict) and "error" not in car_data:
-                condensed_data[car_name] = {"car_name": car_data.get("car_name", car_name)}
-                for spec in key_specs:
-                    value = car_data.get(spec, "")
-                    if value and value not in ["Not Available", "Not found", "N/A"]:
-                        condensed_data[car_name][spec] = str(value)[:100]
+                condensed_data[car_name] = {}
+                for key, value in car_data.items():
+                    if key not in ["images", "citations", "sources"] and value:
+                        if value not in ["Not Available", "Not found", "N/A", "-", ""]:
+                            condensed_data[car_name][key] = str(value)[:200]
 
         model = GenerativeModel("gemini-2.5-flash")
 
-        prompt = f"""You are an automotive industry analyst providing strategic guidance for a product development team.
+        prompt = f"""You are an automotive analyst comparing two vehicles. Analyze the specification data and identify feature differences.
 
-Based on this competitor analysis data, provide focused recommendations for each category. Each category should be a 3-5 line paragraph explaining what to focus on and what to avoid.
+Vehicle 1: {car1_name}
+Vehicle 2: {car2_name}
 
-Data from competitor analysis:
+Specification Data:
 {json.dumps(condensed_data, indent=2)}
 
-Write one paragraph (3-5 lines) for each of these categories:
+Return a JSON object with exactly this structure:
+{{
+    "features_not_in_car1": {{
+        "Power & Torque": ["specific feature 1 with numbers if available", "feature 2"],
+        "Drive Mode": ["feature descriptions"],
+        "Exterior": ["feature descriptions"],
+        "Capabilities": ["feature descriptions"],
+        "ADAS": ["feature descriptions"],
+        "Interior": ["feature descriptions"],
+        "Engine": ["feature descriptions"],
+        "BRAKES": ["feature descriptions"],
+        "Others": ["any other notable differences"]
+    }},
+    "features_in_car1_only": {{
+        "Exterior & Interior": ["feature descriptions"],
+        "Engine": ["feature descriptions"],
+        "BRAKES": ["feature descriptions"],
+        "ADAS": ["feature descriptions"],
+        "Others": ["any other notable differences"]
+    }}
+}}
 
-**Price Positioning**
-**Engine & Performance**
-**Fuel Efficiency**
-**Safety Standards**
-**NVH Levels**
-**Ride & Handling**
-**Interior & Features**
-**User Satisfaction**
-
-CRITICAL FORMAT RULES:
-- NO intro line (do NOT start with "Here are..." or similar)
-- Each category gets a focused paragraph (3-5 lines)
-- Include specific numbers/ranges from the data
-- Explain what the product team SHOULD prioritize
-- Explain what they should AVOID or de-prioritize
-- Keep total response under 400 words
-- Start directly with the first category heading"""
+RULES:
+1. "features_not_in_car1" = Features that {car2_name} has but {car1_name} does NOT have
+2. "features_in_car1_only" = Features that {car1_name} has but {car2_name} does NOT have
+3. Include specific values/numbers when comparing (e.g., "187kW @5500 RPM (30.4% higher)")
+4. Only include categories that have actual differences - omit empty categories
+5. Each feature should be a concise but descriptive string
+6. Return ONLY valid JSON, no markdown formatting or explanation"""
 
         response = model.generate_content(prompt)
-        return response.text
+        response_text = response.text.strip()
+
+        # Clean up response if wrapped in markdown
+        if response_text.startswith("```json"):
+            response_text = response_text[7:]
+        if response_text.startswith("```"):
+            response_text = response_text[3:]
+        if response_text.endswith("```"):
+            response_text = response_text[:-3]
+
+        summary_data = json.loads(response_text.strip())
+        return summary_data
 
     except Exception as e:
-        return f"Error generating summary: {str(e)}"
+        print(f"Error generating summary: {str(e)}")
+        return {"features_not_in_car1": {}, "features_in_car1_only": {}}
 
 
 def save_pdf_car_specs_tool(car_name: str, specs_json: str) -> str:
@@ -457,11 +481,11 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
     print("=" * 60)
 
     print("\n STEP 2: Generating AI-powered comparison summary...")
-    summary = generate_comparison_summary(results["comparison_data"])
-    results["summary"] = summary
+    summary_data = generate_comparison_summary(results["comparison_data"])
+    results["summary_data"] = summary_data
 
     print("\n STEP 3: Creating enhanced interactive HTML report...")
-    html_content = create_comparison_chart_html(results["comparison_data"], summary)
+    html_content = create_comparison_chart_html(results["comparison_data"], "", summary_data)
 
     # Upload HTML directly to GCS (viewable in browser)
     html_gcs_uri, html_signed_url = save_chart_to_gcs(html_content, folder_name)
@@ -497,32 +521,14 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
 
     response = {
         "status": "success",
-        "message": f"Car comparison completed! Click the URLs below to view in your browser.",
         "cars_compared": car_list,
-        "code_cars_left_blank": blank_cars if blank_cars else [],
-        "code_cars_with_manual_specs": manual_cars if manual_cars else [],
-        "total_cars": len(car_list),
-
-        # GCS Storage
-        "gcs_folder": folder_name,
-        "chart_gcs_uri": html_gcs_uri,
-        "json_gcs_uri": json_gcs_uri,
-
-        # BROWSER-VIEWABLE SIGNED URLS
         "html_report_url": html_signed_url,
-        "json_data_url": json_signed_url,
-
-        # Alternative keys for compatibility
-        "chart_signed_url": html_signed_url,
-        "json_signed_url": json_signed_url,
-
-        # Metadata
-        "summary": summary,
         "elapsed_time": f"{elapsed_time:.2f} seconds",
-        "scraping_method": "Custom Search API" if use_custom_search else "Gemini URL Parsing",
-        "signed_url_expiration_hours": SIGNED_URL_EXPIRATION_HOURS,
-        "instructions": "Click 'html_report_url' to view the interactive report in your browser. All CSS and JavaScript are embedded."
     }
+    if blank_cars:
+        response["code_cars_left_blank"] = blank_cars
+    if manual_cars:
+        response["code_cars_with_manual_specs"] = manual_cars
 
     return json.dumps(response, indent=2)
 

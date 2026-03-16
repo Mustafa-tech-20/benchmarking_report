@@ -553,32 +553,14 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
 
     response = {
         "status": "success",
-        "message": f"Car comparison completed! Click the URLs below to view in your browser.",
         "cars_compared": car_list,
-        "code_cars_left_blank": blank_cars if blank_cars else [],
-        "code_cars_with_manual_specs": manual_cars if manual_cars else [],
-        "total_cars": len(car_list),
-
-        # GCS Storage
-        "gcs_folder": folder_name,
-        "chart_gcs_uri": html_gcs_uri,
-        "json_gcs_uri": json_gcs_uri,
-
-        # BROWSER-VIEWABLE SIGNED URLS
         "html_report_url": html_signed_url,
-        "json_data_url": json_signed_url,
-
-        # Alternative keys for compatibility
-        "chart_signed_url": html_signed_url,
-        "json_signed_url": json_signed_url,
-
-        # Metadata
-        "summary": summary,
         "elapsed_time": f"{elapsed_time:.2f} seconds",
-        "scraping_method": "Custom Search API" if use_custom_search else "Gemini URL Parsing",
-        "signed_url_expiration_hours": SIGNED_URL_EXPIRATION_HOURS,
-        "instructions": "Click 'html_report_url' to view the interactive report in your browser. All CSS and JavaScript are embedded."
     }
+    if blank_cars:
+        response["code_cars_left_blank"] = blank_cars
+    if manual_cars:
+        response["code_cars_with_manual_specs"] = manual_cars
 
     return json.dumps(response, indent=2)
 

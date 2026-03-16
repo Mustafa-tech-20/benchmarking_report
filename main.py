@@ -591,12 +591,6 @@ async def compare_cars(
 
     except HTTPException:
         raise
-    except SessionNotFoundError as e:
-        logger.error(f"[ERROR] Session not found: {session_id}")
-        raise HTTPException(
-            status_code=400,
-            detail="Session not found. Please start a new conversation."
-        )
     except Exception as e:
         import traceback
         logger.error(f"[ERROR] {str(e)}")

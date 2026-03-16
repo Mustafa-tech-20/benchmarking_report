@@ -7,11 +7,11 @@ import re
 from benchmarking_agent.reports.image_sections import (
     generate_hero_section,
     generate_image_gallery_section,
+    generate_technical_spec_section,
+    generate_feature_list_section,
+    generate_drivetrain_comparison_section,
+    generate_summary_comparison_section,
     get_image_section_styles
-)
-from benchmarking_agent.reports.checklist_transformer import (
-    transform_to_checklist,
-    format_checklist_value
 )
 
 
@@ -497,165 +497,16 @@ def _generate_consolidated_review_html(comparison_data: Dict[str, Any]) -> str:
     return review_html
 
 
-def generate_checklist_table(comparison_data: Dict[str, Any]) -> str:
-    """
-    Generate checklist comparison with accordion sections and ✓, ✗, numbers, and short text values.
-
-    Args:
-        comparison_data: Dictionary containing car comparison data
-
-    Returns:
-        HTML string for the checklist sections
-    """
-    # Transform all cars to checklist format
-    checklists = {}
-    car_names = []
-
-    for car_name, car_data in comparison_data.items():
-        if "error" not in car_data:
-            checklist = transform_to_checklist(car_data)
-            checklists[car_name] = checklist
-            car_names.append(car_name)
-
-    if not car_names:
-        return "<p>No data available for checklist comparison.</p>"
-
-    # Helper function to generate a section
-    def generate_section(section_title, subcategory_name, features, section_id):
-        section_html = f'''
-        <div class="checklist-section">
-            <div class="checklist-category-header" onclick="toggleChecklistSection('{section_id}')">
-                <span>{section_title}</span>
-                <span class="checklist-toggle-icon">▼</span>
-            </div>
-            <div class="checklist-section-content" id="{section_id}">
-                <table class="checklist-table">
-                    <thead>
-                        <tr>
-                            <th class="category-col">Category</th>
-                            <th class="feature-col">Feature</th>
-'''
-        for car_name in car_names:
-            section_html += f'                            <th class="car-col">{car_name}</th>\n'
-        section_html += '''                        </tr>
-                    </thead>
-                    <tbody>
-'''
-        for idx, (feature_name, category, key) in enumerate(features):
-            section_html += f'                        <tr>\n'
-            if idx == 0:
-                section_html += f'                            <td class="category-cell" rowspan="{len(features)}">{subcategory_name}</td>\n'
-            section_html += f'                            <td class="feature-cell">{feature_name}</td>\n'
-            for car_name in car_names:
-                value = checklists[car_name][category][key]
-                section_html += f'                            <td class="value-cell">{format_checklist_value(value)}</td>\n'
-            section_html += f'                        </tr>\n'
-        section_html += '''                    </tbody>
-                </table>
-            </div>
-        </div>
-'''
-        return section_html
-
-    # Start building HTML
-    html = '<div class="checklist-accordion-container">\n'
-
-    # Safety & Airbags Section
-    safety_features = [
-        ("Number of Airbags", "safety", "airbag_total"),
-        ("Knee Airbag", "safety", "airbag_knee"),
-        ("Curtain Airbag", "safety", "airbag_curtain"),
-        ("Side Airbag", "safety", "airbag_side"),
-        ("ABS (Anti-lock Braking)", "safety", "abs"),
-        ("DSC / ESP", "safety", "dsc"),
-        ("ADAS", "safety", "adas"),
-        ("NCAP Rating", "safety", "ncap_rating"),
-        ("Hill Hold / Hill Descent", "safety", "hill_hold"),
-        ("TPMS (Tyre Pressure Monitor)", "safety", "tpms"),
-        ("ISOFIX Child Seat Anchors", "safety", "isofix"),
-    ]
-    html += generate_section("Safety & Airbags", "Safety", safety_features, "checklist-safety")
-
-    # Seats & Comfort Section
-    seat_features = [
-        ("Seat Material", "seats", "material"),
-        ("Backrest Split Ratio", "seats", "backrest_split"),
-        ("Lumbar Support", "seats", "lumbar_support"),
-        ("Driver Seat Height Adjust", "seats", "seat_height_adjust"),
-        ("Ventilated Seats - Driver", "seats", "ventilation_driver"),
-        ("Ventilated Seats - Co-Driver", "seats", "ventilation_codriver"),
-        ("Rear Seat Folding", "seats", "rear_fold"),
-        ("Rear Center Armrest", "seats", "rear_armrest"),
-    ]
-    html += generate_section("Seats & Comfort", "Seats", seat_features, "checklist-seats")
-
-    # Seatbelt Section
-    seatbelt_features = [
-        ("Pretensioner", "seatbelts", "pretensioner"),
-        ("Load Limiter", "seatbelts", "load_limiter"),
-        ("Height Adjuster", "seatbelts", "height_adjuster"),
-    ]
-    html += generate_section("Seatbelt Features", "Seatbelt", seatbelt_features, "checklist-seatbelt")
-
-    # Technology Section
-    tech_features = [
-        ("Touchscreen Size", "technology", "infotainment_size"),
-        ("Digital Instrument Cluster", "technology", "digital_display"),
-        ("Apple CarPlay / Android Auto", "technology", "apple_carplay"),
-        ("Audio System", "technology", "audio_system"),
-        ("Cruise Control", "technology", "cruise_control"),
-        ("Parking Camera", "technology", "parking_camera"),
-        ("Parking Sensors", "technology", "parking_sensors"),
-        ("Push Button Start", "technology", "push_button_start"),
-    ]
-    html += generate_section("Technology", "Technology", tech_features, "checklist-tech")
-
-    # Comfort Features Section
-    comfort_features = [
-        ("Sunroof / Panoramic Sunroof", "comfort", "sunroof"),
-        ("Climate Control", "comfort", "climate_control"),
-        ("Armrest", "comfort", "armrest"),
-        ("Adjustable Headrest", "comfort", "headrest"),
-        ("Power Windows", "comfort", "power_windows"),
-        ("Auto-Dimming IRVM", "comfort", "auto_irvm"),
-        ("Power Adjustable ORVM", "comfort", "power_orvm"),
-        ("Electronic Parking Brake", "comfort", "epb"),
-    ]
-    html += generate_section("Comfort Features", "Comfort", comfort_features, "checklist-comfort")
-
-    # Exterior Features Section
-    exterior_features = [
-        ("LED Headlights", "exterior", "led_headlights"),
-        ("LED DRLs", "exterior", "led_drls"),
-        ("LED Tail Lamps", "exterior", "led_tail_lamps"),
-        ("Alloy Wheels", "exterior", "alloy_wheels"),
-        ("Wheel Size", "exterior", "wheel_size"),
-        ("Tyre Size", "exterior", "tyre_size"),
-    ]
-    html += generate_section("Exterior Features", "Exterior", exterior_features, "checklist-exterior")
-
-    # Dimensions & Specs Section
-    dimension_features = [
-        ("Wheelbase", "dimensions", "wheelbase"),
-        ("Ground Clearance", "dimensions", "ground_clearance"),
-        ("Turning Radius", "dimensions", "turning_radius"),
-        ("Boot Space", "dimensions", "boot_space"),
-        ("Fuel Type", "dimensions", "fuel_type"),
-        ("Engine Displacement", "dimensions", "engine_displacement"),
-    ]
-    html += generate_section("Dimensions & Specs", "Dimensions", dimension_features, "checklist-dimensions")
-
-    html += '</div>\n'
-
-    return html
-
-
-def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) -> str:
+def create_comparison_chart_html(
+    comparison_data: Dict[str, Any],
+    summary: str,
+    summary_data: Optional[Dict[str, Any]] = None
+) -> str:
     """
     Create interactive HTML report with enhanced design featuring grouped specifications.
     Specifications are grouped into collapsible accordions for better readability.
     Optimized for PDF printing with proper page breaks and layout.
-    
+
     Features:
     - Grouped specification table with accordion functionality
     - Sticky header with smooth-scrolling navigation
@@ -663,22 +514,15 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
     - Alternating color charts (dark blue and Mahindra red)
     - Scroll animations for all components
     - PDF-optimized printing (2 charts per page, landscape table)
-    
+
     Args:
         comparison_data: Dictionary containing car comparison data
-        summary: Text summary of the comparison
-        
+        summary: Text summary of the comparison (legacy, kept for compatibility)
+        summary_data: Optional dict with 'features_not_in_car1' and 'features_in_car1_only'
+
     Returns:
         Complete HTML string ready to be saved as a file
     """
-    
-    # Helper function for summary formatting
-    def format_summary(summary_text: str) -> str:
-        """Format summary with bold text preserved and clean bullet points"""
-        processed_text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', summary_text)
-        processed_text = processed_text.replace('\n', '<br>').replace('*','•')
-        return processed_text
-
     # Data Extraction using robust helper functions
     cars, prices, mileages, ratings, seating, sales_volumes = [], [], [], [], [], []
 
@@ -700,12 +544,6 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
 
             # Extract sales using robust helper
             sales_volumes.append(extract_sales(car_data.get("monthly_sales", "")))
-
-    # Generate checklist comparison table
-    checklist_html = generate_checklist_table(comparison_data)
-
-    # Format AI-powered summary
-    formatted_summary = format_summary(summary)
 
     citations_html = _generate_citations_html(comparison_data)
     
@@ -2403,208 +2241,51 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str) 
         <a href="#"><img src="https://www.mahindra.com//sites/default/files/2025-07/mahindra-red-logo.webp" alt="Logo" class="logo"></a>
         <div class="header-actions">
             <nav class="main-nav">
-                <a href="#comparison-section">Specs</a>
                 <a href="#exterior-section">Exterior</a>
                 <a href="#interior-section">Interior</a>
                 <a href="#technology-section">Technology</a>
-                <a href="#analytics-section">Analytics</a>
-                <a href="#summary-section">Checklist</a>
-                <a href="#review-section">Analysis</a>
+                <a href="#summary-section">Summary</a>
                 <a href="#" id="citations-toggle" onclick="toggleCitations(event)">Citations</a>
             </nav>
             <button class="print-btn" onclick="printReport()">Save as PDF</button>
         </div>
     </header>
     {generate_hero_section(comparison_data)}
+    {generate_technical_spec_section(comparison_data)}
+    {generate_feature_list_section(comparison_data)}
     <div class="container">
-        <div class="content">
-            <div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M18 18h-2c-1.1 0-2-.9-2-2v-3c0-1.1.9-2 2-2h2c1.1 0 2 .9 2 2v3c0 1.1-.9 2-2 2zM6 18H4c-1.1 0-2-.9-2-2v-3c0-1.1.9-2 2-2h2c1.1 0 2 .9 2 2v3c0 1.1-.9 2-2 2zM17 11V9c0-1.1-.9-2-2-2h-2V5c0-1.1-.9-2-2-2h-2c-1.1 0-2 .9-2 2v2H5c-1.1 0-2 .9-2 2v2h18v-2c0-1.1-.9-2-2-2h-2z"/></svg></div><h2 id="comparison-section">Detailed Specifications</h2></div>
-            <div class="table-container animate-on-scroll">
-                <div class="table-filter-wrapper">
-                    <div class="filter-input-group">
-                        <svg class="filter-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg>
-                        <input type="text" id="specFilter" class="filter-input" placeholder="Search specifications (e.g., mileage, safety, transmission)..." onkeyup="filterSpecs()"/>
-                        <button class="filter-clear-btn" onclick="clearFilter()" id="clearFilterBtn" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
-                    </div><div class="filter-results-info" id="filterResults"></div>
-                </div>{features_table}
-            </div>
-        </div>
         {generate_image_gallery_section("Exterior Highlights", comparison_data, "exterior", "exterior-section")}
         {generate_image_gallery_section("Interior Highlights", comparison_data, "interior", "interior-section")}
         {generate_image_gallery_section("Technology Highlights", comparison_data, "technology", "technology-section")}
         {generate_image_gallery_section("Comfort Highlights", comparison_data, "comfort", "comfort-section")}
         {generate_image_gallery_section("Safety Highlights", comparison_data, "safety", "safety-section")}
-        <div class="content">
-            <div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3v9H3zM9 8h3v13H9zM15 4h3v17h-3zM21 20h-3"/></svg></div><h2 id="analytics-section">Visual Analytics</h2></div>
-            <div class="charts-grid">
-                <div class="chart-container animate-on-scroll"><h3>Price Comparison (₹ Lakhs)</h3><canvas id="priceChart"></canvas></div><div class="chart-container animate-on-scroll"><h3>Mileage Comparison (kmpl)</h3><canvas id="mileageChart"></canvas></div>
-                <div class="chart-container animate-on-scroll"><h3>User Ratings (out of 5)</h3><canvas id="ratingChart"></canvas></div><div class="chart-container animate-on-scroll"><h3>Seating Capacity</h3><canvas id="seatingChart"></canvas></div>
-<!-- <h5>Sales Performance (Volume vs Price)</h5><div class="chart-container animate-on-scroll"><canvas id="salesChart"></canvas></div> -->            </div>
-        </div>
-        <div class="content">
-            <div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg></div><h2 id="summary-section">Features Checklist</h2></div>
-            <div class="checklist-section animate-on-scroll">{checklist_html}</div>
-        </div>
-         <div class="content">
-            <div class="section-header">
-                <div class="icon-wrapper">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
-                    </svg>
-                </div>
-                <h2 id="review-section">AI-Powered Analysis Summary</h2>
-            </div>
-            <div class="summary animate-on-scroll">
-                <p>{formatted_summary}</p>
-            </div>
-        </div>
+        {generate_drivetrain_comparison_section(comparison_data)}
+        {generate_summary_comparison_section(summary_data, cars, 20) if summary_data else ''}
         <div class="content" id="citations-section" style="display: none;"><div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><line x1="10" y1="9" x2="8" y2="9"></line></svg></div><h2>Data Source Citations</h2></div><div class="citations-grid">{citations_html}</div></div>
     </div>
     <footer class="footer"><span>Copyright© 2026 Mahindra&Mahindra Ltd. All Rights Reserved.</span></footer>
     <script>
-            function toggleChecklistSection(sectionId) {{
-                const section = document.getElementById(sectionId).parentElement;
-                section.classList.toggle('collapsed');
-            }}
-
-            function toggleAccordion(headerRow) {{
-    headerRow.classList.toggle('active');
-    let currentRow = headerRow.nextElementSibling;
-    
-    while (currentRow && currentRow.classList.contains('spec-row')) {{
-        if (document.getElementById('specFilter').value.trim() === '') {{
-            // Toggle display without changing any styles
-            if (headerRow.classList.contains('active')) {{
-                currentRow.style.display = 'table-row';
-            }} else {{
-                currentRow.style.display = 'none';
+        function toggleAccordion(headerRow) {{
+            headerRow.classList.toggle('active');
+            let currentRow = headerRow.nextElementSibling;
+            while (currentRow && currentRow.classList.contains('spec-row')) {{
+                if (document.getElementById('specFilter').value.trim() === '') {{
+                    if (headerRow.classList.contains('active')) {{
+                        currentRow.style.display = 'table-row';
+                    }} else {{
+                        currentRow.style.display = 'none';
+                    }}
+                }}
+                currentRow = currentRow.nextElementSibling;
             }}
         }}
-        currentRow = currentRow.nextElementSibling;
-    }}
-}}
-            function expandAllAccordions() {{ document.querySelectorAll('.accordion-header:not(.active)').forEach(header => {{ header.classList.add('active'); let currentRow = header.nextElementSibling; while (currentRow && currentRow.classList.contains('spec-row')) {{ currentRow.style.display = 'table-row'; currentRow = currentRow.nextElementSibling; }} }}); }}
+        function expandAllAccordions() {{ document.querySelectorAll('.accordion-header:not(.active)').forEach(header => {{ header.classList.add('active'); let currentRow = header.nextElementSibling; while (currentRow && currentRow.classList.contains('spec-row')) {{ currentRow.style.display = 'table-row'; currentRow = currentRow.nextElementSibling; }} }}); }}
         function collapseAllAccordions() {{ document.querySelectorAll('.accordion-header.active').forEach(header => {{ header.classList.remove('active'); let currentRow = header.nextElementSibling; while (currentRow && currentRow.classList.contains('spec-row')) {{ currentRow.style.display = 'none'; currentRow = currentRow.nextElementSibling; }} }}); }}
         function filterSpecs() {{ const input = document.getElementById('specFilter'); const filter = input.value.toLowerCase().trim(); const tbody = document.getElementById('specifications-tbody'); const resultsInfo = document.getElementById('filterResults'); document.getElementById('clearFilterBtn').style.display = filter ? 'flex' : 'none'; if (filter) {{ expandAllAccordions(); }} else {{ collapseAllAccordions(); }} let visibleSpecCount = 0; const specRows = tbody.querySelectorAll('.spec-row'); specRows.forEach(row => {{ const specName = row.cells[0].textContent.toLowerCase(); if (filter && specName.includes(filter)) {{ row.style.display = 'table-row'; visibleSpecCount++; }} else if (filter) {{ row.style.display = 'none'; }} else {{ let prevSibling = row.previousElementSibling; let isUnderAccordion = false; while (prevSibling) {{ if (prevSibling.classList.contains('accordion-header')) {{ isUnderAccordion = true; break; }} if (prevSibling.classList.contains('main-group-header')) {{ break; }} prevSibling = prevSibling.previousElementSibling; }} row.style.display = isUnderAccordion ? 'none' : 'table-row'; }} }}); tbody.querySelectorAll('.accordion-header').forEach(header => {{ if (filter) {{ let hasVisibleChild = false; let currentRow = header.nextElementSibling; while (currentRow && currentRow.classList.contains('spec-row')) {{ if (currentRow.style.display !== 'none') {{ hasVisibleChild = true; break; }} currentRow = currentRow.nextElementSibling; }} header.style.display = hasVisibleChild ? 'table-row' : 'none'; }} else {{ header.style.display = 'table-row'; }} }}); tbody.querySelectorAll('.main-group-header').forEach(mainHeader => {{ if (filter) {{ mainHeader.style.display = 'none'; }} else {{ mainHeader.style.display = 'table-row'; }} }}); if (filter) {{ resultsInfo.textContent = visibleSpecCount === 0 ? 'No specifications match your search' : `Showing ${{visibleSpecCount}} matching specifications`; resultsInfo.classList.toggle('no-results', visibleSpecCount === 0); }} else {{ resultsInfo.textContent = ''; resultsInfo.classList.remove('no-results'); }} }}
         function clearFilter() {{ const input = document.getElementById('specFilter'); input.value = ''; filterSpecs(); input.focus(); }}
         function printReport() {{ window.print(); }}
         function toggleExpand(button) {{ const content = button.previousElementSibling; content.classList.toggle('expanded'); button.textContent = content.classList.contains('expanded') ? 'Read less' : 'Read more'; }}
         function toggleCitations(event) {{ event.preventDefault(); const citationsSection = document.getElementById('citations-section'); const mainContent = document.querySelectorAll('.content:not(#citations-section)'); const toggleButton = document.getElementById('citations-toggle'); const navLinks = document.querySelectorAll('.main-nav a:not(#citations-toggle)'); if (citationsSection.style.display === 'none') {{ citationsSection.style.display = 'block'; mainContent.forEach(section => {{ section.style.display = 'none'; }}); navLinks.forEach(link => {{ link.style.display = 'none'; }}); toggleButton.textContent = 'Go Back'; }} else {{ citationsSection.style.display = 'none'; mainContent.forEach(section => {{ section.style.display = 'block'; }}); navLinks.forEach(link => {{ link.style.display = 'block'; }}); toggleButton.textContent = 'Citations'; }} window.scrollTo({{ top: 0, behavior: 'smooth' }}); }}
-        
-        const carLabels = {json.dumps(cars)}; 
-        const priceData = {json.dumps(prices)}; 
-        const mileageData = {json.dumps(mileages)}; 
-        const ratingData = {json.dumps(ratings)}; 
-        const seatingData = {json.dumps(seating)}; 
-        const salesVolumes = {json.dumps(sales_volumes)};
-        const primaryColor = '#2E3B4E', secondaryColor = '#dd032b';
-        const isMobile = window.innerWidth < 768;
-        
-        new Chart(document.getElementById('priceChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: priceData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: {{ plugins: {{ legend: {{ display: false }} }} }} }});        
-        new Chart(document.getElementById('mileageChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: mileageData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: {{ plugins: {{ legend: {{ display: false }} }} }} }});
-        new Chart(document.getElementById('ratingChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: ratingData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: {{ scales: {{ y: {{ max: 5 }} }}, plugins: {{ legend: {{ display: false }} }} }} }});
-        new Chart(document.getElementById('seatingChart'), {{ type: 'bar', data: {{ labels: carLabels, datasets: [{{ data: seatingData, backgroundColor: (ctx) => ctx.dataIndex % 2 === 0 ? primaryColor : secondaryColor }}] }}, options: {{ plugins: {{ legend: {{ display: false }} }} }} }});
-        
-        /* Sales chart commented out
-        new Chart(document.getElementById('salesChart'), {{
-            type: 'bar',
-            data: {{
-                labels: carLabels,
-                datasets: [{{
-                    label: 'Sales Volume (Units/Month)',
-                    data: salesVolumes,
-                    backgroundColor: primaryColor,
-                    xAxisID: 'x'
-                }}, {{
-                    label: 'Price (₹ Lakhs)',
-                    data: priceData,
-                    backgroundColor: secondaryColor,
-                    xAxisID: 'x1'
-                }}]
-            }},
-            options: {{
-                maintainAspectRatio: false,
-                indexAxis: 'y',
-                scales: {{
-                    y: {{
-                        position: 'left',
-                        ticks: {{
-                            font: {{ size: isMobile ? 9 : 12 }},
-                            autoSkip: false,
-                            maxRotation: 0,
-                            minRotation: 0
-                        }}
-                    }},
-                    x: {{
-                        display: true,
-                        type: 'linear',
-                        position: 'bottom',
-                        title: {{
-                            display: !isMobile,
-                            text: 'Sales Volume (Units/Month)',
-                            font: {{ size: isMobile ? 9 : 12 }}
-                        }},
-                        ticks: {{
-                            display: true,
-                            font: {{ size: isMobile ? 7 : 11 }},
-                            callback: function(value) {{
-                                if (isMobile) {{
-                                    return value >= 1000 ? (value/1000).toFixed(0) + 'k' : value;
-                                }}
-                                return value.toLocaleString() + ' units';
-                            }}
-                        }},
-                        grid: {{
-                            display: true,
-                            color: isMobile ? '#f0f0f0' : '#e9ecef'
-                        }}
-                    }},
-                    x1: {{
-                        display: true,
-                        type: 'linear',
-                        position: 'top',
-                        title: {{
-                            display: !isMobile,
-                            text: 'Price (₹ Lakhs)',
-                            color: '#6c757d',
-                            font: {{ size: isMobile ? 9 : 12 }}
-                        }},
-                        grid: {{
-                            drawOnChartArea: false,
-                            display: false
-                        }},
-                        ticks: {{
-                            display: true,
-                            color: '#6c757d',
-                            font: {{ size: isMobile ? 7 : 11 }},
-                            callback: function(value) {{ return '₹' + value.toFixed(1) + 'L'; }}
-                        }}
-                    }}
-                }},
-                plugins: {{
-    legend: {{
-        display: false
-    }},
-    tooltip: {{
-        enabled: true,
-        callbacks: {{
-            label: function(context) {{
-                let label = context.dataset.label || '';
-                if (label) {{ label += ': '; }}
-                if (context.dataset.label.includes('Price')) {{
-                    label += '₹' + context.parsed.x.toFixed(2) + ' Lakhs';
-                }} else {{
-                    label += context.parsed.x.toLocaleString() + ' units';
-                }}
-                return label;
-            }}
-        }}
-    }}
-}}
-            }}
-        }});
-        */
-        
         document.addEventListener('DOMContentLoaded', () => {{ const observer = new IntersectionObserver((entries) => {{ entries.forEach(entry => {{ if (entry.isIntersecting) {{ entry.target.classList.add('is-visible'); observer.unobserve(entry.target); }} }}); }}, {{ threshold: 0.1 }}); document.querySelectorAll('.animate-on-scroll').forEach(el => observer.observe(el)); }});
     </script>
 </body></html>"""
