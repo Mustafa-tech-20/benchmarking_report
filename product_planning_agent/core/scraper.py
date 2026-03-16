@@ -883,7 +883,7 @@ def build_cardekho_url(car_name: str) -> str:
     """Build CarDekho spec page URL."""
     brand = get_brand_name(car_name)
     url_car_name = normalize_car_name_for_url(car_name)
-    return f"https://www.cardekho.com/{brand}/{url_car_name}/specs"
+    return f"https://www.cardekho.com/{brand}/{url_car_name}"
 
 
 def extract_specs_from_url(car_name: str, url: str, spec_batch: List[str]) -> Dict[str, str]:
