@@ -178,25 +178,31 @@ def generate_technical_spec_section(comparison_data: Dict[str, Any], page_start:
 
     # Generate table rows
     rows_html = ""
-    current_category = ""
+    EMPTY_VALUES = {None, "", "-", "N/A", "Not Available", "not available", "n/a"}
 
     for category, specs in tech_spec_groups.items():
-        for i, (label, key) in enumerate(specs):
-            # Show category only on first row of group
-            cat_display = category if i == 0 else ""
-
-            rows_html += f'<tr><td class="cat-cell">{cat_display}</td><td class="param-cell">{label}</td>'
-
+        category_printed = False
+        for label, key in specs:
+            # Collect values for all cars first
+            values = []
             for car_name in car_names:
                 car_data = comparison_data.get(car_name, {})
                 value = car_data.get(key, "-")
-                if value in [None, "", "N/A", "Not Available"]:
+                if value in EMPTY_VALUES:
                     value = "-"
+                values.append(value)
 
-                # For comparison highlighting (simplified - can be enhanced)
-                cell_class = ""
-                rows_html += f'<td class="{cell_class}">{value}</td>'
+            # Skip row entirely if no car has data for this spec
+            if all(v == "-" for v in values):
+                continue
 
+            # Show category label only on the first non-empty row of the group
+            cat_display = category if not category_printed else ""
+            category_printed = True
+
+            rows_html += f'<tr><td class="cat-cell">{cat_display}</td><td class="param-cell">{label}</td>'
+            for value in values:
+                rows_html += f'<td>{value}</td>'
             rows_html += '</tr>'
 
     # Build the page
@@ -253,59 +259,157 @@ def generate_feature_list_section(comparison_data: Dict[str, Any], page_start: i
         return ""
 
     # Feature groups with Category | Description | Features structure
+    # Using actual scraped spec keys from CAR_SPECS
     feature_groups = {
+        "Safety": {
+            "Airbags": [
+                ("Number of Airbags", "airbags"),
+                ("Airbag Types", "airbag_types_breakdown"),
+            ],
+            "Sensors": [
+                ("NCAP Safety Rating", "ncap_rating"),
+                ("Impact Rating", "impact"),
+                ("ADAS System", "adas"),
+            ],
+            "Controls": [
+                ("Electronic Stability", "stability"),
+                ("Hill Hold Control", "epb"),
+                ("Parking Sensors", "parking_sensors"),
+                ("Parking Camera", "parking_camera"),
+            ],
+            "Restraints": [
+                ("Seatbelt Features", "seats_restraint"),
+                ("Vehicle Safety Features", "vehicle_safety_features"),
+            ],
+        },
+        "Technology": {
+            "Infotainment": [
+                ("Instrument Cluster", "digital_display"),
+                ("Central Information Display", "infotainment_screen"),
+                ("Infotainment - Touch", "touch_response"),
+            ],
+            "Smart Phone Connectivity": [
+                ("Apple CarPlay", "apple_carplay"),
+                ("Cruise Control", "cruise_control"),
+            ],
+            "Audio": [
+                ("Audio System", "audio_system"),
+            ],
+        },
         "Exterior": {
-            "Full LED": [
-                ("Headlamps", "headlamps"),
-                ("Tail lamps LED", "tail_lamps"),
+            "Lighting": [
+                ("LED Headlamps", "led"),
+                ("DRL (Daytime Running Lights)", "drl"),
+                ("Tail Lamps", "tail_lamp"),
             ],
-            "Wheel arch Ext. Claddings": [
-                ("Black Finish Cladding", "wheel_arch_cladding"),
+            "Wheels": [
+                ("Alloy Wheels", "alloy_wheel"),
+                ("Tyre Size", "tyre_size"),
+                ("Wheel Size", "wheel_size"),
             ],
-            "Front Bumper & Grille": [
-                ("Grille", "grille"),
+            "Mirrors": [
+                ("ORVM (Outside Rear View Mirror)", "orvm"),
             ],
-            "Antenna Type": [
-                ("Shark fin with GPS", "antenna"),
-            ],
-            "Foot step": [
-                ("", "foot_step"),
+            "Roof": [
+                ("Sunroof", "sunroof"),
             ],
         },
         "Interior": {
-            "": [
-                ("Front compartment trim cover", "front_trim"),
-                ("Skid plate", "skid_plate"),
-                ("Interior Material type", "interior_material"),
-                ("ECM room mirror [IRVM]", "irvm"),
-                ("Interior mirror with automatic anti-dazzle function", "auto_dimming_mirror"),
+            "Seats": [
+                ("Seat Material", "seat_material"),
+                ("Ventilated Seats", "ventilated_seats"),
+                ("Seating Capacity", "seating_capacity"),
+                ("Rear Seat Features", "rear_seat_features"),
             ],
-            "Console Switches": [
-                ("Type", "console_switch_type"),
+            "Climate": [
+                ("Climate Control", "climate_control"),
             ],
-            "Upholstery": [
-                ("Leatherette", "upholstery"),
+            "Comfort": [
+                ("Armrest", "armrest"),
+                ("Headrest", "headrest"),
+                ("Interior Quality", "interior"),
+                ("Soft Touch Trims", "soft_trims"),
             ],
-            "IP/ Dashboard": [
-                ("Leatherette", "dashboard_material"),
+            "Mirrors": [
+                ("IRVM (Inside Rear View Mirror)", "irvm"),
+            ],
+            "Convenience": [
+                ("Power Windows", "window"),
+                ("Push Button Start", "button"),
             ],
         },
-        "Glove Box": {
-            "": [
-                ("Cooled Glove Box", "cooled_glovebox"),
-                ("Non-Flocking, with Illumination", "glovebox_illumination"),
-                ("Lockable Glove box", "lockable_glovebox"),
+        "Performance": {
+            "Engine": [
+                ("Fuel Type", "fuel_type"),
+                ("Engine Displacement", "engine_displacement"),
+                ("Torque", "torque"),
+                ("Mileage", "mileage"),
+            ],
+            "Driving": [
+                ("Performance Feel", "performance_feel"),
+                ("Driveability", "driveability"),
+                ("Acceleration", "acceleration"),
+            ],
+            "Transmission": [
+                ("Manual Transmission", "manual_transmission_performance"),
+                ("Automatic Transmission", "automatic_transmission_performance"),
+                ("Gear Shift Quality", "gear_shift"),
             ],
         },
-        "Sunvisor": {
-            "Driver": [
-                ("Mirror + illumination + ticket holder", "driver_sunvisor"),
+        "Handling": {
+            "Steering": [
+                ("Steering", "steering"),
+                ("Telescopic Steering", "telescopic_steering"),
+                ("Turning Radius", "turning_radius"),
             ],
-            "Co Driver": [
-                ("Mirror + illumination + ticket holder", "codriver_sunvisor"),
+            "Brakes": [
+                ("Brakes Type", "brakes"),
+                ("Braking Performance", "brake_performance"),
+                ("EPB (Electronic Parking Brake)", "epb"),
+            ],
+            "Ride": [
+                ("Ride Quality", "ride_quality"),
+                ("Off-Road Capability", "off_road"),
+                ("Ground Clearance", "ground_clearance"),
+            ],
+        },
+        "NVH": {
+            "Noise": [
+                ("Overall NVH", "nvh"),
+                ("Powertrain Noise", "powertrain_nvh"),
+                ("Wind Noise", "wind_noise"),
+                ("Road Noise", "road_nvh"),
+            ],
+            "Vibration": [
+                ("Shakes", "shakes"),
+                ("Rattle", "rattle"),
+            ],
+        },
+        "Dimensions": {
+            "Size": [
+                ("Wheelbase", "wheelbase"),
+                ("Ground Clearance", "ground_clearance"),
+                ("Boot Space", "boot_space"),
+            ],
+            "Structure": [
+                ("Chassis Type", "chasis"),
             ],
         },
     }
+
+    # Helper function to check if value is "not available"
+    def is_not_available(val):
+        if val is None:
+            return True
+        val_str = str(val).strip().lower()
+        return val_str in ["", "-", "not available", "n/a", "na", "none", "null", "✗", "no"]
+
+    # Helper function to check if value indicates "yes/available"
+    def is_available(val):
+        if val is None:
+            return False
+        val_str = str(val).strip().lower()
+        return val_str in ["yes", "true", "available", "standard", "✓", "present"]
 
     # Generate table rows
     rows_html = ""
@@ -325,20 +429,29 @@ def generate_feature_list_section(comparison_data: Dict[str, Any], page_start: i
                     <td class="feature-cell">{feature_label}</td>
                 '''
 
+                # Collect values for all cars for this feature
+                car_values = []
                 for car_name in car_names:
                     car_data = comparison_data.get(car_name, {})
-                    value = car_data.get(feature_key, "-")
+                    value = car_data.get(feature_key)
+                    car_values.append((car_name, value))
 
-                    # Determine if it's a boolean feature or text value
-                    if value in [True, "Yes", "yes", "Available", "Standard", "✓"]:
-                        cell_content = '<span class="check-mark">✓</span>'
-                        cell_class = ""
-                    elif value in [False, "No", "no", "Not Available", "N/A", None, "", "✗"]:
+                for car_name, value in car_values:
+                    # Determine cell content and class
+                    if is_not_available(value):
                         cell_content = '<span class="x-mark">✗</span>'
                         cell_class = "inferior-cell"
+                    elif is_available(value):
+                        cell_content = '<span class="check-mark">✓</span>'
+                        cell_class = "superior-cell"
                     else:
-                        cell_content = str(value) if value else "-"
-                        cell_class = ""
+                        # It's an actual value - display it
+                        display_value = str(value).strip()
+                        # Truncate very long values
+                        if len(display_value) > 80:
+                            display_value = display_value[:77] + "..."
+                        cell_content = f'<span class="value-text">{display_value}</span>'
+                        cell_class = "value-cell"
 
                     rows_html += f'<td class="{cell_class}">{cell_content}</td>'
 
@@ -384,45 +497,26 @@ def generate_feature_list_section(comparison_data: Dict[str, Any], page_start: i
     return html
 
 
-def generate_drivetrain_comparison_section(
-    comparison_data: Dict[str, Any],
-    drivetrain_data: Dict[str, Any] = None,
-    page_num: int = 19
+def _generate_single_drivetrain_section(
+    drivetrain_data: Dict[str, Any],
+    page_num: int
 ) -> str:
     """
-    Generate drivetrain/4WD feature comparison section.
+    Generate one drivetrain page for a single car.
 
-    Args:
-        comparison_data: Dict mapping car names to their scraped data
-        drivetrain_data: Optional pre-fetched drivetrain comparison data
-        page_num: Page number for footer
-
-    Returns:
-        HTML string for drivetrain comparison section
+    The comparison_with column is fully dynamic — determined by Gemini
+    based on the car's actual drivetrain type (4WD, AWD, FWD, EV, etc.)
     """
-    car_names = [name for name, data in comparison_data.items()
-                 if isinstance(data, dict) and "error" not in data]
-
-    if not car_names:
-        return ""
-
-    # Try to extract drivetrain data from comparison_data if not provided
-    if not drivetrain_data:
-        drivetrain_data = _extract_drivetrain_data(comparison_data)
-
-    if not drivetrain_data or not drivetrain_data.get("features"):
-        return ""  # No drivetrain data available
-
-    # Build the section HTML
-    car_name = drivetrain_data.get("car_name", car_names[0])
-    system_name = drivetrain_data.get("system_name", "Intelligent 4WD")
+    car_name = drivetrain_data.get("car_name", "")
+    system_name = drivetrain_data.get("system_name", "Drivetrain System")
     intro_text = drivetrain_data.get("intro_text", "")
     features = drivetrain_data.get("features", [])
     explanations = drivetrain_data.get("explanations", [])
     images = drivetrain_data.get("images", [])
-    comparison_with = drivetrain_data.get("comparison_with", "Conventional 4WD")
+    # Dynamic comparison column — Gemini chose this based on the car's drivetrain type
+    comparison_with = drivetrain_data.get("comparison_with", "Conventional Drivetrain")
 
-    # Build feature table rows
+    # Feature table rows
     feature_rows = ""
     for feature in features:
         feature_rows += f'''
@@ -433,33 +527,32 @@ def generate_drivetrain_comparison_section(
         </tr>
         '''
 
-    # Build explanations list
+    # Explanations list
     explanations_html = ""
     for i, explanation in enumerate(explanations):
-        letter = chr(97 + i)  # a, b, c, d...
         explanations_html += f'''
         <li><span class="explanation-title">{explanation.get("title", "")}:</span> {explanation.get("description", "")}</li>
         '''
 
-    # Build images HTML
+    # Images
     images_html = ""
-    for img in images[:2]:  # Max 2 images
+    for img in images[:2]:
         images_html += f'''
         <div class="drivetrain-image">
-            <img src="{img}" alt="Drivetrain" onerror="this.parentElement.style.display='none'">
+            <img src="{img}" alt="{car_name} drivetrain" onerror="this.parentElement.style.display='none'">
         </div>
         '''
 
     # Highlight keywords in intro text
     highlighted_intro = intro_text
-    keywords_to_highlight = drivetrain_data.get("highlight_keywords", [])
-    for keyword in keywords_to_highlight:
-        highlighted_intro = highlighted_intro.replace(
-            keyword,
-            f'<span class="highlight-green">{keyword}</span>'
-        )
+    for keyword in drivetrain_data.get("highlight_keywords", []):
+        if keyword:
+            highlighted_intro = highlighted_intro.replace(
+                keyword,
+                f'<span class="highlight-green">{keyword}</span>'
+            )
 
-    html = f'''
+    return f'''
     <div class="drivetrain-page">
         <div class="drivetrain-header">
             <h1 class="drivetrain-title">FEATURE COMPARISION | <span class="highlight">BENCHMARKING</span></h1>
@@ -474,7 +567,7 @@ def generate_drivetrain_comparison_section(
                     <thead>
                         <tr>
                             <th class="feature-header">Feature</th>
-                            <th class="car-header">{car_name}<br>{system_name}</th>
+                            <th class="car-header">{car_name}<br><span style="font-weight:400;font-size:11px">{system_name}</span></th>
                             <th class="conventional-header">{comparison_with}</th>
                         </tr>
                     </thead>
@@ -499,88 +592,148 @@ def generate_drivetrain_comparison_section(
     </div>
     '''
 
-    return html
 
-
-def _extract_drivetrain_data(comparison_data: Dict[str, Any]) -> Dict[str, Any]:
+def generate_drivetrain_comparison_section(
+    comparison_data: Dict[str, Any],
+    drivetrain_data: Dict[str, Any] = None,
+    page_num: int = 19
+) -> str:
     """
-    Extract drivetrain-related data from comparison_data.
-    Returns structured data for drivetrain comparison section.
+    Generate drivetrain/powertrain feature comparison sections — ONE per car.
+
+    Runs one Gemini call per car in parallel (3 cars = 3 parallel calls).
+    Each section has a dynamic comparison_with column based on the car's
+    actual drivetrain type (4WD vs Conventional 4WD, FWD vs Conventional FWD,
+    EV vs Conventional ICE, etc.)
+
+    Args:
+        comparison_data: Dict mapping car names to their scraped data
+        drivetrain_data: Ignored (kept for backward compatibility)
+        page_num: Starting page number
+
+    Returns:
+        HTML string — concatenated drivetrain sections for all cars
+    """
+    car_names = [name for name, data in comparison_data.items()
+                 if isinstance(data, dict) and "error" not in data]
+
+    if not car_names:
+        return ""
+
+    # Fetch drivetrain data for ALL cars in parallel
+    all_drivetrain = _extract_all_drivetrain_data(car_names, comparison_data)
+
+    if not all_drivetrain:
+        return ""
+
+    # Generate one section per car
+    html_parts = []
+    for i, car_dt_data in enumerate(all_drivetrain):
+        if car_dt_data and car_dt_data.get("features"):
+            html_parts.append(_generate_single_drivetrain_section(car_dt_data, page_num + i))
+
+    return "\n".join(html_parts)
+
+
+def _extract_all_drivetrain_data(
+    car_names: List[str],
+    comparison_data: Dict[str, Any]
+) -> List[Dict[str, Any]]:
+    """
+    Fetch drivetrain data for ALL cars using parallel Gemini calls.
+    Sync wrapper around the async parallel fetcher.
+    """
+    import asyncio
+    import concurrent.futures
+
+    try:
+        from vehicle_development_agent.extraction.drivetrain_fetcher import fetch_all_cars_drivetrain_parallel
+
+        try:
+            asyncio.get_running_loop()
+            # Already in an event loop — run in a thread pool
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(
+                    asyncio.run,
+                    fetch_all_cars_drivetrain_parallel(car_names, comparison_data)
+                )
+                return future.result(timeout=180)
+        except RuntimeError:
+            # No event loop running
+            return asyncio.run(
+                fetch_all_cars_drivetrain_parallel(car_names, comparison_data)
+            )
+
+    except Exception as e:
+        print(f"  Drivetrain parallel fetch error: {e}")
+
+    # Fallback: try building from existing comparison_data for each car
+    fallback_results = []
+    for car_name in car_names:
+        car_data = comparison_data.get(car_name, {})
+        fallback = _fallback_drivetrain_extraction(car_name, car_data)
+        if fallback:
+            # Attach images from existing data
+            if not fallback.get("images"):
+                fallback["images"] = []
+            images = car_data.get("images", {})
+            for category in ["technology", "exterior"]:
+                for img in images.get(category, [])[:2]:
+                    if isinstance(img, (list, tuple)):
+                        fallback["images"].append(img[0])
+                    elif isinstance(img, str):
+                        fallback["images"].append(img)
+                if fallback["images"]:
+                    break
+            fallback_results.append(fallback)
+
+    return fallback_results
+
+
+def _fallback_drivetrain_extraction(car_name: str, car_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Fallback extraction from existing comparison data if Gemini fails.
     """
     drivetrain_data = {
+        "car_name": car_name,
         "features": [],
         "explanations": [],
         "images": [],
-        "highlight_keywords": []
+        "highlight_keywords": [],
+        "system_name": "Intelligent 4WD",
+        "intro_text": ""
     }
 
-    # Keys that indicate drivetrain/4WD features
-    drivetrain_keys = [
-        "drive_type", "drive_mode", "differential", "4wd_system",
-        "awd_system", "traction_control", "terrain_modes", "off_road",
-        "ground_clearance", "approach_angle", "departure_angle"
-    ]
+    # Try to extract what we can from existing data
+    off_road = car_data.get("off_road", "")
+    if off_road and off_road not in ["N/A", "Not Available", "-", ""]:
+        drivetrain_data["features"].append({
+            "name": "Off-Road Capability",
+            "car_value": off_road,
+            "conventional_value": "Basic off-road"
+        })
 
-    for car_name, car_data in comparison_data.items():
-        if not isinstance(car_data, dict) or "error" in car_data:
-            continue
+    ground_clearance = car_data.get("ground_clearance", "")
+    if ground_clearance and ground_clearance not in ["N/A", "Not Available", "-", ""]:
+        drivetrain_data["features"].append({
+            "name": "Ground Clearance",
+            "car_value": ground_clearance,
+            "conventional_value": "150-180 mm"
+        })
 
-        # Check if car has drivetrain-related data
-        has_drivetrain_data = False
-        for key in drivetrain_keys:
-            if car_data.get(key) and car_data.get(key) not in ["N/A", "Not Available", "-", ""]:
-                has_drivetrain_data = True
-                break
+    stability = car_data.get("stability", "")
+    if stability and stability not in ["N/A", "Not Available", "-", ""]:
+        drivetrain_data["features"].append({
+            "name": "Stability Control",
+            "car_value": stability,
+            "conventional_value": "Basic ESC"
+        })
 
-        if has_drivetrain_data:
-            drivetrain_data["car_name"] = car_name
+    if drivetrain_data["features"]:
+        drivetrain_data["intro_text"] = f"The {car_name} offers capable off-road performance with features designed to maximize traction and stability across various terrains."
+        return drivetrain_data
 
-            # Extract drive mode info
-            drive_mode = car_data.get("drive_mode", "")
-            if drive_mode and drive_mode not in ["N/A", "Not Available"]:
-                drivetrain_data["features"].append({
-                    "name": "Driving Modes",
-                    "car_value": drive_mode,
-                    "conventional_value": "Usually 2-3 modes"
-                })
-                drivetrain_data["highlight_keywords"].append(drive_mode.split("[")[0].strip())
-
-            # Extract drive type
-            drive_type = car_data.get("drive_type", "")
-            if drive_type and drive_type not in ["N/A", "Not Available"]:
-                drivetrain_data["features"].append({
-                    "name": "Drive System",
-                    "car_value": drive_type,
-                    "conventional_value": "Standard 4WD"
-                })
-
-            # Extract off-road features
-            off_road = car_data.get("off_road", "")
-            if off_road and off_road not in ["N/A", "Not Available"]:
-                drivetrain_data["features"].append({
-                    "name": "Off-Road Capability",
-                    "car_value": off_road,
-                    "conventional_value": "Basic off-road"
-                })
-
-            # Get drivetrain images if available
-            images = car_data.get("images", {})
-            if images.get("technology"):
-                for img in images["technology"][:2]:
-                    if isinstance(img, (list, tuple)):
-                        drivetrain_data["images"].append(img[0])
-                    elif isinstance(img, str):
-                        drivetrain_data["images"].append(img)
-
-            # Generate intro text
-            if drive_mode or drive_type:
-                system_name = drive_type if "4WD" in str(drive_type) or "AWD" in str(drive_type) else "Intelligent Drive System"
-                drivetrain_data["system_name"] = system_name
-                drivetrain_data["intro_text"] = f"The {car_name} is equipped with the {system_name}. This system offers {drive_mode if drive_mode else 'multiple driving modes'} designed to maximize traction, stability, and adaptability across terrains."
-
-            break  # Use first car with drivetrain data
-
-    return drivetrain_data if drivetrain_data.get("features") else None
+    return None
 
 
 def generate_summary_comparison_section(
@@ -1401,6 +1554,28 @@ def get_image_section_styles() -> str:
         color: #dc3545;
         font-weight: bold;
         font-size: 16px;
+    }
+
+    .value-text {
+        color: #1a1a1a;
+        font-weight: 500;
+        font-size: 11px;
+        line-height: 1.3;
+    }
+
+    .feature-table td.value-cell {
+        text-align: center;
+        background: #ffffff;
+        font-size: 11px;
+        padding: 8px 6px;
+    }
+
+    .feature-table td.superior-cell .check-mark {
+        font-size: 18px;
+    }
+
+    .feature-table td.inferior-cell .x-mark {
+        font-size: 18px;
     }
 
     .spec-page-footer,

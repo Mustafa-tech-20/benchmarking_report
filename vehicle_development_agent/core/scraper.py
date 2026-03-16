@@ -6,8 +6,8 @@ FLOW:
    - Query: "{car_name} latest {spec_keyword}"
    - Gemini extracts value + source URL from snippets
 
-2. Phase 2: CarDekho fallback for missing specs
-   - Build cardekho.com spec page URL
+2. Phase 2: Gemini + Google Search fallback for missing specs
+   - Uses Gemini with Google Search grounding
    - Extract missing specs in batches of 10 (parallel)
 """
 import asyncio
@@ -22,8 +22,16 @@ from typing import Dict, Any, List
 from functools import wraps
 
 from vertexai.generative_models import GenerativeModel, GenerationConfig
+from google import genai
+from google.genai import types
 
 from benchmarking_agent.config import GOOGLE_API_KEY, SEARCH_ENGINE_ID, COMPANY_SEARCH_ID, CUSTOM_SEARCH_URL
+
+# Initialize Gemini client for Google Search grounding (requires Vertex AI)
+# Google Search grounding only works with Vertex AI, not API key
+import os
+_PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT")
+_gemini_search_client = genai.Client(vertexai=True, project=_PROJECT_ID, location="global")
 
 
 # ============================================================================
@@ -75,7 +83,7 @@ def reset_gemini_model():
 
 # Top specs to extract from official brand websites
 OFFICIAL_SITE_PRIORITY_SPECS = [
-    # Top 5 Key Specs
+    # Top Key Specs
     "price_range", "seating_capacity", "mileage",
 
     # Performance & Engine
@@ -89,11 +97,14 @@ OFFICIAL_SITE_PRIORITY_SPECS = [
 
     # Tech Features
     "infotainment_screen", "digital_display", "apple_carplay",
-    "cruise_control", "parking_camera",
+    "cruise_control", "parking_camera", "parking_sensors",
 
     # Exterior
-    "tyre_size", "led", "drl",
-]  # 25 critical specs
+    "tyre_size", "led", "drl", "alloy_wheel", "sunroof",
+
+    # Interior & Comfort
+    "audio_system", "ventilated_seats", "epb",
+]  # 30 critical specs
 
 # Official brand website URL patterns
 # Format: "brand": ("base_url", "path_pattern")
@@ -328,6 +339,291 @@ SPEC_KEYWORDS = {
 }
 
 
+# Top 4 most reliable automotive spec sources (hardcoded)
+RELIABLE_SPEC_DOMAINS = [
+    "cardekho.com",
+    "carwale.com",
+    "zigwheels.com",
+    "autocarindia.com",
+]
+
+# Automotive spec sources searched individually in parallel (like clinical trial registries)
+# Each source is searched independently for all missing specs, then results are merged
+AUTOMOTIVE_SPEC_SOURCES = [
+    {
+        "name": "CarDekho",
+        "url": "https://www.cardekho.com",
+        "description": "India's largest car specs database with complete variant-wise spec tables",
+        "strengths": "price range, engine specs, dimensions, features list, variant comparison",
+    },
+    {
+        "name": "CarWale",
+        "url": "https://www.carwale.com",
+        "description": "Comprehensive car specifications, expert reviews and user ratings for Indian market",
+        "strengths": "specifications table, user rating, expert review scores, safety features",
+    },
+    {
+        "name": "ZigWheels",
+        "url": "https://www.zigwheels.com",
+        "description": "Car specs, prices, and road test reviews with detailed performance data",
+        "strengths": "price range, monthly sales, mileage, 0-100 times, spec comparison",
+    },
+    {
+        "name": "AutoCarIndia",
+        "url": "https://www.autocarindia.com",
+        "description": "India's premier automotive magazine with detailed road tests and scored performance",
+        "strengths": "acceleration timing, NVH levels, ride quality score, handling, braking distance, steering feel",
+    },
+    {
+        "name": "Team-BHP",
+        "url": "https://www.team-bhp.com",
+        "description": "India's most trusted owner community with detailed long-term real-world road tests",
+        "strengths": "real-world mileage, NVH issues, interior quality, ride comfort, ownership experience",
+    },
+    {
+        "name": "MotorBeam",
+        "url": "https://www.motorbeam.com",
+        "description": "Detailed spec sheets and driving impressions for Indian market cars",
+        "strengths": "technical specs, dimensions, performance figures, feature details",
+    },
+    {
+        "name": "CarAndBike",
+        "url": "https://www.carandbike.com",
+        "description": "NDTV automotive - specs database and expert road test reviews",
+        "strengths": "spec comparison, road test scores, safety features, ADAS details",
+    },
+    {
+        "name": "V3Cars",
+        "url": "https://www.v3cars.com",
+        "description": "Variant-wise spec breakdowns and feature availability comparison for Indian cars",
+        "strengths": "variant-level feature availability, tyre specs, alloy wheel details, interior features",
+    },
+]
+
+# ============================================================================
+# TRUSTED CITATION DOMAINS
+# Citations must ONLY use these domains — never Vertex AI grounding URLs
+# ============================================================================
+
+TRUSTED_CITATION_DOMAINS = [
+    # Indian spec databases
+    "cardekho.com", "carwale.com", "zigwheels.com", "v3cars.com",
+    # Indian automotive media
+    "autocarindia.com", "overdrive.in", "autocarpro.in", "motorbeam.com",
+    "carandbike.com", "rushlane.com", "drivespark.com", "motoroctane.com",
+    "evreporter.com", "motoringworld.in",
+    # Community reviews
+    "team-bhp.com",
+    # Global automotive
+    "autocar.co.uk", "autoblog.com", "jalopnik.com", "topgear.com",
+    "automobilemagazine.com", "leftlanenews.com",
+    # Sales data
+    "bestsellingcarsblog.com",
+    # China automotive
+    "carnewschina.com", "gasgoo.com", "autohome.com.cn",
+    # EV focused
+    "insideevs.com", "evadoption.com",
+    # YouTube
+    "youtube.com",
+]
+
+# Source name → trusted base URL fallback mapping
+_SOURCE_FALLBACK_URLS = {
+    "CarDekho": "https://www.cardekho.com",
+    "CarWale": "https://www.carwale.com",
+    "ZigWheels": "https://www.zigwheels.com",
+    "AutoCarIndia": "https://www.autocarindia.com",
+    "Team-BHP": "https://www.team-bhp.com",
+    "MotorBeam": "https://www.motorbeam.com",
+    "CarAndBike": "https://www.carandbike.com",
+    "V3Cars": "https://www.v3cars.com",
+    "Overdrive": "https://www.overdrive.in",
+    "Rushlane": "https://www.rushlane.com",
+}
+
+# Official brand website domains — always trusted as citations
+_OFFICIAL_BRAND_DOMAINS = [
+    "mahindra.com", "mahindraelectric", "hyundai.com", "toyota.com",
+    "tatamotors.com", "tata.com", "marutisuzuki.com", "honda.com",
+    "kia.com", "mgmotor.co.in", "mgmotor.com", "volkswagen.co.in",
+    "skoda-auto.com", "nissan.in", "renault.co.in", "ford.com",
+    "jeep.com", "jeep-india.com", "bmw.com", "mercedes-benz.co.in",
+    "audi.com", "tesla.com", "byd.com", "volvocars.com", "citroen.in",
+]
+
+# URL patterns that must NEVER appear in citations
+_BLOCKED_URL_PATTERNS = [
+    "vertexaisearch.cloud.google.com",
+    "grounding-api-redirect",
+    "googleapis.com",
+    "google.com/search",
+    "bing.com/search",
+    "search.yahoo.com",
+    "googleusercontent.com",
+]
+
+# Trusted domains list string for use in prompts
+_TRUSTED_DOMAINS_PROMPT_LIST = ", ".join([
+    "cardekho.com", "carwale.com", "zigwheels.com", "autocarindia.com",
+    "team-bhp.com", "overdrive.in", "motorbeam.com", "carandbike.com",
+    "rushlane.com", "v3cars.com", "autocarpro.in", "youtube.com",
+])
+
+
+def normalize_citation_url(url: str, source_name: str = None) -> str:
+    """
+    Normalize citation URL to only use trusted domains.
+
+    Strips Vertex AI grounding redirect URLs and maps unknown domains to the
+    source's trusted base URL. Ensures citations always point to real,
+    trusted automotive sources.
+
+    Args:
+        url: Raw URL from Gemini or search results
+        source_name: Source name (e.g., "CarDekho") for fallback mapping
+
+    Returns:
+        Trusted URL, or source's base URL, or "N/A"
+    """
+    if not url or url in ["N/A", "Google Search", "", "Not found"]:
+        if source_name and source_name in _SOURCE_FALLBACK_URLS:
+            return _SOURCE_FALLBACK_URLS[source_name]
+        return "N/A"
+
+    url_lower = url.lower()
+
+    # Block Vertex AI / grounding / search engine redirect URLs
+    for pattern in _BLOCKED_URL_PATTERNS:
+        if pattern in url_lower:
+            if source_name and source_name in _SOURCE_FALLBACK_URLS:
+                return _SOURCE_FALLBACK_URLS[source_name]
+            return "N/A"
+
+    # Accept URLs from trusted domains
+    for domain in TRUSTED_CITATION_DOMAINS:
+        if domain in url_lower:
+            return url  # Already trusted domain — keep as-is
+
+    # Accept official brand website URLs
+    for domain in _OFFICIAL_BRAND_DOMAINS:
+        if domain in url_lower:
+            return url  # Official brand URL — keep as-is
+
+    # URL from untrusted/unknown domain — fall back to source's base URL
+    if source_name and source_name in _SOURCE_FALLBACK_URLS:
+        return _SOURCE_FALLBACK_URLS[source_name]
+
+    return "N/A"
+
+
+# Detailed per-spec extraction guidance for Phase 2 Gemini prompt
+SPEC_DESCRIPTIONS = {
+    "price_range": "Ex-showroom price range across all variants (e.g., '₹8.99 Lakh - ₹15.50 Lakh')",
+    "monthly_sales": "Monthly retail sales volume in India (e.g., '3,000–5,000 units/month')",
+    "mileage": "ARAI-certified or real-world fuel efficiency (e.g., '14.5 kmpl petrol, 19.1 kmpl diesel')",
+    "user_rating": "Aggregate owner rating out of 5 from cardekho/carwale/zigwheels (e.g., '4.3/5 based on 850 reviews')",
+    "seating_capacity": "Number of seats (e.g., '5 seater' or '7 seater')",
+    "performance_feel": "Overall driving dynamics and performance impression from expert road tests",
+    "driveability": "Day-to-day drivability: throttle smoothness, traffic ease, low-speed behaviour",
+    "acceleration": "0–100 kmph time (e.g., '9.5 seconds 0–100 kmph')",
+    "torque": "Peak torque with RPM band (e.g., '300 Nm @ 1500–3000 rpm')",
+    "response": "Throttle/accelerator response quality — immediate, laggy, or turbo lag details",
+    "city_performance": "Performance in city stop-go traffic: low-end torque, ease of driving",
+    "highway_performance": "Cruising ability, overtaking ease, stability at highway speeds",
+    "off_road": "Off-road capability: ground clearance, 4WD/AWD, approach/departure angle",
+    "crawl": "Low-speed crawl function: Hill Descent Control or 4L crawl ratio",
+    "manual_transmission_performance": "Manual gearbox quality: shift throw length, clutch weight, notchiness",
+    "automatic_transmission_performance": "AT/AMT/CVT/DCT smoothness, kickdown response, paddle shifters",
+    "pedal_operation": "Clutch pedal weight and engagement point (manual variants)",
+    "gear_shift": "Gear shifter mechanical feel, effort required, precise or vague",
+    "gear_selection": "Precision of individual gear selection, slotting quality",
+    "pedal_travel": "Brake/clutch pedal travel distance — long vs short",
+    "ride": "Overall ride quality — comfortable, stiff, pliant, or harsh",
+    "ride_quality": "Suspension comfort over city bumps and highways — bump absorption",
+    "stiff_on_pot_holes": "Behaviour over potholes and broken roads — jolt vs absorption",
+    "bumps": "Front and rear suspension bump absorption capability",
+    "shocks": "Shock absorber damping quality description from expert review",
+    "nvh": "Overall NVH (Noise, Vibration, Harshness) — cabin insulation rating",
+    "powertrain_nvh": "Engine and drivetrain noise entering the cabin",
+    "wind_nvh": "Aerodynamic/wind noise at speed",
+    "road_nvh": "Road noise penetration into cabin",
+    "wind_noise": "Wind noise level at highway speeds (e.g., 'well-suppressed', 'noticeable above 100 kmph')",
+    "tire_noise": "Tyre rolling noise entering cabin",
+    "turbo_noise": "Turbocharger whine audible inside cabin",
+    "blower_noise": "AC blower/HVAC fan noise at various speeds",
+    "jerks": "Jerkiness during acceleration or gear changes",
+    "pulsation": "Brake pulsation or vibration felt through pedal when braking",
+    "shakes": "Steering wheel or body shake/vibration at speed",
+    "shudder": "Engine or drivetrain shudder at low speeds",
+    "grabby": "Brake bite point — grabby/sharp vs progressive",
+    "spongy": "Brake pedal sponginess or lack of feel",
+    "rattle": "Interior rattle and squeak noises from trim or panels",
+    "steering": "Steering system: EPS type, weighting light/heavy, feedback quality",
+    "telescopic_steering": "Steering column adjustment: tilt only, or tilt + telescopic",
+    "turning_radius": "Turning circle radius in metres (e.g., '5.2 m turning radius')",
+    "manoeuvring": "Ease of parking and low-speed manoeuvring in tight spaces",
+    "stability": "Overall vehicle stability at speed and during cornering",
+    "corner_stability": "Body roll, lean, and composure in corners",
+    "straight_ahead_stability": "Straight-line stability at highway speeds — nervous vs planted",
+    "braking": "Braking performance: stopping distance, pedal feel, system type",
+    "brakes": "Brake system: disc/drum front/rear, ABS, EBD, Brake Assist details",
+    "brake_performance": "Braking distance from 100 kmph or expert braking assessment",
+    "epb": "Electronic Parking Brake — available or not, auto-hold feature",
+    "airbags": "Total number of airbags (e.g., '6 airbags standard')",
+    "airbag_types_breakdown": "Airbag positions: front driver+passenger, side, curtain, knee — which are present",
+    "vehicle_safety_features": "Safety tech: ABS, EBD, ESC, TCS, hill hold assist, ISOFIX",
+    "adas": "ADAS suite: lane departure warning, blind spot monitor, forward collision warning, auto emergency braking, adaptive cruise",
+    "ncap_rating": "NCAP/BNCAP crash test star rating (e.g., '5-star Global NCAP 2024')",
+    "impact": "Crash test scores: adult occupant % and child occupant % from NCAP",
+    "seats_restraint": "Seatbelt features: 3-point belts, pretensioners, load limiters, height adjusters",
+    "interior": "Interior quality: materials, fit-and-finish, soft-touch surfaces, premium feel",
+    "climate_control": "AC type: manual AC, automatic single-zone, dual-zone climate control; rear vents",
+    "seats": "Seat comfort, bolstering, cushioning, long-drive comfort assessment",
+    "seat_cushion": "Seat cushion density, thigh support, under-thigh support quality",
+    "seat_material": "Upholstery material: fabric, leatherette, leather, suede-like",
+    "seat_features_detailed": "Driver seat: 6-way/8-way power, lumbar support, memory, ventilation, heating",
+    "rear_seat_features": "Rear seat: 60:40 split fold, recline angle, armrest, cup holders, rear AC vents",
+    "ventilated_seats": "Ventilated/cooled seats — available in which variants, front only or front+rear",
+    "visibility": "All-round visibility from driver's seat — thick pillars, small windows, blind spots",
+    "soft_trims": "Soft-touch dashboard, door inserts — areas with soft materials vs hard plastic",
+    "armrest": "Front and rear armrest quality, padding, height",
+    "headrest": "Headrest adjustability (height/angle), comfort for tall passengers",
+    "egress": "Ease of getting out of the car — door width, sill height, roof clearance",
+    "ingress": "Ease of getting into the car — step-in height, door opening angle",
+    "seatbelt_features": "Seatbelt pretensioners and load limiters — how many rows, height adjusters on which seats",
+    "infotainment_screen": "Touchscreen size and system name (e.g., '10.25-inch Bluelink touchscreen')",
+    "resolution": "Infotainment display resolution or sharpness description",
+    "touch_response": "Touchscreen responsiveness: lag-free, sluggish, or fast",
+    "digital_display": "Digital instrument cluster: size, type (TFT/LCD), displayed information",
+    "apple_carplay": "Apple CarPlay and Android Auto: wired, wireless, or both",
+    "button": "Physical buttons/knobs quality: tactile feedback, layout, ease of use",
+    "audio_system": "Speaker system: brand (Bose/JBL/Sony), number of speakers (e.g., 'Bose 8-speaker')",
+    "cruise_control": "Cruise control type: standard (set speed) or adaptive/radar with follow function",
+    "parking_camera": "Parking camera: 2D/360-degree surround view, display quality, guidelines",
+    "parking_sensors": "Parking sensors: front and rear PDC sensor count",
+    "led": "LED headlights type: projector LED, reflector LED, matrix/adaptive LED",
+    "drl": "Daytime Running Lights: LED design, signature, always-on vs auto",
+    "tail_lamp": "Tail lamp design: full LED, LED elements, connected light bar",
+    "alloy_wheel": "Alloy wheel design and size (e.g., '17-inch diamond-cut alloy wheels')",
+    "tyre_size": "Tyre dimensions (e.g., '215/60 R17' or '235/55 R18')",
+    "wheel_size": "Rim diameter in inches",
+    "sunroof": "Sunroof type: none, standard tilt-slide, panoramic, electric one-touch",
+    "irvm": "IRVM: manual day-night, auto-dimming electrochromic",
+    "orvm": "ORVM: electrically adjustable, auto-fold, integrated turn indicator, puddle lamp",
+    "window": "Power windows: all 4, one-touch up/down on which windows, auto-up with pinch guard",
+    "wiper_control": "Wiper: intermittent speeds, rain-sensing auto wipers availability",
+    "parking": "Parking assist: auto park, hill-hold, hill descent control",
+    "door_effort": "Door build quality: solid thud vs hollow sound, effort to close, sealing",
+    "sensitivity": "Control sensitivity: steering, throttle, brake — well-calibrated vs over/under sensitive",
+    "wheelbase": "Wheelbase in mm (e.g., '2600 mm')",
+    "ground_clearance": "Ground clearance in mm (e.g., '210 mm unladen')",
+    "boot_space": "Boot/cargo capacity in litres (e.g., '373 litres')",
+    "chasis": "Chassis type: monocoque, body-on-frame, platform name (e.g., 'INGLO platform')",
+    "fuel_type": "Available fuel variants: petrol, diesel, CNG, mild-hybrid, strong hybrid, electric",
+    "engine_displacement": "Engine displacement in cc (e.g., '1497 cc' petrol or '1956 cc' diesel)",
+}
+
+
 # ============================================================================
 # UTILITIES
 # ============================================================================
@@ -542,7 +838,7 @@ def build_official_brand_url(car_name: str) -> tuple:
 
 def extract_specs_from_official_site(car_name: str, url: str, specs_batch: List[str]) -> Dict[str, str]:
     """
-    Extract a batch of specs from official brand URL using Gemini.
+    Extract a batch of specs from official brand URL using Gemini (no web search).
 
     Args:
         car_name: Name of the car
@@ -551,45 +847,44 @@ def extract_specs_from_official_site(car_name: str, url: str, specs_batch: List[
 
     Returns: Dict of {spec_name: value}
     """
-    spec_list = "\n".join([f'- {spec}: {spec.replace("_", " ").title()}' for spec in specs_batch])
+    # Build rich per-spec guidance using SPEC_DESCRIPTIONS
+    spec_guide_lines = []
+    for spec in specs_batch:
+        desc = SPEC_DESCRIPTIONS.get(spec, spec.replace("_", " ").title())
+        spec_guide_lines.append(f'- "{spec}": {desc}')
+    spec_guide = "\n".join(spec_guide_lines)
 
-    prompt = f"""Visit this official car specifications page and extract data for {car_name}:
+    prompt = f"""You are an automotive specifications expert. Extract EXACT car specifications for {car_name} from the official brand website.
 
-URL: {url}
+Official website URL: {url}
 
-Extract these {len(specs_batch)} specifications from the page:
-{spec_list}
+Extract these {len(specs_batch)} specifications:
+{spec_guide}
 
-IMPORTANT:
-- Visit the URL and read the official spec sheet/table
-- Extract exact values with units (bhp, Nm, mm, litres, kg, kmpl, etc.)
-- Look for technical specifications table, features list, or specs section
-- If a spec is not on this page, return "Not found"
+RULES:
+- EXACT values with units always: e.g., "210 mm", "₹12.5–18.9 Lakh", "1497 cc", "6 airbags", "10.25 inch"
+- Include measurement units: bhp, Nm, mm, litres, kg, kmpl, rpm, seconds
+- Binary features: "Yes", "No", or the specific variant where available
+- Use your knowledge of this car model from the official website
+- Return "Not found" only if the spec is genuinely unavailable
 
-Return ONLY a JSON object:
+Return ONLY a JSON object (no markdown):
 {{
-    "spec_name": "value with units (concise)",
-    ...
-}}
-
-Example:
-{{
-    "price_range": "₹12.5-18.9 Lakh",
-    "performance": "175 bhp @ 3500 rpm",
-    "torque": "370 Nm",
-    "mileage": "15.2 kmpl"
+    "price_range": "₹12.5–18.9 Lakh",
+    "acceleration": "9.2 seconds (0–100 kmph)",
+    "airbags": "6 airbags",
+    "tyre_size": "215/60 R17",
+    "sunroof": "Yes – Electric Panoramic Sunroof",
+    "audio_system": "Sony 8-speaker system"
 }}
 
 Return ONLY the JSON, no markdown."""
 
     try:
-        response_text = call_gemini_simple(prompt)
-
-        if not response_text:
+        text = call_gemini_simple(prompt)
+        if not text:
             return {}
 
-        # Parse JSON
-        text = response_text.strip()
         if "```json" in text:
             text = text.split("```json")[1].split("```")[0]
         elif "```" in text:
@@ -599,10 +894,10 @@ Return ONLY the JSON, no markdown."""
         if "{" in text and "}" in text:
             text = text[text.index("{"):text.rindex("}") + 1]
 
-        data = json_repair.loads(text)
-        return data
+        return json_repair.loads(text)
 
-    except Exception:
+    except Exception as e:
+        print(f"      Phase 0 Gemini error: {str(e)[:60]}")
         return {}
 
 
@@ -736,6 +1031,8 @@ Rules:
 - Extract ONLY if explicitly stated in snippets
 - Include units (bhp, Nm, kmpl, mm, litres, etc.)
 - For subjective specs, use brief phrase (3-5 words)
+- source_url MUST be a real page URL from one of: {_TRUSTED_DOMAINS_PROMPT_LIST}
+- NEVER return Google, Bing, Vertex AI, or redirect URLs as source_url
 - If not found, return: {{"value": "Not found", "source_url": "N/A"}}
 
 Return ONLY the JSON object."""
@@ -760,7 +1057,9 @@ Return ONLY the JSON object."""
         data = json_repair.loads(text)
 
         value = data.get("value", "Not found")
-        source_url = data.get("source_url", "N/A")
+        raw_url = data.get("source_url", "N/A")
+        # Normalize: strip Vertex AI / grounding URLs, ensure trusted domain
+        source_url = normalize_citation_url(raw_url)
 
         return {"value": value, "source_url": source_url}
 
@@ -883,7 +1182,7 @@ def build_cardekho_url(car_name: str) -> str:
     """Build CarDekho spec page URL."""
     brand = get_brand_name(car_name)
     url_car_name = normalize_car_name_for_url(car_name)
-    return f"https://www.cardekho.com/{brand}/{url_car_name}/specs"
+    return f"https://www.cardekho.com/{brand}/{url_car_name}"
 
 
 def extract_specs_from_url(car_name: str, url: str, spec_batch: List[str]) -> Dict[str, str]:
@@ -941,14 +1240,101 @@ Return ONLY the JSON object."""
         return {}
 
 
-def phase2_cardekho_fallback(car_name: str, current_specs: Dict[str, str]) -> Dict[str, Any]:
+def search_single_source_for_specs(car_name: str, source: dict, specs_to_find: List[str]) -> Dict[str, Any]:
     """
-    Phase 2: Extract missing specs from CarDekho in batches of 10 (parallel).
-    Gemini fetches the URL itself instead of receiving HTML content.
+    Search a single automotive source for all missing specs.
+
+    Inspired by clinical trials multi-registry parallel search — each source
+    is searched independently and results are merged afterwards.
+
+    Returns: {spec_name: {"value": ..., "source_url": ...}} dict
+    """
+    # Build numbered spec guide with descriptions
+    spec_guide_lines = []
+    for i, spec in enumerate(specs_to_find, 1):
+        desc = SPEC_DESCRIPTIONS.get(spec, spec.replace("_", " ").title())
+        spec_guide_lines.append(f"{i}. **{spec}**: {desc}")
+    specs_detail = "\n".join(spec_guide_lines)
+
+    json_template = ",\n".join([
+        f'    "{spec}": {{"value": "extracted value or Not found", "source_url": "exact page URL"}}'
+        for spec in specs_to_find
+    ])
+
+    source_domain = source["url"].split("//")[1].split("/")[0] if "//" in source["url"] else source["url"]
+
+    prompt = f'''You are an automotive data expert. Search {source["name"]} ({source["url"]}) for {car_name} specifications.
+
+SOURCE: {source["name"]}
+WEBSITE: {source["url"]}
+BEST FOR: {source.get("strengths", "general car specs")}
+DESCRIPTION: {source.get("description", "")}
+
+YOUR TASK: Find ALL {len(specs_to_find)} specifications for **{car_name}** from {source["name"]} ONLY.
+
+SPECIFICATIONS TO EXTRACT:
+{specs_detail}
+
+SEARCH STRATEGY:
+1. Search: "{car_name} specifications site:{source_domain}"
+2. Search: "{car_name} {source["name"].lower()} review specs"
+3. Navigate to the {car_name} page on {source["name"]} and read the spec table / road test
+
+CRITICAL RULES:
+- ONLY use data from {source["name"]} — do NOT use data from other websites
+- EXACT values with units: "210 mm", "1497 cc", "6 airbags", "₹12.5-18.9 Lakh", "9.2 sec 0-100 kmph"
+- For qualitative specs (ride, NVH, steering): use the exact phrase or rating from the {source["name"]} review
+- If NOT found on {source["name"]}: set value to "Not found"
+- source_url MUST be a real page URL from {source_domain} (e.g., https://www.{source_domain}/...)
+- NEVER return Vertex AI, Google, grounding redirect, or googleapis.com URLs as source_url
+
+Return ONLY this JSON (no markdown):
+{{
+{json_template}
+}}'''
+
+    try:
+        tools = [types.Tool(google_search=types.GoogleSearch())]
+        config = types.GenerateContentConfig(
+            tools=tools,
+            temperature=0.1,
+            max_output_tokens=4096,
+        )
+
+        response = _gemini_search_client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config=config,
+        )
+
+        if response and response.text:
+            text = response.text.strip()
+            if "```json" in text:
+                text = text.split("```json")[1].split("```")[0]
+            elif "```" in text:
+                text = text.split("```")[1].split("```")[0]
+            text = text.strip()
+            if "{" in text and "}" in text:
+                text = text[text.index("{"):text.rindex("}") + 1]
+            return json_repair.loads(text)
+
+    except Exception as e:
+        print(f"      {source['name']} error: {str(e)[:60]}")
+
+    return {}
+
+
+def phase2_gemini_search_fallback(car_name: str, current_specs: Dict[str, str]) -> Dict[str, Any]:
+    """
+    Phase 2: Multi-source parallel search for missing specs.
+
+    TWO-STEP approach (inspired by clinical trials multi-registry parallel search):
+    Step 1: Search ALL 8 automotive sources IN PARALLEL for all missing specs
+            — each source searched independently, like individual clinical trial registries
+    Step 2: Aggregate results — first non-empty value per spec wins, with source tracking
 
     Returns: {specs: {spec_name: value}, citations: {spec_name: {source_url}}}
     """
-    # Find missing specs
     missing_specs = [
         s for s in CAR_SPECS
         if s not in current_specs or current_specs[s] in ["Not found", "Not Available", ""]
@@ -958,105 +1344,101 @@ def phase2_cardekho_fallback(car_name: str, current_specs: Dict[str, str]) -> Di
         return {"specs": {}, "citations": {}}
 
     print(f"\n{'='*60}")
-    print(f"PHASE 2: CARDEKHO FALLBACK ({len(missing_specs)} missing specs)")
+    print(f"PHASE 2: MULTI-SOURCE PARALLEL SEARCH ({len(missing_specs)} missing specs)")
     print(f"{'='*60}\n")
+    print(f"  Searching {len(AUTOMOTIVE_SPEC_SOURCES)} sources in PARALLEL...")
+    print(f"  Sources: {', '.join(s['name'] for s in AUTOMOTIVE_SPEC_SOURCES)}\n")
 
-    cardekho_url = build_cardekho_url(car_name)
-    print(f"  URL: {cardekho_url}")
-    print(f"  Extracting in batches of 10 (parallel, URL-based)...\n")
+    # Split missing specs into batches of 15 — keeps each prompt focused and avoids truncation
+    PHASE2_BATCH_SIZE = 15
+    spec_batches = [missing_specs[i:i+PHASE2_BATCH_SIZE] for i in range(0, len(missing_specs), PHASE2_BATCH_SIZE)]
 
-    # Split into batches of 10
-    batches = [missing_specs[i:i+10] for i in range(0, len(missing_specs), 10)]
+    # Build all (source × batch) task combinations
+    tasks = [
+        (source, batch_idx, batch)
+        for source in AUTOMOTIVE_SPEC_SOURCES
+        for batch_idx, batch in enumerate(spec_batches)
+    ]
 
+    print(f"  Total queries: {len(tasks)} ({len(AUTOMOTIVE_SPEC_SOURCES)} sources × {len(spec_batches)} batches)\n")
+
+    # Collect all results: spec_name -> list of {value, source_url, source_name}
+    all_results: Dict[str, List[Dict]] = {}
+    source_counts = {source["name"]: 0 for source in AUTOMOTIVE_SPEC_SOURCES}
+
+    def run_source_batch(source, batch_idx, batch):
+        result = search_single_source_for_specs(car_name, source, batch)
+        found = {}
+        for spec_name in batch:
+            spec_data = result.get(spec_name, {})
+            if isinstance(spec_data, dict):
+                value = spec_data.get("value", "Not found")
+                raw_url = spec_data.get("source_url", source["url"])
+            else:
+                value = str(spec_data) if spec_data else "Not found"
+                raw_url = source["url"]
+
+            # Always normalize to a trusted citation URL
+            source_url = normalize_citation_url(raw_url, source["name"])
+
+            if value and value not in ["Not found", "Not Available", "", "N/A"]:
+                found[spec_name] = {"value": value, "source_url": source_url, "source_name": source["name"]}
+
+        return source["name"], batch_idx, found
+
+    # Run all tasks in parallel with bounded concurrency
+    max_workers = min(len(tasks), GEMINI_WORKERS)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(run_source_batch, source, batch_idx, batch): (source["name"], batch_idx)
+            for source, batch_idx, batch in tasks
+        }
+
+        for future in concurrent.futures.as_completed(futures):
+            src_name, batch_idx = futures[future]
+            try:
+                src_name, b_idx, found = future.result()
+                source_counts[src_name] = source_counts.get(src_name, 0) + len(found)
+
+                for spec_name, data in found.items():
+                    if spec_name not in all_results:
+                        all_results[spec_name] = []
+                    all_results[spec_name].append(data)
+
+                print(f"    {src_name} (batch {b_idx+1}/{len(spec_batches)}): {len(found)} specs found")
+
+            except Exception as e:
+                print(f"    {src_name}: Error - {str(e)[:60]}")
+
+    # Step 2: Aggregate — first found value per spec wins
     specs = {}
     citations = {}
 
-    def extract_batch_from_url(batch):
-        """Extract one batch by letting Gemini visit the URL."""
-        json_template = ",\n".join([f'  "{spec}": "value or Not Available"' for spec in batch])
+    for spec_name, results in all_results.items():
+        if results:
+            best = results[0]
+            specs[spec_name] = best["value"]
+            citations[spec_name] = {
+                "source_url": best["source_url"],
+                "citation_text": f"Extracted from {best['source_name']} via Gemini+Search",
+            }
 
-        prompt = f"""Visit this CarDekho specifications page and extract car data for {car_name}:
+    # Print source breakdown
+    print(f"\n  Source breakdown:")
+    for src_name, count in source_counts.items():
+        if count > 0:
+            print(f"    {src_name}: {count} specs")
 
-**URL to visit:** {cardekho_url}
-
-**Extract these {len(batch)} specifications:**
-{chr(10).join([f"- {spec}" for spec in batch])}
-
-**RULES:**
-1. Visit the URL and read the specification table
-2. Extract EXACT values with units (e.g., "215/60 R17", "10.5s", "6 Airbags")
-3. For descriptive specs, provide brief phrases
-4. If not found, use "Not Available"
-5. Return ONLY valid JSON
-
-**Return JSON:**
-{{
-{json_template}
-}}"""
-
-        try:
-            model = GenerativeModel(_gemini_model)
-            config = GenerationConfig(
-                temperature=0.1,
-                top_p=0.95,
-                max_output_tokens=2048,
-                response_mime_type="application/json",
-            )
-
-            response = model.generate_content(prompt, generation_config=config)
-            response_text = response.text
-
-            # Parse JSON
-            text = response_text.strip()
-            if "```json" in text:
-                text = text.split("```json")[1].split("```")[0]
-            elif "```" in text:
-                text = text.split("```")[1].split("```")[0]
-            text = text.strip()
-
-            if "{" in text and "}" in text:
-                text = text[text.index("{"):text.rindex("}") + 1]
-
-            return json_repair.loads(text)
-
-        except Exception:
-            return {}
-
-    # Process batches in parallel
-    with concurrent.futures.ThreadPoolExecutor(max_workers=GEMINI_WORKERS) as executor:
-        futures = {executor.submit(extract_batch_from_url, batch): i for i, batch in enumerate(batches, 1)}
-
-        recovered = 0
-
-        for future in concurrent.futures.as_completed(futures):
-            batch_num = futures[future]
-
-            try:
-                batch_idx = batch_num - 1
-                batch = batches[batch_idx]
-                extracted = future.result()
-
-                batch_found = 0
-                for spec_name in batch:
-                    value = extracted.get(spec_name, "Not found")
-
-                    if value and value not in ["Not found", "Not Available", ""]:
-                        specs[spec_name] = value
-                        citations[spec_name] = {
-                            "source_url": cardekho_url,
-                            "citation_text": "Extracted from CarDekho",
-                        }
-                        batch_found += 1
-                        recovered += 1
-
-                print(f"    Batch {batch_num}/{len(batches)}: {batch_found}/{len(batch)} specs")
-
-            except Exception as e:
-                print(f"    Batch {batch_num}/{len(batches)}: Error - {str(e)[:50]}")
-
+    recovered = len(specs)
     print(f"\n  Phase 2 Complete: Recovered {recovered}/{len(missing_specs)} specs")
 
     return {"specs": specs, "citations": citations}
+
+
+# Backward compatibility alias
+def phase2_cardekho_fallback(car_name: str, current_specs: Dict[str, str]) -> Dict[str, Any]:
+    """Alias for phase2_gemini_search_fallback (backward compatibility)."""
+    return phase2_gemini_search_fallback(car_name, current_specs)
 
 
 # ============================================================================
