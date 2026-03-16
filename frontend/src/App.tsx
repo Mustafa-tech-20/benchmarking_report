@@ -64,7 +64,7 @@ function App() {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [session, setSession] = useState<SessionInfo>({ userId: null, sessionId: null, conversationId: null });
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [conversations, setConversations] = useState<ConversationListItem[]>([]);
@@ -268,34 +268,58 @@ function App() {
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
+    const files = Array.from(e.target.files || []);
+    const validFiles: File[] = [];
+    let totalSize = selectedFiles.reduce((sum, f) => sum + f.size, 0);
+
+    for (const file of files) {
       if (file.type !== 'application/pdf') {
-        alert('Please select a PDF file');
-        return;
+        alert(`${file.name} is not a PDF file`);
+        continue;
       }
       if (file.size > 10 * 1024 * 1024) {
-        alert('File size must be less than 10MB');
-        return;
+        alert(`${file.name} exceeds 10MB limit`);
+        continue;
       }
-      setSelectedFile(file);
+      if (selectedFiles.length + validFiles.length >= 10) {
+        alert('Maximum 10 files allowed');
+        break;
+      }
+      totalSize += file.size;
+      if (totalSize > 30 * 1024 * 1024) {
+        alert('Total file size exceeds 30MB limit');
+        break;
+      }
+      validFiles.push(file);
+    }
+
+    if (validFiles.length > 0) {
+      setSelectedFiles(prev => [...prev, ...validFiles]);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
-  const removeFile = () => {
-    setSelectedFile(null);
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const clearAllFiles = () => {
+    setSelectedFiles([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
   const sendMessage = async () => {
-    if (!input.trim() && !selectedFile) return;
+    if (!input.trim() && selectedFiles.length === 0) return;
 
+    const fileNames = selectedFiles.map(f => f.name).join(', ');
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input.trim() || `[Uploaded: ${selectedFile?.name}]`,
+      content: input.trim() || `[Uploaded: ${fileNames}]`,
       timestamp: new Date(),
     };
 
@@ -314,15 +338,17 @@ function App() {
 
     setIsLoading(true);
 
-    const fileToUpload = selectedFile;
+    const filesToUpload = [...selectedFiles];
 
     try {
       const formData = new FormData();
       formData.append('query', userMessage.content);
 
-      if (fileToUpload) {
-        formData.append('pdf_file', fileToUpload);
-        setSelectedFile(null);
+      if (filesToUpload.length > 0) {
+        filesToUpload.forEach(file => {
+          formData.append('pdf_files', file);
+        });
+        setSelectedFiles([]);
         if (fileInputRef.current) fileInputRef.current.value = '';
       }
 
@@ -431,7 +457,7 @@ function App() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey && (input.trim() || selectedFile)) {
+    if (e.key === 'Enter' && !e.shiftKey && (input.trim() || selectedFiles.length > 0)) {
       e.preventDefault();
       sendMessage();
     }
@@ -441,7 +467,7 @@ function App() {
     setMessages([]);
     setSession({ userId: null, sessionId: null, conversationId: null });
     clearSessionCookies();
-    setSelectedFile(null);
+    setSelectedFiles([]);
     if (fileInputRef.current) fileInputRef.current.value = '';
     setShowHistory(false);
   };
@@ -735,16 +761,26 @@ function App() {
             ref={fileInputRef}
             onChange={handleFileSelect}
             accept="application/pdf"
+            multiple
             style={{ display: 'none' }}
           />
 
-          {selectedFile && (
-            <div className="file-badge">
-              <FileText size={14} />
-              <span>{selectedFile.name}</span>
-              <button onClick={removeFile} className="file-remove">
-                <X size={12} />
-              </button>
+          {selectedFiles.length > 0 && (
+            <div className="files-container">
+              {selectedFiles.map((file, index) => (
+                <div key={index} className="file-badge">
+                  <FileText size={14} />
+                  <span>{file.name}</span>
+                  <button onClick={() => removeFile(index)} className="file-remove">
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+              {selectedFiles.length > 1 && (
+                <button onClick={clearAllFiles} className="clear-all-btn">
+                  Clear all
+                </button>
+              )}
             </div>
           )}
 
@@ -752,7 +788,8 @@ function App() {
             <button
               onClick={() => fileInputRef.current?.click()}
               className="chatgpt-icon-btn"
-              disabled={isLoading}
+              disabled={isLoading || selectedFiles.length >= 10}
+              title={selectedFiles.length >= 10 ? 'Maximum 10 files' : 'Add PDFs'}
             >
               <Plus size={20} />
             </button>
@@ -769,7 +806,7 @@ function App() {
 
             <button
               onClick={sendMessage}
-              disabled={isLoading || (!input.trim() && !selectedFile)}
+              disabled={isLoading || (!input.trim() && selectedFiles.length === 0)}
               className="chatgpt-send-btn"
             >
               {isLoading ? <Loader2 className="spinner" size={18} /> : <Send size={18} />}
@@ -786,16 +823,26 @@ function App() {
               ref={fileInputRef}
               onChange={handleFileSelect}
               accept="application/pdf"
+              multiple
               style={{ display: 'none' }}
             />
 
-            {selectedFile && (
-              <div className="file-badge">
-                <FileText size={14} />
-                <span>{selectedFile.name}</span>
-                <button onClick={removeFile} className="file-remove">
-                  <X size={12} />
-                </button>
+            {selectedFiles.length > 0 && (
+              <div className="files-container">
+                {selectedFiles.map((file, index) => (
+                  <div key={index} className="file-badge">
+                    <FileText size={14} />
+                    <span>{file.name}</span>
+                    <button onClick={() => removeFile(index)} className="file-remove">
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+                {selectedFiles.length > 1 && (
+                  <button onClick={clearAllFiles} className="clear-all-btn">
+                    Clear all
+                  </button>
+                )}
               </div>
             )}
 
@@ -803,7 +850,8 @@ function App() {
               <button
                 onClick={() => fileInputRef.current?.click()}
                 className="chatgpt-icon-btn"
-                disabled={isLoading}
+                disabled={isLoading || selectedFiles.length >= 10}
+                title={selectedFiles.length >= 10 ? 'Maximum 10 files' : 'Add PDFs'}
               >
                 <Plus size={20} />
               </button>
@@ -820,7 +868,7 @@ function App() {
 
               <button
                 onClick={sendMessage}
-                disabled={isLoading || (!input.trim() && !selectedFile)}
+                disabled={isLoading || (!input.trim() && selectedFiles.length === 0)}
                 className="chatgpt-send-btn"
               >
                 {isLoading ? <Loader2 className="spinner" size={18} /> : <Send size={18} />}

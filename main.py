@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.datastructures import UploadFile as StarletteUploadFile
 from google.adk.runners import Runner, InMemorySessionService
-from google.adk.errors import SessionNotFoundError
+
 from google.genai import types
 from typing import Union
 
@@ -318,7 +318,7 @@ async def delete_conversation_endpoint(
 @app.post("/api/compare")
 async def compare_cars(
     query: str = Form(..., description="Your query (e.g., 'Summarize this', 'Compare cars in this with Thar', 'Compare Thar and Swift')"),
-    pdf_file: Optional[Union[UploadFile, str]] = File(None, description="Optional PDF with car specifications or reviews"),
+    pdf_files: List[UploadFile] = File(default=[], description="Optional PDFs with car specifications or reviews (max 10 files, 30MB total)"),
     x_user_id: Optional[str] = Header(None, alias="X-User-Id", description="User ID from previous response. Pass to continue conversation."),
     x_session_id: Optional[str] = Header(None, alias="X-Session-Id", description="Session ID from previous response. Pass to continue conversation."),
     x_conversation_id: Optional[str] = Header(None, alias="X-Conversation-Id", description="Conversation ID to continue existing conversation."),
@@ -332,10 +332,15 @@ async def compare_cars(
     - PP Role → Product Planning Agent
     - VD Role → Vehicle Development Agent
 
+    **Multi-PDF Support:**
+    - Upload up to 10 PDF files per request
+    - Maximum 10MB per file, 30MB total
+    - All PDFs are processed together in context
+
     **PDF modes (determined by your query):**
-    - `"summarize this"` → returns a document summary
-    - `"extract car specs"` → returns specs found in the PDF
-    - `"compare cars in this with Mahindra Thar"` → runs full comparison
+    - `"summarize these"` → returns document summaries
+    - `"extract car specs"` → returns specs found in the PDFs
+    - `"compare cars in these with Mahindra Thar"` → runs full comparison
 
     **Without PDF:**
     - `"Compare Mahindra Thar, Maruti Swift, Tata Nexon"` → runs full comparison
@@ -352,7 +357,7 @@ async def compare_cars(
         logger.info("[COMPARE] New authenticated request")
         logger.info(f"[AUTH] User: {current_user.email} | Role: {current_user.role.value} | Agent: {agent_type}")
         logger.info(f"[COMPARE] Query: {query[:100]}")
-        logger.info(f"[COMPARE] PDF: {pdf_file is not None}")
+        logger.info(f"[COMPARE] PDFs: {len(pdf_files)} file(s)")
         logger.info("=" * 60)
 
         # Get session IDs from headers (secure method)
@@ -390,33 +395,56 @@ async def compare_cars(
             session_id = session.id
             logger.info(f"[SESSION] Created new session: user={user_id}  session={session_id}")
 
-        # Build content parts — PDF first, then user text
+        # Build content parts — PDFs first, then user text
         parts = []
+        total_pdf_size = 0
+        valid_pdf_count = 0
 
-        # Treat empty/unset file upload as no file (Swagger sends garbage string when no file selected)
-        if not isinstance(pdf_file, (UploadFile, StarletteUploadFile)):
-            logger.warning(f"[PDF] Not an UploadFile! Type: {type(pdf_file)}, Value: {pdf_file}")
-            pdf_file = None
-        else:
-            logger.info(f"[PDF] Valid UploadFile received: {pdf_file.filename}")
+        # Filter out invalid uploads (Swagger sends garbage string when no file selected)
+        valid_pdfs = [
+            pdf for pdf in pdf_files
+            if isinstance(pdf, (UploadFile, StarletteUploadFile)) and pdf.filename
+        ]
 
-        if pdf_file:
+        # Validate limits
+        if len(valid_pdfs) > 10:
+            raise HTTPException(
+                status_code=400,
+                detail="Too many files. Maximum 10 PDFs per request."
+            )
+
+        # Process each PDF
+        for pdf_file in valid_pdfs:
             logger.info(f"[PDF] Processing: {pdf_file.filename}")
 
             if pdf_file.content_type != "application/pdf":
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Invalid file type: {pdf_file.content_type}. Only PDF files are supported."
+                    detail=f"Invalid file type for {pdf_file.filename}: {pdf_file.content_type}. Only PDF files are supported."
                 )
 
             file_bytes = await pdf_file.read()
-            logger.info(f"[PDF] Size: {len(file_bytes)} bytes")
+            file_size = len(file_bytes)
+            total_pdf_size += file_size
+            logger.info(f"[PDF] {pdf_file.filename}: {file_size} bytes")
 
-            if len(file_bytes) > 10 * 1024 * 1024:
-                raise HTTPException(status_code=400, detail="File too large. Maximum size is 10MB.")
+            if file_size > 10 * 1024 * 1024:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"File {pdf_file.filename} too large. Maximum size is 10MB per file."
+                )
+
+            if total_pdf_size > 30 * 1024 * 1024:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Total file size exceeds 30MB limit."
+                )
 
             parts.append(types.Part(inline_data=types.Blob(mime_type="application/pdf", data=file_bytes)))
-            logger.info("[PDF] Added to content parts")
+            valid_pdf_count += 1
+
+        if valid_pdf_count > 0:
+            logger.info(f"[PDF] Added {valid_pdf_count} PDF(s) to content parts, total size: {total_pdf_size} bytes")
 
         # User query — passed exactly as typed, no modifications
         parts.append(types.Part(text=query))
@@ -554,7 +582,7 @@ async def compare_cars(
             "agent_type": agent_type,
             "user_role": current_user.role.value,
             "query": query,
-            "has_pdf": pdf_file is not None,
+            "pdf_count": valid_pdf_count,
             "response": full_response,
             "user_id": user_id,
             "session_id": session_id,
