@@ -1597,9 +1597,148 @@ def create_comparison_chart_html(
                 font-size: 10px !important;
                 line-height: 1.4 !important;
             }}
-            
+
             strong, b {{
                 font-weight: 700 !important;
+            }}
+
+            /* ---- Feature page & table print overrides ---- */
+
+            /* Page container — allow multi-page spanning, no fixed height */
+            .feature-page {{
+                min-height: unset !important;
+                height: auto !important;
+                display: block !important;
+                page-break-after: always !important;
+                break-after: page !important;
+                background: #fff !important;
+            }}
+
+            .feature-page-header {{
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: center !important;
+                padding: 12px 20px !important;
+                border-bottom: 2px solid #cc0000 !important;
+            }}
+
+            .feature-page-title {{
+                font-size: 16px !important;
+                font-weight: 400 !important;
+                color: #333 !important;
+            }}
+
+            .feature-page-title .highlight {{
+                color: #0066cc !important;
+                font-weight: 600 !important;
+                text-decoration: underline !important;
+            }}
+
+            /* Container — MUST be visible, not scrollable */
+            .feature-table-container {{
+                overflow: visible !important;
+                width: 100% !important;
+                padding: 0 20px !important;
+            }}
+
+            /* Table — auto layout so columns size to content */
+            .feature-table {{
+                table-layout: auto !important;
+                width: 100% !important;
+                border-collapse: collapse !important;
+                font-size: 10px !important;
+                page-break-inside: auto !important;
+            }}
+
+            /* Override the global th:first-child rule for this table */
+            .feature-table th:first-child,
+            .feature-table th {{
+                background: #2E3B4E !important;
+                color: #fff !important;
+                font-size: 10px !important;
+                padding: 6px 8px !important;
+                width: auto !important;
+                min-width: unset !important;
+                max-width: unset !important;
+                text-align: left !important;
+            }}
+
+            .feature-table th.car-value-header {{
+                text-align: center !important;
+                min-width: 80px !important;
+            }}
+
+            /* Override global tbody td:first-child rule */
+            .feature-table td,
+            .feature-table tbody td:first-child {{
+                background: #fff !important;
+                color: #333 !important;
+                font-size: 10px !important;
+                padding: 5px 8px !important;
+                width: auto !important;
+                min-width: unset !important;
+                max-width: unset !important;
+                text-align: left !important;
+                font-weight: 400 !important;
+                border: 1px solid #ddd !important;
+                white-space: normal !important;
+            }}
+
+            .feature-table td.cat-cell {{
+                font-weight: 700 !important;
+                width: 80px !important;
+            }}
+
+            .feature-table td.desc-cell {{
+                width: 100px !important;
+            }}
+
+            .feature-table td.feature-cell {{
+                width: 160px !important;
+            }}
+
+            .feature-table td.car-value-cell {{
+                text-align: center !important;
+                font-size: 11px !important;
+                padding: 5px 6px !important;
+                min-width: 70px !important;
+            }}
+
+            .feature-table td.car-value-cell.cell-superior {{
+                background: #c8f7c5 !important;
+            }}
+
+            .feature-table td.car-value-cell.cell-inferior {{
+                background: #ffcdd2 !important;
+            }}
+
+            .feature-table tr {{
+                page-break-inside: avoid !important;
+            }}
+
+            .check-mark {{
+                color: #28a745 !important;
+                font-size: 13px !important;
+                font-weight: bold !important;
+            }}
+
+            .x-mark {{
+                color: #dc3545 !important;
+                font-size: 13px !important;
+                font-weight: bold !important;
+            }}
+
+            .value-text {{
+                font-size: 10px !important;
+                font-weight: 500 !important;
+                color: #1a1a1a !important;
+            }}
+
+            .feature-legend {{
+                display: flex !important;
+                gap: 20px !important;
+                padding: 6px 20px !important;
+                font-size: 10px !important;
             }}
         }}
                 /* Tablet Styles (1024px and below) */
@@ -2605,9 +2744,13 @@ def create_comparison_chart_html(
         <a href="#"><img src="https://www.mahindra.com//sites/default/files/2025-07/mahindra-red-logo.webp" alt="Logo" class="logo"></a>
         <div class="header-actions">
             <nav class="main-nav">
+                <a href="#tech-spec-section">Tech Specs</a>
+                <a href="#feature-list-section">Features</a>
                 <a href="#exterior-section">Exterior</a>
                 <a href="#interior-section">Interior</a>
                 <a href="#technology-section">Technology</a>
+                <a href="#safety-section">Safety</a>
+                <a href="#drivetrain-section">Drivetrain</a>
                 <a href="#summary-section">Summary</a>
                 <a href="#consolidated-review-section">Reviews</a>
                 <a href="#detailed-reviews-section">Pro Reviews</a>

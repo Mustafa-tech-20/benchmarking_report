@@ -51,7 +51,7 @@ def generate_hero_section(comparison_data: Dict[str, Any]) -> str:
 
     # PAGE 1: Cover Page with geometric pattern
     cover_page = f'''
-    <div class="cover-page">
+    <div class="cover-page" id="hero-section">
         <div class="cover-geometric-pattern">
             <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
                 <defs>
@@ -74,7 +74,7 @@ def generate_hero_section(comparison_data: Dict[str, Any]) -> str:
             </svg>
         </div>
         <div class="cover-logo">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/28/Mahindra_%26_Mahindra_wordmark.svg/1200px-Mahindra_%26_Mahindra_wordmark.svg.png" alt="Mahindra">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Mahindra_logo.svg/1920px-Mahindra_logo.svg.png?_=20231128143513" alt="Mahindra">
         </div>
         <div class="cover-content">
             <h1 class="cover-title">{title}</h1>
@@ -93,13 +93,12 @@ def generate_hero_section(comparison_data: Dict[str, Any]) -> str:
             <div class="hero-image-page">
                 <div class="hero-page-header">
                     <h1 class="hero-page-title">FEATURE COMPARISION | <span class="highlight">BENCHMARKING</span></h1>
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/28/Mahindra_%26_Mahindra_wordmark.svg/1200px-Mahindra_%26_Mahindra_wordmark.svg.png" alt="Mahindra" class="hero-page-logo">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Mahindra_logo.svg/1920px-Mahindra_logo.svg.png?_=20231128143513" alt="Mahindra" class="hero-page-logo">
                 </div>
                 <div class="hero-image-container">
                     <img src="{img_url}" alt="{name}" class="hero-full-image" onerror="this.style.display='none'">
                 </div>
                 <div class="hero-page-footer">
-                    <div class="hero-page-number">{page_num}</div>
                 </div>
             </div>
             '''
@@ -127,63 +126,177 @@ def generate_technical_spec_section(comparison_data: Dict[str, Any], page_start:
     # First car is the reference (Mahindra car)
     reference_car = car_names[0] if car_names else ""
 
-    # Technical specification groups
+    # Keys to exclude — metadata, citations, image blobs
+    METADATA_KEYS = {
+        'car_name', 'method', 'source_urls', 'images', 'gcs_folder',
+        'scraping_method', 'timestamp', 'chart_gcs_uri', 'chart_signed_url',
+        'summary_data',
+    }
+
+    # Comprehensive organized spec groups
     tech_spec_groups = {
         "Powertrain": [
-            ("Engine", "engine"),
-            ("Engine CC", "engine_cc"),
-            ("Max Power (kW)", "max_power"),
-            ("Max Torque (Nm)", "max_torque"),
+            ("Engine Displacement", "engine_displacement"),
+            ("Fuel Type", "fuel_type"),
+            ("Torque", "torque"),
+            ("Mileage / Fuel Economy", "mileage"),
+            ("Acceleration (0-100 kmph)", "acceleration"),
+            ("Performance Feel", "performance_feel"),
+            ("Driveability", "driveability"),
+            ("Response", "response"),
+            ("City Performance", "city_performance"),
+            ("Highway Performance", "highway_performance"),
+            ("Off-Road Capability", "off_road"),
+            ("Crawl / 4WD Modes", "crawl"),
         ],
-        "Fuel": [
-            ("Type", "fuel_type"),
-            ("Tank Capacity", "fuel_tank"),
-            ("Transmission", "transmission"),
-            ("Drive", "drive_type"),
-            ("Drive Mode", "drive_mode"),
-            ("Top Speed (km/h)", "top_speed"),
+        "Transmission": [
+            ("Manual Transmission", "manual_transmission_performance"),
+            ("Automatic Transmission", "automatic_transmission_performance"),
+            ("Pedal Operation", "pedal_operation"),
+            ("Gear Shift", "gear_shift"),
+            ("Gear Selection", "gear_selection"),
+            ("Pedal Travel", "pedal_travel"),
         ],
-        "Dimension": [
-            ("Length (mm)", "length"),
-            ("Width (mm)", "width"),
-            ("Height (mm)", "height"),
+        "Dimensions": [
             ("Wheelbase (mm)", "wheelbase"),
-            ("WheelTrack F/R", "wheel_track"),
-            ("Ground clearance", "ground_clearance"),
-            ("Kerb weight (kg)", "kerb_weight"),
-        ],
-        "Steering": [
-            ("Type", "steering"),
-        ],
-        "Seat": [
+            ("Ground Clearance (mm)", "ground_clearance"),
+            ("Boot Space", "boot_space"),
+            ("Turning Radius (m)", "turning_radius"),
             ("Seating Capacity", "seating_capacity"),
         ],
-        "Brakes": [
-            ("Front Brakes", "front_brakes"),
-            ("Rear Brakes", "rear_brakes"),
+        "Chassis": [
+            ("Chassis Type", "chasis"),
         ],
-        "Suspension": [
-            ("Front Suspension", "front_suspension"),
-            ("Rear Suspension", "rear_suspension"),
+        "Safety": [
+            ("Airbags", "airbags"),
+            ("Airbag Types", "airbag_types_breakdown"),
+            ("NCAP Rating", "ncap_rating"),
+            ("Impact Rating", "impact"),
+            ("ADAS System", "adas"),
+            ("Vehicle Safety Features", "vehicle_safety_features"),
+            ("Brakes", "brakes"),
+            ("Braking", "braking"),
+            ("Brake Performance", "brake_performance"),
+            ("EPB / Hill Hold", "epb"),
+            ("Stability Control", "stability"),
+            ("Parking Sensors", "parking_sensors"),
+            ("Parking Camera", "parking_camera"),
+            ("Parking", "parking"),
+            ("Seatbelt Features", "seatbelt_features"),
+            ("Seats Restraint", "seats_restraint"),
         ],
-        "Wheel & Tyre": [
-            ("Front - Tyre size", "front_tyre"),
-            ("Rear - Tyre size", "rear_tyre"),
-            ("Spare Tyres", "spare_tyre"),
+        "Steering & Handling": [
+            ("Steering Type", "steering"),
+            ("Sensitivity", "sensitivity"),
+            ("Telescopic Steering", "telescopic_steering"),
+            ("Manoeuvring", "manoeuvring"),
+            ("Corner Stability", "corner_stability"),
+            ("Straight-Ahead Stability", "straight_ahead_stability"),
         ],
-        "Boot": [
-            ("Space (L)", "boot_space"),
+        "Ride Quality": [
+            ("Ride", "ride"),
+            ("Ride Quality", "ride_quality"),
+            ("Bumps / Potholes", "stiff_on_pot_holes"),
+            ("Bumps", "bumps"),
+            ("Shocks / Suspension", "shocks"),
+            ("Jerks", "jerks"),
+            ("Shakes", "shakes"),
+            ("Shudder", "shudder"),
+            ("Pulsation", "pulsation"),
+            ("Grabby", "grabby"),
+            ("Spongy", "spongy"),
+        ],
+        "NVH": [
+            ("Overall NVH", "nvh"),
+            ("Powertrain Noise", "powertrain_nvh"),
+            ("Wind NVH", "wind_nvh"),
+            ("Road NVH", "road_nvh"),
+            ("Wind Noise", "wind_noise"),
+            ("Tire Noise", "tire_noise"),
+            ("Turbo Noise", "turbo_noise"),
+            ("Blower Noise", "blower_noise"),
+            ("Rattle", "rattle"),
+        ],
+        "Wheels & Tyres": [
+            ("Tyre Size", "tyre_size"),
+            ("Wheel Size", "wheel_size"),
+            ("Alloy Wheels", "alloy_wheel"),
+        ],
+        "Exterior": [
+            ("LED Headlamps", "led"),
+            ("DRL (Daytime Running Lights)", "drl"),
+            ("Tail Lamps", "tail_lamp"),
+            ("Sunroof", "sunroof"),
+            ("ORVM", "orvm"),
+            ("Wiper Control", "wiper_control"),
+        ],
+        "Interior & Comfort": [
+            ("Interior Quality", "interior"),
+            ("Climate Control", "climate_control"),
+            ("Seat Material", "seat_material"),
+            ("Seat Cushion", "seat_cushion"),
+            ("Seat Features", "seat_features_detailed"),
+            ("Seats", "seats"),
+            ("Ventilated Seats", "ventilated_seats"),
+            ("Rear Seat Features", "rear_seat_features"),
+            ("Armrest", "armrest"),
+            ("Headrest", "headrest"),
+            ("Soft Touch Trims", "soft_trims"),
+            ("Visibility", "visibility"),
+            ("Ingress (Entry)", "ingress"),
+            ("Egress (Exit)", "egress"),
+            ("IRVM", "irvm"),
+            ("Power Windows", "window"),
+            ("Door Effort", "door_effort"),
+        ],
+        "Technology": [
+            ("Infotainment Screen", "infotainment_screen"),
+            ("Resolution", "resolution"),
+            ("Touch Response", "touch_response"),
+            ("Digital Display", "digital_display"),
+            ("Apple CarPlay / Android Auto", "apple_carplay"),
+            ("Audio System", "audio_system"),
+            ("Cruise Control", "cruise_control"),
+            ("Push Button Start", "button"),
+        ],
+        "Market": [
+            ("Price Range", "price_range"),
+            ("Monthly Sales", "monthly_sales"),
+            ("User Rating", "user_rating"),
         ],
     }
 
-    # Generate table rows
-    rows_html = ""
     EMPTY_VALUES = {None, "", "-", "N/A", "Not Available", "not available", "n/a"}
 
-    for category, specs in tech_spec_groups.items():
+    # Track which keys have been covered by the organized groups
+    covered_keys = set()
+    for specs in tech_spec_groups.values():
+        for _, key in specs:
+            covered_keys.add(key)
+
+    # Dynamically collect any remaining keys from the actual data not yet covered
+    all_data_keys = set()
+    for car_name in car_names:
+        car_data = comparison_data.get(car_name, {})
+        for k in car_data.keys():
+            if (not k.endswith('_citation')
+                    and k not in METADATA_KEYS
+                    and k not in covered_keys):
+                all_data_keys.add(k)
+
+    # Append remaining keys as an "Additional Specs" group
+    if all_data_keys:
+        tech_spec_groups["Additional Specs"] = [
+            (k.replace('_', ' ').title(), k) for k in sorted(all_data_keys)
+        ]
+
+    # Generate table rows
+    rows_html = ""
+
+    def _render_rows(category, specs):
+        nonlocal rows_html
         category_printed = False
         for label, key in specs:
-            # Collect values for all cars first
             values = []
             for car_name in car_names:
                 car_data = comparison_data.get(car_name, {})
@@ -192,27 +305,40 @@ def generate_technical_spec_section(comparison_data: Dict[str, Any], page_start:
                     value = "-"
                 values.append(value)
 
-            # Skip row entirely if no car has data for this spec
             if all(v == "-" for v in values):
                 continue
 
-            # Show category label only on the first non-empty row of the group
             cat_display = category if not category_printed else ""
             category_printed = True
 
+            ref_val = values[0] if values else "-"
             rows_html += f'<tr><td class="cat-cell">{cat_display}</td><td class="param-cell">{label}</td>'
-            for value in values:
-                rows_html += f'<td>{value}</td>'
+            for i, value in enumerate(values):
+                if i == 0:
+                    # Reference car — always white/neutral
+                    rows_html += f'<td>{value}</td>'
+                else:
+                    # Competitor car — color based on presence vs reference
+                    if ref_val != "-" and value == "-":
+                        cell_class = "inferior-cell"   # competitor is missing this spec
+                    elif ref_val == "-" and value != "-":
+                        cell_class = "superior-cell"   # competitor has it, reference doesn't
+                    else:
+                        cell_class = ""
+                    rows_html += f'<td class="{cell_class}">{value}</td>'
             rows_html += '</tr>'
+
+    for category, specs in tech_spec_groups.items():
+        _render_rows(category, specs)
 
     # Build the page
     cars_header = "".join([f'<th colspan="1">{name}</th>' for name in car_names])
 
     html = f'''
-    <div class="spec-page">
+    <div class="spec-page" id="tech-spec-section">
         <div class="spec-page-header">
             <h1 class="spec-page-title">TECHNICAL SPECIFICATION | <span class="highlight">BENCHMARKING</span></h1>
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/28/Mahindra_%26_Mahindra_wordmark.svg/1200px-Mahindra_%26_Mahindra_wordmark.svg.png" alt="Mahindra" class="spec-page-logo">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Mahindra_logo.svg/1920px-Mahindra_logo.svg.png?_=20231128143513" alt="Mahindra" class="spec-page-logo">
         </div>
         <div class="spec-legend">
             <div class="legend-item"><span class="legend-color superior"></span> Superior to {car_names[-1] if len(car_names) > 1 else 'Competitor'}</div>
@@ -233,7 +359,6 @@ def generate_technical_spec_section(comparison_data: Dict[str, Any], page_start:
             </table>
         </div>
         <div class="spec-page-footer">
-            <div class="spec-page-number">{page_start}</div>
         </div>
     </div>
     '''
@@ -241,16 +366,446 @@ def generate_technical_spec_section(comparison_data: Dict[str, Any], page_start:
     return html
 
 
+# Maps feature display name → existing scraped data key.
+# Features here are served directly from comparison_data — no Gemini needed.
+# Features NOT in this map are collected and sent to Gemini in batches of 10.
+# Feature type classification — controls how raw scraped text is converted to display values:
+#   "count"  → extract integer from text (e.g. "6 Airbags" → 6)
+#   "spec"   → show cleaned short text (e.g. "Leatherette" stays as "Leatherette")
+#   "binary" → (default) non-NA text → True (✓), NA text → False (✗)
+_FEATURE_TYPES: Dict[str, str] = {
+    # count features
+    "Total Airbags":            "count",
+    "Front Airbags":            "count",
+    "Side Airbags":             "count",
+    "Curtain Airbags":          "count",
+    "Knee Airbag":              "count",
+    "Screen Size (inches)":     "count",
+    "Wheel Size (inches)":      "count",
+    "Seating Capacity":         "count",
+    "Engine Displacement (cc)": "count",
+    "Max Torque (Nm)":          "count",
+    "Max Power (bhp)":          "count",
+    "Fuel Efficiency (kmpl)":   "count",
+    "Ground Clearance (mm)":    "count",
+    "Turning Radius (m)":       "count",
+    "Wheelbase (mm)":           "count",
+    "Boot Space (litres)":      "count",
+    "Speaker Count":            "count",
+    "Power Adjustment Ways (Driver)": "count",
+    "Total USB Ports":          "count",
+    "Tow Capacity (kg)":        "count",
+    "NCAP Safety Rating":       "count",
+    # spec features — show meaningful text
+    "Seat Material":            "spec",
+    "Fuel Type":                "spec",
+    "Brake Type":               "spec",
+    "Chassis Type":             "spec",
+    "Tyre Size":                "spec",
+    "Spare Tyre Type":          "spec",
+    "Surround View Monitor":    "spec",
+    "Audio System":             "spec",
+    "Drive Modes":              "spec",
+    "Terrain Modes":            "spec",
+    # everything else defaults to "binary"
+}
+
+_SCRAPED_KEY_MAP = {
+    # Safety
+    "Total Airbags":                "airbags",
+    "NCAP Safety Rating":           "ncap_rating",
+    "Impact Protection Rating":     "impact",
+    "ISOFIX Child Seat Anchors":    "seatbelt_features",
+    "Electronic Stability Control": "stability",
+    "Electronic Parking Brake":     "epb",
+    "Hill Hold Control":            "epb",
+    "Rear Parking Sensors":         "parking_sensors",
+    "Brake Type":                   "brakes",
+    "Vehicle Safety Features":      "vehicle_safety_features",
+    # Technology
+    "Touchscreen Display":          "infotainment_screen",
+    "Screen Size (inches)":         "resolution",
+    "Apple CarPlay":                "apple_carplay",
+    "Android Auto":                 "apple_carplay",
+    "Digital Instrument Cluster":   "digital_display",
+    "Audio System":                 "audio_system",
+    "Parking Camera":               "parking_camera",
+    # Interior / Comfort
+    "Seat Material":                "seat_material",
+    "Ventilated Front Seats":       "ventilated_seats",
+    "Seating Capacity":             "seating_capacity",
+    "Rear Reclining Seats":         "rear_seat_features",
+    "Rear Foldable Seats":          "rear_seat_features",
+    "Armrest":                      "armrest",
+    "Sunroof":                      "sunroof",
+    "Automatic Climate Control":    "climate_control",
+    "Dual Zone Climate Control":    "climate_control",
+    "Rear AC Vents":                "climate_control",
+    "Push Button Start":            "button",
+    "Auto Dimming IRVM":            "irvm",
+    "Power Windows All Doors":      "window",
+    "Cruise Control":               "cruise_control",
+    # Exterior
+    "LED Headlamps":                "led",
+    "LED Daytime Running Lights":   "drl",
+    "LED Tail Lamps":               "tail_lamp",
+    "Alloy Wheels":                 "alloy_wheel",
+    "Wheel Size (inches)":          "wheel_size",
+    "Tyre Size":                    "tyre_size",
+    # Performance
+    "Fuel Type":                    "fuel_type",
+    "Engine Displacement (cc)":     "engine_displacement",
+    "Max Torque (Nm)":              "torque",
+    "Fuel Efficiency (kmpl)":       "mileage",
+    "Manual Transmission":          "manual_transmission_performance",
+    "Automatic Transmission":       "automatic_transmission_performance",
+    # Handling / Dimensions
+    "Ground Clearance (mm)":        "ground_clearance",
+    "Telescopic Steering Column":   "telescopic_steering",
+    "Turning Radius (m)":           "turning_radius",
+    "Wheelbase (mm)":               "wheelbase",
+    "Boot Space (litres)":          "boot_space",
+    "Chassis Type":                 "chasis",
+}
+
+# Pre-defined feature batches — ~10 features each, all run in parallel
+_FEATURE_BATCHES = [
+    {
+        "category": "Safety", "description": "Airbags & Passive Safety",
+        "features": ["Total Airbags", "Front Airbags", "Side Airbags", "Curtain Airbags",
+                     "Knee Airbag", "Seatbelt Pretensioner", "Rear Seatbelts",
+                     "NCAP Safety Rating", "ISOFIX Child Seat Anchors", "Impact Protection Rating"]
+    },
+    {
+        "category": "Safety", "description": "Active Safety",
+        "features": ["ABS", "Electronic Stability Control", "Traction Control",
+                     "Hill Hold Control", "Electronic Parking Brake", "Auto Hold",
+                     "Brake Assist", "Hill Descent Control", "Rear Parking Sensors",
+                     "Front Parking Sensors"]
+    },
+    {
+        "category": "Safety", "description": "ADAS",
+        "features": ["Forward Collision Warning", "Automatic Emergency Braking",
+                     "Lane Keep Assist", "Lane Departure Warning", "Blind Spot Monitor",
+                     "Rear Cross Traffic Alert", "Adaptive Cruise Control",
+                     "Traffic Sign Recognition", "360 Degree Camera", "Driver Fatigue Detection"]
+    },
+    {
+        "category": "Technology", "description": "Infotainment",
+        "features": ["Touchscreen Display", "Screen Size (inches)", "Apple CarPlay",
+                     "Android Auto", "Wireless CarPlay", "Wireless Android Auto",
+                     "OTA Updates", "Built-in Navigation", "Voice Control",
+                     "Digital Instrument Cluster"]
+    },
+    {
+        "category": "Technology", "description": "Audio & Connectivity",
+        "features": ["Speaker Count", "Premium Sound System", "Subwoofer",
+                     "USB Type-C Front Row", "USB Type-C Rear Row", "Wireless Charging",
+                     "Bluetooth", "Wi-Fi Hotspot", "Heads-Up Display",
+                     "Rear Entertainment System"]
+    },
+    {
+        "category": "Interior", "description": "Seats",
+        "features": ["Seat Material", "Ventilated Front Seats", "Heated Front Seats",
+                     "Power Driver Seat", "Power Co-Driver Seat", "Driver Memory Seat",
+                     "Power Adjustment Ways (Driver)", "Rear Reclining Seats",
+                     "Rear Foldable Seats", "Seating Capacity"]
+    },
+    {
+        "category": "Interior", "description": "Comfort & Climate",
+        "features": ["Sunroof", "Panoramic Sunroof", "Automatic Climate Control",
+                     "Dual Zone Climate Control", "Rear AC Vents", "PM2.5 Air Filter",
+                     "Push Button Start", "Keyless Entry", "Auto Dimming IRVM",
+                     "Ambient Lighting"]
+    },
+    {
+        "category": "Exterior", "description": "Lighting & Wheels",
+        "features": ["LED Headlamps", "LED Daytime Running Lights", "LED Tail Lamps",
+                     "Auto Headlamps", "Cornering Lights", "Follow Me Home Lights",
+                     "Alloy Wheels", "Wheel Size (inches)", "Tyre Size", "Roof Rails"]
+    },
+    {
+        "category": "Performance", "description": "Engine & Transmission",
+        "features": ["Fuel Type", "Engine Displacement (cc)", "Max Power (bhp)",
+                     "Max Torque (Nm)", "Turbo Engine", "Fuel Efficiency (kmpl)",
+                     "Manual Transmission", "Automatic Transmission",
+                     "Paddle Shifters", "Drive Modes"]
+    },
+    {
+        "category": "Handling", "description": "Off-Road & Dynamics",
+        "features": ["4WD / AWD", "Electronic Locking Differential", "Hill Descent Control",
+                     "Terrain Modes", "Ground Clearance (mm)", "Electronic Power Steering",
+                     "Telescopic Steering Column", "Turning Radius (m)",
+                     "Tow Hook", "Skid Plates"]
+    },
+    {
+        "category": "Convenience", "description": "Windows & Controls",
+        "features": ["Power Windows All Doors", "One-Touch Window Up/Down",
+                     "Rain Sensing Wipers", "Rear Wiper & Washer", "Auto Folding ORVM",
+                     "Heated ORVM", "TPMS (Tyre Pressure Monitor)",
+                     "Cruise Control", "Speed Alert System", "Rear Sunshade"]
+    },
+    {
+        "category": "Dimensions & Storage", "description": "Space & Capacity",
+        "features": ["Wheelbase (mm)", "Boot Space (litres)", "Spare Tyre Type",
+                     "Cargo Net", "Rear Armrest with Cupholder", "Front Cup Holders",
+                     "Rear Cup Holders", "Total USB Ports", "12V Power Outlet",
+                     "Tow Capacity (kg)"]
+    },
+]
+
+
+def _normalize_scraped_value(feat_name: str, raw_val):
+    """
+    Convert raw scraped text to the appropriate display type:
+      - count features  → extract integer (e.g. "6 Airbags" → 6)
+      - spec features   → clean short text  (e.g. "Leatherette" → "Leatherette")
+      - binary features → True if non-NA, False if NA
+    """
+    import re as _re
+
+    _NA = {"", "-", "not available", "n/a", "na", "none", "null", "not found", "false", "no"}
+
+    if raw_val is None:
+        return False
+    if isinstance(raw_val, bool):
+        return raw_val
+    if isinstance(raw_val, (int, float)):
+        return raw_val
+
+    s = str(raw_val).strip()
+    if s.lower() in _NA:
+        return False
+
+    feat_type = _FEATURE_TYPES.get(feat_name, "binary")
+
+    if feat_type == "count":
+        m = _re.search(r'\d+\.?\d*', s)
+        if m:
+            num = float(m.group())
+            return int(num) if num == int(num) else num
+        return True  # has it but no number found
+
+    if feat_type == "spec":
+        # strip long qualifiers, keep first meaningful part (max 25 chars)
+        clean = s.split(",")[0].split("(")[0].strip()
+        return clean[:25] if len(clean) > 25 else clean
+
+    # binary — any non-NA value means the feature is present
+    return True
+
+
+def _fetch_binary_feature_comparison(car_names: List[str], comparison_data: Dict[str, Any]) -> List[Dict]:
+    """
+    Build the feature comparison table efficiently:
+      1. Serve features that map to existing scraped keys directly (free, instant).
+      2. Collect remaining features → re-batch into groups of 10 → parallel Gemini calls.
+    This avoids re-fetching data we already have.
+    """
+    import os
+    import json_repair
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def _is_na(val):
+        if val is None:
+            return True
+        return str(val).strip().lower() in ("", "-", "not available", "n/a", "na", "none", "null", "not found")
+
+    # ------------------------------------------------------------------
+    # Step 1: resolve each feature from existing scraped data where possible
+    # resolved[feat_name] = {car_name: value}
+    # ------------------------------------------------------------------
+    resolved: Dict[str, Dict] = {}
+    missing_features: List[Dict] = []  # {"name": str, "category": str, "description": str}
+
+    for batch in _FEATURE_BATCHES:
+        for feat_name in batch["features"]:
+            scraped_key = _SCRAPED_KEY_MAP.get(feat_name)
+            if scraped_key:
+                raw_vals = {cn: comparison_data.get(cn, {}).get(scraped_key) for cn in car_names}
+                if not all(_is_na(v) for v in raw_vals.values()):
+                    # Normalize raw text → bool/int/short-text based on feature type
+                    resolved[feat_name] = {
+                        cn: _normalize_scraped_value(feat_name, v)
+                        for cn, v in raw_vals.items()
+                    }
+                    continue
+            missing_features.append({
+                "name": feat_name,
+                "category": batch["category"],
+                "description": batch["description"],
+            })
+
+    print(f"  Feature comparison: {len(resolved)} from scraped data, "
+          f"{len(missing_features)} need Gemini search")
+
+    # ------------------------------------------------------------------
+    # Step 2: re-batch missing features into groups of 10 → parallel Gemini
+    # ------------------------------------------------------------------
+    gemini_resolved: Dict[str, Dict] = {}
+
+    if missing_features:
+        try:
+            from google import genai
+            from google.genai import types
+
+            PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT")
+            client = genai.Client(vertexai=True, project=PROJECT_ID, location="global")
+
+            car1 = car_names[0]
+            car2 = car_names[1] if len(car_names) > 1 else "Competitor"
+            cars_str = " vs ".join(car_names)
+
+            # Split missing into batches of 10
+            gemini_batches = [
+                missing_features[i:i + 10]
+                for i in range(0, len(missing_features), 10)
+            ]
+
+            def _call_batch(feats: List[Dict]) -> List[Dict]:
+                feat_list = "\n".join(f"- {f['name']}" for f in feats)
+                prompt = f"""For {cars_str}, look up each feature and return whether each car has it.
+
+Features:
+{feat_list}
+
+Rules:
+- true/false for yes/no features
+- integer for counts (e.g. Total Airbags → 6)
+- short text max 20 chars for type/size (e.g. Seat Material → "Leather")
+- false if the car does not have the feature
+
+Return ONLY valid JSON:
+{{
+  "features": [
+    {{"name": "Feature Name", "{car1}": true, "{car2}": false}},
+    {{"name": "Speaker Count", "{car1}": 8, "{car2}": 6}}
+  ]
+}}"""
+                try:
+                    tools = [types.Tool(google_search=types.GoogleSearch())]
+                    config = types.GenerateContentConfig(
+                        tools=tools, temperature=0.1, max_output_tokens=1024
+                    )
+                    response = client.models.generate_content(
+                        model="gemini-2.5-flash", contents=prompt, config=config
+                    )
+                    if response and response.text:
+                        text = response.text.strip()
+                        if "```json" in text:
+                            text = text.split("```json")[1].split("```")[0]
+                        elif "```" in text:
+                            text = text.split("```")[1].split("```")[0]
+                        text = text.strip()
+                        if "{" in text and "}" in text:
+                            text = text[text.index("{"):text.rindex("}") + 1]
+                        result = json_repair.loads(text)
+                        return result.get("features", [])
+                except Exception as e:
+                    print(f"  Gemini batch error: {e}")
+                return []
+
+            # Fire all Gemini batches in parallel
+            with ThreadPoolExecutor(max_workers=len(gemini_batches)) as executor:
+                futures = {executor.submit(_call_batch, b): b for b in gemini_batches}
+                for future in as_completed(futures):
+                    for feat_obj in future.result():
+                        name = feat_obj.get("name", "")
+                        if name:
+                            gemini_resolved[name] = {
+                                cn: feat_obj.get(cn) for cn in car_names
+                            }
+
+            print(f"  Gemini returned {len(gemini_resolved)} features "
+                  f"via {len(gemini_batches)} parallel calls")
+
+        except Exception as e:
+            print(f"  Gemini feature fetch error: {e}")
+
+    # ------------------------------------------------------------------
+    # Step 3: assemble into ordered category structure from _FEATURE_BATCHES
+    # ------------------------------------------------------------------
+    cat_map: Dict[str, List] = {}
+    for batch in _FEATURE_BATCHES:
+        desc_feats = []
+        for feat_name in batch["features"]:
+            vals = resolved.get(feat_name) or gemini_resolved.get(feat_name)
+            if vals:
+                feat_obj = {"name": feat_name}
+                feat_obj.update(vals)
+                desc_feats.append(feat_obj)
+        if desc_feats:
+            cat_map.setdefault(batch["category"], []).append(
+                {"description": batch["description"], "features": desc_feats}
+            )
+
+    return [{"category": cat, "descriptions": descs} for cat, descs in cat_map.items()]
+
+
+def _build_fallback_categories(car_names: List[str], comparison_data: Dict[str, Any]) -> List[Dict]:
+    """Build category structure from existing scraped data when Gemini is unavailable."""
+    feature_groups = {
+        "Safety": {
+            "Airbags": [("Number of Airbags", "airbags"), ("Airbag Types", "airbag_types_breakdown")],
+            "Sensors": [("NCAP Rating", "ncap_rating"), ("Impact Rating", "impact"), ("ADAS System", "adas")],
+            "Controls": [("Electronic Stability", "stability"), ("Hill Hold", "epb"),
+                         ("Parking Sensors", "parking_sensors"), ("Parking Camera", "parking_camera")],
+            "Restraints": [("Seatbelt Features", "seats_restraint"), ("Safety Features", "vehicle_safety_features")],
+        },
+        "Technology": {
+            "Infotainment": [("Instrument Cluster", "digital_display"), ("Touchscreen", "infotainment_screen"),
+                             ("Touch Response", "touch_response")],
+            "Connectivity": [("Apple CarPlay", "apple_carplay"), ("Cruise Control", "cruise_control")],
+            "Audio": [("Audio System", "audio_system")],
+        },
+        "Exterior": {
+            "Lighting": [("LED Headlamps", "led"), ("DRL", "drl"), ("Tail Lamps", "tail_lamp")],
+            "Wheels": [("Alloy Wheels", "alloy_wheel"), ("Tyre Size", "tyre_size")],
+            "Roof": [("Sunroof", "sunroof")],
+        },
+        "Interior": {
+            "Seats": [("Seat Material", "seat_material"), ("Ventilated Seats", "ventilated_seats"),
+                      ("Seating Capacity", "seating_capacity")],
+            "Climate": [("Climate Control", "climate_control")],
+            "Comfort": [("Armrest", "armrest"), ("Soft Touch Trims", "soft_trims"),
+                        ("Push Button Start", "button"), ("Power Windows", "window")],
+        },
+        "Performance": {
+            "Engine": [("Fuel Type", "fuel_type"), ("Displacement", "engine_displacement"),
+                       ("Torque", "torque"), ("Mileage", "mileage")],
+        },
+        "Dimensions": {
+            "Size": [("Wheelbase", "wheelbase"), ("Ground Clearance", "ground_clearance"),
+                     ("Boot Space", "boot_space"), ("Chassis Type", "chasis")],
+        },
+    }
+
+    def _is_na(val):
+        if val is None:
+            return True
+        return str(val).strip().lower() in ("", "-", "not available", "n/a", "na", "none", "null", "✗", "no")
+
+    categories = []
+    for cat_name, descs in feature_groups.items():
+        desc_list = []
+        for desc_name, features in descs.items():
+            feat_list = []
+            for feat_label, feat_key in features:
+                feat_obj = {"name": feat_label}
+                for cn in car_names:
+                    raw = comparison_data.get(cn, {}).get(feat_key)
+                    feat_obj[cn] = None if _is_na(raw) else raw
+                feat_list.append(feat_obj)
+            desc_list.append({"description": desc_name, "features": feat_list})
+        categories.append({"category": cat_name, "descriptions": desc_list})
+    return categories
+
+
 def generate_feature_list_section(comparison_data: Dict[str, Any], page_start: int = 4) -> str:
     """
-    Generate Feature List Comparison pages with checkmarks and X marks.
-
-    Args:
-        comparison_data: Dict mapping car names to their scraped data
-        page_start: Starting page number
-
-    Returns:
-        HTML string for feature list comparison pages
+    Generate Feature List Comparison pages — ticks and crosses only (no text columns).
+    Uses Gemini + Google Search for a comprehensive 80-120 feature binary list.
+    Falls back to existing scraped data if Gemini is unavailable.
     """
     car_names = [name for name, data in comparison_data.items()
                  if isinstance(data, dict) and "error" not in data]
@@ -258,220 +813,118 @@ def generate_feature_list_section(comparison_data: Dict[str, Any], page_start: i
     if not car_names:
         return ""
 
-    # Feature groups with Category | Description | Features structure
-    # Using actual scraped spec keys from CAR_SPECS
-    feature_groups = {
-        "Safety": {
-            "Airbags": [
-                ("Number of Airbags", "airbags"),
-                ("Airbag Types", "airbag_types_breakdown"),
-            ],
-            "Sensors": [
-                ("NCAP Safety Rating", "ncap_rating"),
-                ("Impact Rating", "impact"),
-                ("ADAS System", "adas"),
-            ],
-            "Controls": [
-                ("Electronic Stability", "stability"),
-                ("Hill Hold Control", "epb"),
-                ("Parking Sensors", "parking_sensors"),
-                ("Parking Camera", "parking_camera"),
-            ],
-            "Restraints": [
-                ("Seatbelt Features", "seats_restraint"),
-                ("Vehicle Safety Features", "vehicle_safety_features"),
-            ],
-        },
-        "Technology": {
-            "Infotainment": [
-                ("Instrument Cluster", "digital_display"),
-                ("Central Information Display", "infotainment_screen"),
-                ("Infotainment - Touch", "touch_response"),
-            ],
-            "Smart Phone Connectivity": [
-                ("Apple CarPlay", "apple_carplay"),
-                ("Cruise Control", "cruise_control"),
-            ],
-            "Audio": [
-                ("Audio System", "audio_system"),
-            ],
-        },
-        "Exterior": {
-            "Lighting": [
-                ("LED Headlamps", "led"),
-                ("DRL (Daytime Running Lights)", "drl"),
-                ("Tail Lamps", "tail_lamp"),
-            ],
-            "Wheels": [
-                ("Alloy Wheels", "alloy_wheel"),
-                ("Tyre Size", "tyre_size"),
-                ("Wheel Size", "wheel_size"),
-            ],
-            "Mirrors": [
-                ("ORVM (Outside Rear View Mirror)", "orvm"),
-            ],
-            "Roof": [
-                ("Sunroof", "sunroof"),
-            ],
-        },
-        "Interior": {
-            "Seats": [
-                ("Seat Material", "seat_material"),
-                ("Ventilated Seats", "ventilated_seats"),
-                ("Seating Capacity", "seating_capacity"),
-                ("Rear Seat Features", "rear_seat_features"),
-            ],
-            "Climate": [
-                ("Climate Control", "climate_control"),
-            ],
-            "Comfort": [
-                ("Armrest", "armrest"),
-                ("Headrest", "headrest"),
-                ("Interior Quality", "interior"),
-                ("Soft Touch Trims", "soft_trims"),
-            ],
-            "Mirrors": [
-                ("IRVM (Inside Rear View Mirror)", "irvm"),
-            ],
-            "Convenience": [
-                ("Power Windows", "window"),
-                ("Push Button Start", "button"),
-            ],
-        },
-        "Performance": {
-            "Engine": [
-                ("Fuel Type", "fuel_type"),
-                ("Engine Displacement", "engine_displacement"),
-                ("Torque", "torque"),
-                ("Mileage", "mileage"),
-            ],
-            "Driving": [
-                ("Performance Feel", "performance_feel"),
-                ("Driveability", "driveability"),
-                ("Acceleration", "acceleration"),
-            ],
-            "Transmission": [
-                ("Manual Transmission", "manual_transmission_performance"),
-                ("Automatic Transmission", "automatic_transmission_performance"),
-                ("Gear Shift Quality", "gear_shift"),
-            ],
-        },
-        "Handling": {
-            "Steering": [
-                ("Steering", "steering"),
-                ("Telescopic Steering", "telescopic_steering"),
-                ("Turning Radius", "turning_radius"),
-            ],
-            "Brakes": [
-                ("Brakes Type", "brakes"),
-                ("Braking Performance", "brake_performance"),
-                ("EPB (Electronic Parking Brake)", "epb"),
-            ],
-            "Ride": [
-                ("Ride Quality", "ride_quality"),
-                ("Off-Road Capability", "off_road"),
-                ("Ground Clearance", "ground_clearance"),
-            ],
-        },
-        "NVH": {
-            "Noise": [
-                ("Overall NVH", "nvh"),
-                ("Powertrain Noise", "powertrain_nvh"),
-                ("Wind Noise", "wind_noise"),
-                ("Road Noise", "road_nvh"),
-            ],
-            "Vibration": [
-                ("Shakes", "shakes"),
-                ("Rattle", "rattle"),
-            ],
-        },
-        "Dimensions": {
-            "Size": [
-                ("Wheelbase", "wheelbase"),
-                ("Ground Clearance", "ground_clearance"),
-                ("Boot Space", "boot_space"),
-            ],
-            "Structure": [
-                ("Chassis Type", "chasis"),
-            ],
-        },
-    }
+    # Fetch comprehensive binary feature data (Gemini → fallback)
+    categories = _fetch_binary_feature_comparison(car_names, comparison_data)
+    if not categories:
+        categories = _build_fallback_categories(car_names, comparison_data)
 
-    # Helper function to check if value is "not available"
-    def is_not_available(val):
-        if val is None:
-            return True
-        val_str = str(val).strip().lower()
-        return val_str in ["", "-", "not available", "n/a", "na", "none", "null", "✗", "no"]
+    import re as _re
 
-    # Helper function to check if value indicates "yes/available"
-    def is_available(val):
-        if val is None:
+    def _is_positive(val):
+        """True if value represents a feature being present/enabled."""
+        if val is None or val is False:
             return False
-        val_str = str(val).strip().lower()
-        return val_str in ["yes", "true", "available", "standard", "✓", "present"]
+        if isinstance(val, bool):
+            return val
+        if isinstance(val, (int, float)):
+            return val > 0
+        s = str(val).strip().lower()
+        return s not in ("", "-", "not available", "n/a", "na", "none", "null", "false", "no", "0")
 
-    # Generate table rows
+    def _render_cell(val):
+        """Render value as ✓, ✗, number, or short text."""
+        if val is None or val is False:
+            return '<span class="x-mark">✗</span>'
+        if isinstance(val, bool):
+            return '<span class="check-mark">✓</span>'
+        if isinstance(val, (int, float)):
+            display = int(val) if val == int(val) else val
+            return f'<span class="value-text">{display}</span>'
+        s = str(val).strip()
+        sl = s.lower()
+        if sl in ("", "-", "not available", "n/a", "na", "none", "null", "false", "no", "0"):
+            return '<span class="x-mark">✗</span>'
+        if sl in ("true", "yes"):
+            return '<span class="check-mark">✓</span>'
+        return f'<span class="value-text">{s}</span>'
+
+    # Features where a lower numeric value is better
+    LOWER_IS_BETTER = {"Turning Radius (m)", "Engine Displacement (cc)"}
+
+    def _cell_classes(feat_name, vals):
+        """Return per-car CSS class list — green cell for winner, red cell for loser."""
+        n = len(vals)
+        if n < 2:
+            return [""] * n
+
+        pos = [_is_positive(v) for v in vals]
+
+        # Binary difference: one has it, others don't
+        if any(pos) and not all(pos):
+            return ["cell-superior" if p else "cell-inferior" for p in pos]
+
+        # All present or all absent — try numeric tiebreak
+        def _num(v):
+            if isinstance(v, (int, float)):
+                return float(v)
+            m = _re.search(r'\d+\.?\d*', str(v) if v else "")
+            return float(m.group()) if m else None
+
+        nums = [_num(v) for v in vals]
+        if all(x is not None for x in nums) and len(set(nums)) > 1:
+            lower_better = feat_name in LOWER_IS_BETTER
+            best = min(nums) if lower_better else max(nums)
+            worst = max(nums) if lower_better else min(nums)
+            classes = []
+            for x in nums:
+                if x == best:
+                    classes.append("cell-superior")
+                elif x == worst:
+                    classes.append("cell-inferior")
+                else:
+                    classes.append("")
+            return classes
+
+        return [""] * n
+
     rows_html = ""
-
-    for category, descriptions in feature_groups.items():
-        first_cat_row = True
-        for description, features in descriptions.items():
-            first_desc_row = True
-            for feature_label, feature_key in features:
-                cat_display = category if first_cat_row else ""
-                desc_display = description if first_desc_row else ""
-
+    for cat_obj in categories:
+        cat_name = cat_obj.get("category", "")
+        first_cat = True
+        for desc_obj in cat_obj.get("descriptions", []):
+            desc_name = desc_obj.get("description", "")
+            first_desc = True
+            for feat in desc_obj.get("features", []):
+                feat_name = feat.get("name", "")
+                vals = [feat.get(cn) for cn in car_names]
+                cc_list = _cell_classes(feat_name, vals)
+                cells = "".join(
+                    f'<td class="car-value-cell {cc}">{_render_cell(v)}</td>'
+                    for v, cc in zip(vals, cc_list)
+                )
                 rows_html += f'''
                 <tr>
-                    <td class="cat-cell">{cat_display}</td>
-                    <td class="desc-cell">{desc_display}</td>
-                    <td class="feature-cell">{feature_label}</td>
-                '''
+                    <td class="cat-cell">{cat_name if first_cat else ""}</td>
+                    <td class="desc-cell">{desc_name if first_desc else ""}</td>
+                    <td class="feature-cell">{feat_name}</td>
+                    {cells}
+                </tr>'''
+                first_cat = False
+                first_desc = False
 
-                # Collect values for all cars for this feature
-                car_values = []
-                for car_name in car_names:
-                    car_data = comparison_data.get(car_name, {})
-                    value = car_data.get(feature_key)
-                    car_values.append((car_name, value))
+    car_names_title = " | ".join(n.upper() for n in car_names)
+    car_headers = "".join(f'<th class="car-value-header">{n}</th>' for n in car_names)
+    competitor = car_names[-1] if len(car_names) > 1 else "Competitor"
 
-                for car_name, value in car_values:
-                    # Determine cell content and class
-                    if is_not_available(value):
-                        cell_content = '<span class="x-mark">✗</span>'
-                        cell_class = "inferior-cell"
-                    elif is_available(value):
-                        cell_content = '<span class="check-mark">✓</span>'
-                        cell_class = "superior-cell"
-                    else:
-                        # It's an actual value - display it
-                        display_value = str(value).strip()
-                        # Truncate very long values
-                        if len(display_value) > 80:
-                            display_value = display_value[:77] + "..."
-                        cell_content = f'<span class="value-text">{display_value}</span>'
-                        cell_class = "value-cell"
-
-                    rows_html += f'<td class="{cell_class}">{cell_content}</td>'
-
-                rows_html += '</tr>'
-                first_cat_row = False
-                first_desc_row = False
-
-    # Build the page
-    car_names_title = " | ".join([name.upper() for name in car_names])
-    cars_header = "".join([f'<th>{name}</th>' for name in car_names])
-
-    html = f'''
-    <div class="feature-page">
+    return f'''
+    <div class="feature-page" id="feature-list-section">
         <div class="feature-page-header">
             <h1 class="feature-page-title">FEATURE LIST COMPARISON | <span class="highlight">BENCHMARKING {car_names_title}</span></h1>
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/28/Mahindra_%26_Mahindra_wordmark.svg/1200px-Mahindra_%26_Mahindra_wordmark.svg.png" alt="Mahindra" class="feature-page-logo">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Mahindra_logo.svg/1920px-Mahindra_logo.svg.png?_=20231128143513" alt="Mahindra" class="feature-page-logo">
         </div>
         <div class="feature-legend">
-            <div class="legend-item"><span class="legend-color superior"></span> Superior to {car_names[-1] if len(car_names) > 1 else 'Competitor'}</div>
-            <div class="legend-item"><span class="legend-color inferior"></span> Inferior to {car_names[-1] if len(car_names) > 1 else 'Competitor'}</div>
+            <div class="legend-item"><span class="legend-color superior"></span> Superior to {competitor}</div>
+            <div class="legend-item"><span class="legend-color inferior"></span> Inferior to {competitor}</div>
         </div>
         <div class="feature-table-container">
             <table class="feature-table">
@@ -480,7 +933,7 @@ def generate_feature_list_section(comparison_data: Dict[str, Any], page_start: i
                         <th class="cat-header">Category</th>
                         <th class="desc-header">Description</th>
                         <th class="feature-header">Features</th>
-                        {cars_header}
+                        {car_headers}
                     </tr>
                 </thead>
                 <tbody>
@@ -489,12 +942,9 @@ def generate_feature_list_section(comparison_data: Dict[str, Any], page_start: i
             </table>
         </div>
         <div class="feature-page-footer">
-            <div class="feature-page-number">{page_start}</div>
         </div>
     </div>
     '''
-
-    return html
 
 
 def _generate_single_drivetrain_section(
@@ -553,10 +1003,10 @@ def _generate_single_drivetrain_section(
             )
 
     return f'''
-    <div class="drivetrain-page">
+    <div class="drivetrain-page" id="drivetrain-section">
         <div class="drivetrain-header">
             <h1 class="drivetrain-title">FEATURE COMPARISION | <span class="highlight">BENCHMARKING</span></h1>
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/28/Mahindra_%26_Mahindra_wordmark.svg/1200px-Mahindra_%26_Mahindra_wordmark.svg.png" alt="Mahindra" class="drivetrain-logo">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Mahindra_logo.svg/1920px-Mahindra_logo.svg.png?_=20231128143513" alt="Mahindra" class="drivetrain-logo">
         </div>
 
         <div class="drivetrain-content">
@@ -587,7 +1037,6 @@ def _generate_single_drivetrain_section(
         </div>
 
         <div class="drivetrain-footer">
-            <div class="drivetrain-page-number">{page_num}</div>
         </div>
     </div>
     '''
@@ -804,10 +1253,10 @@ def generate_summary_comparison_section(
     available_content = build_two_column_categories(features_in_car1_only, "+")
 
     html = f'''
-    <div class="summary-comparison-page">
+    <div class="summary-comparison-page" id="summary-section">
         <div class="summary-comp-header">
             <h1 class="summary-comp-title">FEATURE COMPARISION | <span class="highlight">SUMMARY</span></h1>
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/28/Mahindra_%26_Mahindra_wordmark.svg/1200px-Mahindra_%26_Mahindra_wordmark.svg.png" alt="Mahindra" class="summary-comp-logo">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Mahindra_logo.svg/1920px-Mahindra_logo.svg.png?_=20231128143513" alt="Mahindra" class="summary-comp-logo">
         </div>
 
         <div class="summary-comp-content">
@@ -829,7 +1278,6 @@ def generate_summary_comparison_section(
         </div>
 
         <div class="summary-comp-footer">
-            <div class="summary-comp-page-number">{page_num}</div>
         </div>
     </div>
     '''
@@ -972,6 +1420,7 @@ def get_image_section_styles() -> str:
     .cover-logo img {
         height: 28px;
         width: auto;
+        filter: brightness(0);
     }
 
     .cover-content {
@@ -1046,6 +1495,7 @@ def get_image_section_styles() -> str:
     .hero-page-logo {
         height: 24px;
         width: auto;
+        filter: brightness(0);
     }
 
     .hero-image-container {
@@ -1173,6 +1623,7 @@ def get_image_section_styles() -> str:
     .drivetrain-logo {
         height: 24px;
         width: auto;
+        filter: brightness(0);
     }
 
     .drivetrain-content {
@@ -1431,6 +1882,7 @@ def get_image_section_styles() -> str:
     .feature-page-logo {
         height: 24px;
         width: auto;
+        filter: brightness(0);
     }
 
     .spec-legend,
@@ -1542,6 +1994,31 @@ def get_image_section_styles() -> str:
     .spec-table td.inferior-cell,
     .feature-table td.inferior-cell {
         background: #ffcdd2;
+    }
+
+    /* Cell-level coloring — only the car's value cell gets colored */
+    .feature-table td.car-value-cell.cell-superior {
+        background: #c8f7c5 !important;
+    }
+
+    .feature-table td.car-value-cell.cell-inferior {
+        background: #ffcdd2 !important;
+    }
+
+    /* Single car value column */
+    .feature-table th.car-value-header {
+        text-align: center;
+        background: #2E3B4E;
+        color: #fff;
+        min-width: 160px;
+        font-size: 13px;
+    }
+
+    .feature-table td.car-value-cell {
+        text-align: center;
+        padding: 8px 12px;
+        min-width: 160px;
+        font-size: 12px;
     }
 
     .check-mark {
@@ -1687,6 +2164,7 @@ def get_image_section_styles() -> str:
     .summary-comp-logo {
         height: 28px;
         width: auto;
+        filter: brightness(0);
     }
 
     .summary-comp-content {
@@ -1788,8 +2266,108 @@ def get_image_section_styles() -> str:
         .summary-comparison-page {
             page-break-after: always !important;
             break-after: page !important;
-            height: 100vh !important;
             min-height: 100vh !important;
+            background: #ffffff !important;
+            display: flex !important;
+            flex-direction: column !important;
+        }
+
+        .summary-comp-header {
+            display: flex !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            padding: 16px 30px !important;
+            border-bottom: 2px solid #cc0000 !important;
+        }
+
+        .summary-comp-title {
+            font-size: 18px !important;
+            font-weight: 400 !important;
+            color: #333 !important;
+            letter-spacing: 0.5px !important;
+        }
+
+        .summary-comp-title .highlight {
+            color: #0066cc !important;
+            font-weight: 600 !important;
+            text-decoration: underline !important;
+        }
+
+        .summary-comp-logo {
+            height: 22px !important;
+            width: auto !important;
+        }
+
+        .summary-comp-content {
+            flex: 1 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 16px !important;
+            padding: 16px 30px !important;
+        }
+
+        .summary-section {
+            display: flex !important;
+            flex-direction: column !important;
+        }
+
+        .section-title {
+            font-size: 13px !important;
+            font-weight: 600 !important;
+            margin: 0 0 8px 0 !important;
+            text-decoration: underline !important;
+        }
+
+        .section-title.not-available-title {
+            color: #cc0000 !important;
+        }
+
+        .section-title.available-title {
+            color: #28a745 !important;
+        }
+
+        .section-box {
+            border: 1px solid #333 !important;
+            background: #fff !important;
+            padding: 14px 18px !important;
+        }
+
+        .two-column-grid {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            gap: 20px !important;
+        }
+
+        .column-left,
+        .column-right {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 10px !important;
+        }
+
+        .summary-category {
+            margin-bottom: 4px !important;
+        }
+
+        .category-title {
+            font-size: 11px !important;
+            font-weight: 700 !important;
+            color: #333 !important;
+            margin: 0 0 4px 0 !important;
+            text-decoration: underline !important;
+        }
+
+        .feature-list {
+            list-style: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .feature-list li {
+            font-size: 10px !important;
+            color: #333 !important;
+            padding: 2px 0 !important;
+            line-height: 1.4 !important;
         }
     }
 

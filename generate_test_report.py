@@ -35,6 +35,7 @@ def generate_test_report(json_path: str, output_path: str = None):
     # Extract required fields
     comparison_data = data.get('comparison_data', {})
     cars_compared = data.get('cars_compared', [])
+    summary_data = data.get('summary_data', None)
 
     # Generate a default summary if not provided
     summary = data.get('summary', f"Comparison between {' and '.join(cars_compared)}")
@@ -50,7 +51,7 @@ def generate_test_report(json_path: str, output_path: str = None):
     print(f"Generating report for: {', '.join(cars_compared)}")
 
     # Generate HTML
-    html_content = create_comparison_chart_html(comparison_data, summary)
+    html_content = create_comparison_chart_html(comparison_data, summary, summary_data=summary_data)
 
     # Determine output path
     if output_path is None:
