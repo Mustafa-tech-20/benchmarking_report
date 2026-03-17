@@ -11,8 +11,10 @@ from benchmarking_agent.reports.image_sections import (
     generate_feature_list_section,
     generate_drivetrain_comparison_section,
     generate_summary_comparison_section,
+    generate_venn_diagram_section,
     generate_variant_walk_section,
     generate_price_ladder_section,
+    generate_vehicle_highlights_section,
     get_image_section_styles
 )
 
@@ -793,6 +795,7 @@ def create_comparison_chart_html(
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>Car Comparison Report</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@sgratzl/chartjs-chart-venn/build/index.umd.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
@@ -801,10 +804,29 @@ def create_comparison_chart_html(
         .container {{ max-width: 100%; margin: 0 auto; background: white; overflow: hidden; }}
         .site-header {{ display: flex; justify-content: space-between; align-items: center; padding: 16px 40px; background: #fff; border-bottom: 1px solid #e9ecef; width: 100%; position: sticky; top: 0; z-index: 1000; }}
         .logo {{ height: 22px; width: auto; }}
-        .header-actions {{ display: flex; align-items: center; gap: 30px; }}
-        .main-nav {{ display: flex; gap: 25px; }}
-        .main-nav a {{ text-decoration: none; color: #212529; font-size: 14px; font-weight: 500; transition: color 0.2s ease-in-out; }}
-        .main-nav a:hover {{ color: #dd032b; }}
+        .header-actions {{ display: flex; align-items: center; gap: 20px; }}
+        .main-nav {{ display: flex; gap: 4px; align-items: center; }}
+        .main-nav > a, .main-nav > .nav-dropdown > .nav-dropdown-toggle {{
+            text-decoration: none; color: #212529; font-size: 13px; font-weight: 500;
+            transition: color 0.2s; padding: 6px 10px; border-radius: 6px; white-space: nowrap;
+        }}
+        .main-nav > a:hover, .main-nav > .nav-dropdown > .nav-dropdown-toggle:hover {{ color: #dd032b; background: #f5f5f5; }}
+        .main-nav > a.nav-active {{ color: #dd032b; font-weight: 600; }}
+        .nav-dropdown {{ position: relative; }}
+        .nav-dropdown-toggle {{ cursor: pointer; display: flex; align-items: center; gap: 4px; background: none; border: none; font-family: inherit; }}
+        .nav-dropdown-toggle::after {{ content: "▾"; font-size: 10px; opacity: 0.6; }}
+        .nav-dropdown-menu {{
+            display: none; position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+            background: #fff; border: 1px solid #e5e7eb; border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12); padding: 6px 0; min-width: 160px; z-index: 999;
+        }}
+        .nav-dropdown:hover .nav-dropdown-menu {{ display: block; }}
+        .nav-dropdown-menu a {{
+            display: block; padding: 8px 16px; font-size: 13px; color: #374151;
+            text-decoration: none; font-weight: 500; white-space: nowrap; transition: background 0.15s;
+        }}
+        .nav-dropdown-menu a:hover {{ background: #fef2f2; color: #dd032b; }}
+        .nav-sep {{ width: 1px; height: 18px; background: #e5e7eb; margin: 0 2px; }}
         .main-group-header td {{
             font-size: 22px;
             font-weight: 700;
@@ -2384,13 +2406,28 @@ def create_comparison_chart_html(
             <nav class="main-nav">
                 <a href="#tech-spec-section">Tech Specs</a>
                 <a href="#feature-list-section">Features</a>
-                <a href="#exterior-section">Exterior</a>
-                <a href="#interior-section">Interior</a>
-                <a href="#technology-section">Technology</a>
-                <a href="#safety-section">Safety</a>
+                <div class="nav-sep"></div>
+                <div class="nav-dropdown">
+                    <button class="nav-dropdown-toggle">Gallery</button>
+                    <div class="nav-dropdown-menu">
+                        <a href="#vehicle-highlights">Highlights</a>
+                        <a href="#exterior-section">Exterior</a>
+                        <a href="#interior-section">Interior</a>
+                        <a href="#technology-section">Technology</a>
+                        <a href="#safety-section">Safety</a>
+                    </div>
+                </div>
+                <div class="nav-sep"></div>
                 <a href="#drivetrain-section">Drivetrain</a>
-                <a href="#variant-walk-section">Variant Walk</a>
-                <a href="#price-ladder-section">Price Ladder</a>
+                <a href="#venn-section">Venn Diagram</a>
+                <div class="nav-dropdown">
+                    <button class="nav-dropdown-toggle">Variants</button>
+                    <div class="nav-dropdown-menu">
+                        <a href="#variant-walk-section">Variant Walk</a>
+                        <a href="#price-ladder-section">Price Ladder</a>
+                    </div>
+                </div>
+                <div class="nav-sep"></div>
                 <a href="#summary-section">Summary</a>
                 <a href="#" id="citations-toggle" onclick="toggleCitations(event)">Citations</a>
             </nav>
@@ -2398,6 +2435,7 @@ def create_comparison_chart_html(
         </div>
     </header>
     {generate_hero_section(comparison_data)}
+    {generate_vehicle_highlights_section(comparison_data)}
     {generate_technical_spec_section(comparison_data)}
     {generate_feature_list_section(comparison_data)}
     <div class="container">
@@ -2407,6 +2445,7 @@ def create_comparison_chart_html(
         {generate_image_gallery_section("Comfort Highlights", comparison_data, "comfort", "comfort-section", with_ai_notes=True)}
         {generate_image_gallery_section("Safety Highlights", comparison_data, "safety", "safety-section", with_ai_notes=True)}
         {generate_drivetrain_comparison_section(comparison_data)}
+        {generate_venn_diagram_section(comparison_data, summary_data)}
         {generate_variant_walk_section(comparison_data)}
         {generate_price_ladder_section(comparison_data)}
         {generate_summary_comparison_section(summary_data, cars, 20) if summary_data else ''}

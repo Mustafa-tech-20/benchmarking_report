@@ -382,112 +382,152 @@ def _generate_citations_html(comparison_data: Dict[str, Any]) -> str:
 
 
 
+def _apply_sentiment_highlighting(text: str) -> str:
+    """Apply green/red highlighting to positive/negative sentiment words/phrases."""
+    if not text:
+        return text
+
+    positive_keywords = [
+        "excellent", "great", "good", "impressive", "smooth", "comfortable",
+        "precise", "responsive", "powerful", "efficient", "stable", "refined",
+        "solid", "planted", "confident", "exceptional", "outstanding", "superb",
+        "well-tuned", "well tuned", "best-in-class", "best in class", "class-leading",
+        "low noise", "quiet", "well-damped", "well damped", "positive", "high",
+        "capable", "strong", "firm", "direct", "natural feel", "engaging",
+        "quick", "linear", "progressive", "well-weighted", "well weighted"
+    ]
+
+    negative_keywords = [
+        "poor", "bad", "lacking", "weak", "uncomfortable", "harsh", "stiff",
+        "vague", "numb", "noisy", "vibration", "rattle", "excessive", "heavy",
+        "sluggish", "lethargic", "abrupt", "grabby", "spongy", "floaty",
+        "bouncy", "body roll", "understeer", "oversteer", "intrusive", "loud",
+        "rough", "not available", "not found", "disappointing", "mediocre",
+        "average", "issues", "problem", "concern", "limited", "lag"
+    ]
+
+    result = text
+    for word in positive_keywords:
+        pattern = re.compile(re.escape(word), re.IGNORECASE)
+        result = pattern.sub(f'<span class="sentiment-positive">{word}</span>', result)
+
+    for word in negative_keywords:
+        pattern = re.compile(re.escape(word), re.IGNORECASE)
+        result = pattern.sub(f'<span class="sentiment-negative">{word}</span>', result)
+
+    return result
+
+
 def _generate_consolidated_review_html(comparison_data: Dict[str, Any]) -> str:
     """
     Generate consolidated review summary table from scraped spec data.
-    Combines multiple related specs into review categories.
-    Includes expandable "Read more" feature for long reviews.
+    Covers all 26+ FI attributes with sentiment highlighting (green=positive, red=negative).
     """
 
-    # Extract car names from comparison data
     car_names = list(comparison_data.keys())
 
-    # Define review categories mapped to actual spec fields we extract
-    # Each category maps to a list of related specs to combine
+    # Comprehensive FI (Field Intelligence) attribute categories - all 26+ attributes
     review_categories = [
-        ("Ride & Handling", ["ride", "ride_quality", "bumps", "stiff_on_pot_holes", "shocks"]),
-        ("Steering", ["steering", "telescopic_steering", "turning_radius"]),
-        ("Braking", ["braking", "brakes", "brake_performance", "grabby", "spongy"]),
-        ("Performance & Drivability", ["performance", "driveability", "performance_feel", "acceleration", "torque"]),
-        ("4x4 Operation", ["off_road", "manoeuvring"]),
-        ("NVH", ["nvh", "powertrain_nvh", "road_nvh", "wind_nvh", "wind_noise", "tire_noise"]),
-        ("GSQ", ["gear_shift", "gear_selection", "manual_transmission_performance", "automatic_transmission_performance", "transmission"])
+        ("Ride & Handling", ["ride", "ride_quality", "bumps", "stiff_on_pot_holes", "shocks", "stability", "straight_ahead_stability", "corner_stability"]),
+        ("Steering", ["steering", "telescopic_steering", "turning_radius", "sensitivity"]),
+        ("Braking", ["braking", "brakes", "brake_performance", "grabby", "spongy", "epb", "pulsation"]),
+        ("Performance & Drivability", ["performance", "driveability", "performance_feel", "acceleration", "torque", "response", "city_performance", "highway_performance"]),
+        ("4x4 / Off-Road Operation", ["off_road", "manoeuvring", "crawl"]),
+        ("NVH (Noise/Vibration/Harshness)", ["nvh", "powertrain_nvh", "road_nvh", "wind_nvh", "wind_noise", "tire_noise", "blower_noise", "rattle", "turbo_noise"]),
+        ("GSQ (Gear Shift Quality)", ["gear_shift", "gear_selection", "manual_transmission_performance", "automatic_transmission_performance", "transmission"]),
+        ("Suspension & Chassis", ["chasis", "shakes", "shudder", "jerks", "bumps"]),
+        ("Pedal & Control Feel", ["pedal_operation", "pedal_travel"]),
+        ("Safety & Impact", ["vehicle_safety_features", "impact", "seats_restraint", "seat_cushion", "headrest"]),
+        ("Interior Quality", ["interior", "soft_trims", "armrest", "seat", "irvm"]),
+        ("Infotainment", ["infotainment_screen", "resolution", "touch_response", "audio_system", "button", "apple_carplay", "digital_display"]),
+        ("Exterior Features", ["sunroof", "lighting", "led", "drl", "tail_lamp", "orvm", "window", "door_effort"]),
+        ("Comfort & Convenience", ["climate_control", "visibility", "wiper_control", "parking"]),
+        ("Space & Dimensions", ["boot_space", "wheelbase", "egress", "ingress"]),
     ]
 
     def get_combined_review(car_data: Dict, spec_fields: list) -> str:
-        """Combine multiple spec values into a single review text."""
         parts = []
         for field in spec_fields:
             value = car_data.get(field, "")
             if value and value not in ["Not Available", "Not found", "N/A", "Error", ""]:
-                # Clean and add the value
                 clean_value = str(value).strip()
                 if clean_value and len(clean_value) > 3:
-                    # Add field name as context
                     field_name = field.replace("_", " ").title()
-                    parts.append(f"{field_name}: {clean_value}")
-
+                    parts.append(f"<strong>{field_name}:</strong> {clean_value}")
         if parts:
             return " | ".join(parts)
         return ""
-    
-    # Helper function to count words
+
     def count_words(text: str) -> int:
         return len(str(text).split())
-    
-    # Helper function to count characters
+
     def count_chars(text: str) -> int:
         return len(str(text))
-    
-    WORD_THRESHOLD = 50  
-    CHAR_THRESHOLD = 200  
-    
-    
+
+    WORD_THRESHOLD = 50
+    CHAR_THRESHOLD = 200
+
     num_cars = len(car_names)
-    category_width = 20  # 20% for category column
+    category_width = 18
     car_column_width = (100 - category_width) / num_cars
 
     review_html = f"""
+    <style>
+        .sentiment-positive {{ color: #1a7a1a; font-weight: 600; background: #e8f5e9; padding: 1px 3px; border-radius: 2px; }}
+        .sentiment-negative {{ color: #c0392b; font-weight: 600; background: #fdecea; padding: 1px 3px; border-radius: 2px; }}
+        .review-table-container {{ overflow-x: auto; border-radius: 10px; border: 1px solid #e9ecef; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }}
+    </style>
     <div class="review-table-container animate-on-scroll">
         <table class="review-table">
             <thead>
                 <tr>
-                    <th style="width: {category_width}%;">Category</th>
+                    <th style="width: {category_width}%;">FI Attribute</th>
     """
 
-    # Add column headers for each car with equal widths
     for car_name in car_names:
         review_html += f'<th style="width: {car_column_width}%;">{car_name.upper()}</th>'
-    
+
     review_html += """
                 </tr>
             </thead>
             <tbody>
     """
-    
-    # Add rows for each review category
+
     for category_name, spec_fields in review_categories:
+        has_data = any(
+            comparison_data.get(car, {}).get(field) not in [None, "", "Not Available", "Not found", "N/A"]
+            for car in car_names
+            for field in spec_fields
+        )
+        if not has_data:
+            continue
+
         review_html += f"""
             <tr>
-                <td class="review-category">{category_name}:</td>
+                <td class="review-category">{category_name}</td>
         """
 
         for car_name in car_names:
             car_data = comparison_data.get(car_name) or {}
-
-            # Get combined review from multiple spec fields
             combined_review = get_combined_review(car_data, spec_fields)
 
             if combined_review:
-                display_value = combined_review
-                word_count = count_words(display_value)
-                char_count = count_chars(display_value)
+                highlighted = _apply_sentiment_highlighting(combined_review)
+                word_count = count_words(combined_review)
+                char_count = count_chars(combined_review)
 
                 review_html += "<td>"
-
-                # Apply expandable content if text is long
                 if word_count > WORD_THRESHOLD or char_count > CHAR_THRESHOLD:
-                    review_html += f'<div class="expandable-content">{display_value}</div>'
+                    review_html += f'<div class="expandable-content">{highlighted}</div>'
                     review_html += '<button onclick="toggleExpand(this)" class="read-more-btn">Read more</button>'
                 else:
-                    review_html += display_value
-
+                    review_html += highlighted
                 review_html += "</td>"
             else:
-                review_html += '<td style="color: #6c757d; font-style: italic;">Review not available</td>'
+                review_html += '<td style="color: #adb5bd; font-style: italic; font-size: 12px;">Not available</td>'
 
         review_html += '</tr>\n'
-    
+
     review_html += """
             </tbody>
         </table>
@@ -600,12 +640,179 @@ def _generate_detailed_reviews_html(detailed_reviews: Dict[str, Any]) -> str:
     return html
 
 
+def _generate_dynamics_spider_chart_html(dynamics_ratings: Dict[str, Any]) -> str:
+    """Generate spider/radar chart HTML for vehicle dynamics ratings from forums/social media."""
+    if not dynamics_ratings or not dynamics_ratings.get("ratings"):
+        return "<p style='color:#6c757d; padding:20px;'>Vehicle dynamics ratings from forums/social media not available.</p>"
+
+    ratings = dynamics_ratings.get("ratings", {})
+    attributes = dynamics_ratings.get("attributes", [])
+    sources = dynamics_ratings.get("sources", [])
+    disclaimer = dynamics_ratings.get("disclaimer", "")
+
+    if not ratings or not attributes:
+        return "<p style='color:#6c757d; padding:20px;'>Vehicle dynamics ratings data unavailable.</p>"
+
+    car_names = list(ratings.keys())
+    colors = [
+        "rgba(46, 59, 78, 0.8)", "rgba(221, 3, 43, 0.8)",
+        "rgba(26, 122, 26, 0.8)", "rgba(255, 140, 0, 0.8)",
+        "rgba(106, 17, 203, 0.8)", "rgba(23, 162, 184, 0.8)",
+    ]
+    bg_colors = [
+        "rgba(46, 59, 78, 0.15)", "rgba(221, 3, 43, 0.15)",
+        "rgba(26, 122, 26, 0.15)", "rgba(255, 140, 0, 0.15)",
+        "rgba(106, 17, 203, 0.15)", "rgba(23, 162, 184, 0.15)",
+    ]
+
+    datasets = []
+    for i, car_name in enumerate(car_names):
+        car_ratings = ratings.get(car_name, {})
+        data_values = [float(car_ratings.get(attr, 5.0)) for attr in attributes]
+        datasets.append({
+            "label": car_name,
+            "data": data_values,
+            "borderColor": colors[i % len(colors)],
+            "backgroundColor": bg_colors[i % len(bg_colors)],
+            "borderWidth": 2,
+            "pointBackgroundColor": colors[i % len(colors)],
+            "pointRadius": 4,
+        })
+
+    sources_text = ", ".join(sources) if sources else "Automotive forums & social media"
+
+    html = f"""
+    <div class="spider-chart-wrapper">
+        <div class="spider-chart-container animate-on-scroll">
+            <canvas id="vehicleDynamicsChart" style="max-width: 600px; max-height: 500px; margin: 0 auto; display: block;"></canvas>
+        </div>
+        <div class="dynamics-rating-table animate-on-scroll">
+            <table class="review-table" style="margin-top: 20px;">
+                <thead>
+                    <tr>
+                        <th>Attribute</th>
+                        {''.join(f'<th>{car}</th>' for car in car_names)}
+                    </tr>
+                </thead>
+                <tbody>
+    """
+
+    for attr in attributes:
+        html += f"<tr><td class='review-category'>{attr}</td>"
+        for car_name in car_names:
+            val = ratings.get(car_name, {}).get(attr, "N/A")
+            if isinstance(val, (int, float)):
+                score = float(val)
+                if score >= 7.5:
+                    color_class = "sentiment-positive"
+                elif score <= 5.5:
+                    color_class = "sentiment-negative"
+                else:
+                    color_class = ""
+                html += f'<td><span class="{color_class}">{score:.1f}/10</span></td>'
+            else:
+                html += f"<td>{val}</td>"
+        html += "</tr>"
+
+    html += f"""
+                </tbody>
+            </table>
+        </div>
+        <div class="dynamics-disclaimer">
+            <small><strong>Data Sources:</strong> {sources_text}</small><br>
+            <small style="color: #6c757d;">{disclaimer}</small>
+        </div>
+    </div>
+    <script>
+    (function() {{
+        const dynamicsCtx = document.getElementById('vehicleDynamicsChart');
+        if (!dynamicsCtx) return;
+        new Chart(dynamicsCtx, {{
+            type: 'radar',
+            data: {{
+                labels: {json.dumps(attributes)},
+                datasets: {json.dumps(datasets)}
+            }},
+            options: {{
+                responsive: true,
+                scales: {{
+                    r: {{
+                        beginAtZero: false,
+                        min: 0,
+                        max: 10,
+                        ticks: {{
+                            stepSize: 2,
+                            font: {{ size: 11 }}
+                        }},
+                        pointLabels: {{
+                            font: {{ size: 12, weight: '600' }},
+                            color: '#2c3e50'
+                        }},
+                        grid: {{ color: 'rgba(0,0,0,0.1)' }}
+                    }}
+                }},
+                plugins: {{
+                    legend: {{
+                        position: 'bottom',
+                        labels: {{
+                            font: {{ size: 13 }},
+                            padding: 15,
+                            usePointStyle: true
+                        }}
+                    }},
+                    tooltip: {{
+                        callbacks: {{
+                            label: function(ctx) {{
+                                return ctx.dataset.label + ': ' + ctx.parsed.r.toFixed(1) + '/10';
+                            }}
+                        }}
+                    }}
+                }}
+            }}
+        }});
+    }})();
+    </script>
+    """
+    return html
+
+
+def _generate_ai_analysis_section_html(ai_summary: str) -> str:
+    """Generate HTML for the AI-Powered Analysis Summary section."""
+    if not ai_summary:
+        return ""
+
+    def format_summary(text: str) -> str:
+        processed = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', text)
+        processed = processed.replace('\n', '<br>').replace('*', '•')
+        return processed
+
+    formatted = format_summary(ai_summary)
+    return formatted
+
+
+# KPI inference map: spec_key -> (direction, label)
+_KPI_INFERENCE = {
+    "mileage": ("higher", "↑ Higher is Better"),
+    "performance": ("higher", "↑ Higher is Better"),
+    "torque": ("higher", "↑ Higher is Better"),
+    "boot_space": ("higher", "↑ Higher is Better"),
+    "wheelbase": ("higher", "↑ Higher is Better"),
+    "user_rating": ("higher", "↑ Higher is Better"),
+    "seating_capacity": ("neutral", ""),
+    "acceleration": ("lower", "↓ Lower is Better"),
+    "turning_radius": ("lower", "↓ Lower is Better"),
+    "price_range": ("lower", "↓ Lower is Better"),
+}
+
+
 def create_comparison_chart_html(
     comparison_data: Dict[str, Any],
     summary: str,
     comparative_graphs: Dict[str, Any] = None,
     detailed_reviews: Dict[str, Any] = None,
-    summary_data: Optional[Dict[str, Any]] = None
+    summary_data: Optional[Dict[str, Any]] = None,
+    ai_analysis_summary: str = None,
+    dynamics_ratings: Dict[str, Any] = None
 ) -> str:
     """
     Create interactive HTML report with enhanced design featuring grouped specifications.
@@ -667,6 +874,12 @@ def create_comparison_chart_html(
 
     # Generate detailed reviews section
     detailed_reviews_html = _generate_detailed_reviews_html(detailed_reviews)
+
+    # Generate dynamics spider chart
+    dynamics_spider_html = _generate_dynamics_spider_chart_html(dynamics_ratings or {})
+
+    # Generate AI analysis summary HTML
+    ai_summary_html = _generate_ai_analysis_section_html(ai_analysis_summary or "")
 
     # Extract additional graph data from comparative_graphs
     performance_data, torque_data = [], []
@@ -890,30 +1103,40 @@ def create_comparison_chart_html(
             if not group_has_data:
                 continue  # Skip rendering empty accordion groups
 
+            def _kpi_badge(key: str) -> str:
+                """Return KPI inference badge HTML for a spec key."""
+                info = _KPI_INFERENCE.get(key)
+                if not info or not info[1]:
+                    return ""
+                direction, label_text = info
+                badge_color = "#1a7a1a" if direction == "higher" else "#c0392b" if direction == "lower" else "#888"
+                return f' <span style="font-size:10px; color:{badge_color}; font-weight:600; white-space:nowrap;">({label_text})</span>'
+
             # Special handling for Key Specifications (no accordion)
             if main_group_title == "Key Specifications":
                 # Render specs directly without accordion header
                 for label, key in specifications:
-                    features_table += f"<tr class='spec-row'><td>{label}</td>"
+                    kpi_html = _kpi_badge(key)
+                    features_table += f"<tr class='spec-row'><td>{label}{kpi_html}</td>"
 
                     for car_name, car_data in comparison_data.items():
-                        
+
                         if "error" not in car_data or car_data.get("price_range") != "Not Available":
                             value = car_data.get(key, 'N/A')
                             display_value = ", ".join(value) if isinstance(value, list) else str(value or 'N/A')
                             word_count = count_words(display_value)
-                            
+
                             features_table += "<td>"
-                            
+
                             if word_count > WORD_THRESHOLD:
                                 features_table += f'<div class="expandable-content">{display_value}</div>'
                                 features_table += '<button onclick="toggleExpand(this)" class="read-more-btn">Read more</button>'
-                            
+
                             else:
                                 features_table += display_value
                             features_table += "</td>"
                     features_table += "</tr>"
-            
+
             else:
                 # Regular accordion rendering for other groups
                 features_table += f"""
@@ -933,14 +1156,15 @@ def create_comparison_chart_html(
                         <span class="accordion-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg></span>
                     </td>
                 """
-                    
+
                     else:
                         features_table += "<td class='accordion-empty-cell'></td>\n"
 
                 features_table += "</tr>\n"
-                
+
                 for label, key in specifications:
-                    features_table += f"<tr class='spec-row hidden-spec'><td>{label}</td>"
+                    kpi_html = _kpi_badge(key)
+                    features_table += f"<tr class='spec-row hidden-spec'><td>{label}{kpi_html}</td>"
                     
                     for car_name, car_data in comparison_data.items():
                         
@@ -2737,6 +2961,27 @@ def create_comparison_chart_html(
                     grid-template-columns: 1fr;
                 }}
             }}
+
+            /* Vehicle Dynamics Spider Chart */
+            .spider-chart-wrapper {{
+                display: flex;
+                flex-direction: column;
+                gap: 30px;
+            }}
+            .spider-chart-container {{
+                display: flex;
+                justify-content: center;
+                padding: 20px 0;
+            }}
+            .dynamics-rating-table {{
+                overflow-x: auto;
+            }}
+            .dynamics-disclaimer {{
+                padding: 12px 0 4px 0;
+                border-top: 1px solid #e9ecef;
+                margin-top: 10px;
+                line-height: 1.6;
+            }}
             </style>
 </head>
 <body>
@@ -2748,12 +2993,12 @@ def create_comparison_chart_html(
                 <a href="#feature-list-section">Features</a>
                 <a href="#exterior-section">Exterior</a>
                 <a href="#interior-section">Interior</a>
-                <a href="#technology-section">Technology</a>
-                <a href="#safety-section">Safety</a>
                 <a href="#drivetrain-section">Drivetrain</a>
                 <a href="#summary-section">Summary</a>
-                <a href="#consolidated-review-section">Reviews</a>
+                <a href="#consolidated-review-section">FI Reviews</a>
                 <a href="#detailed-reviews-section">Pro Reviews</a>
+                <a href="#dynamics-section">Dynamics</a>
+                <a href="#ai-analysis-section">AI Analysis</a>
                 <a href="#" id="citations-toggle" onclick="toggleCitations(event)">Citations</a>
             </nav>
             <button class="print-btn" onclick="printReport()">Save as PDF</button>
@@ -2775,6 +3020,37 @@ def create_comparison_chart_html(
             <div class="consolidated-review-section animate-on-scroll">{consolidated_review_html}</div>
         </div>
         {detailed_reviews_html}
+        <div class="content">
+            <div class="section-header">
+                <div class="icon-wrapper">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                    </svg>
+                </div>
+                <h2 id="dynamics-section">Vehicle Dynamics — Forum & Social Media Ratings</h2>
+            </div>
+            <div class="spider-chart-section animate-on-scroll"
+                 style="background:white;padding:30px;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.05);border:1px solid #e9ecef;">
+                <p style="font-size:13px;color:#6c757d;margin-bottom:20px;">
+                    Subjective ratings derived from aggregated user opinions on Team-BHP, CarWale, YouTube reviews, and Reddit r/IndiaCars.
+                    Ratings are on a scale of <strong>1–10</strong> per attribute.
+                </p>
+                {dynamics_spider_html}
+            </div>
+        </div>
+        <div class="content">
+            <div class="section-header">
+                <div class="icon-wrapper">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                    </svg>
+                </div>
+                <h2 id="ai-analysis-section">AI-Powered Analysis Summary</h2>
+            </div>
+            <div class="summary animate-on-scroll">
+                <p>{ai_summary_html}</p>
+            </div>
+        </div>
     </div>
     <div class="content" id="citations-section" style="display: none;"><div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><line x1="10" y1="9" x2="8" y2="9"></line></svg></div><h2>Data Source Citations</h2></div><div class="citations-grid">{citations_html}</div></div>
     <footer class="footer"><span>Copyright© 2026 Mahindra&Mahindra Ltd. All Rights Reserved.</span></footer>

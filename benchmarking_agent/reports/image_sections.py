@@ -23,39 +23,48 @@ def _generate_ai_notes_for_gallery(
 
         # Build compact car specs context (exclude images/citations to keep prompt small)
         SKIP_KEYS = {"images", "source_urls", "gcs_folder", "scraping_method",
-                     "timestamp", "chart_gcs_uri", "chart_signed_url", "summary_data"}
+                     "timestamp", "chart_gcs_uri", "chart_signed_url", "summary_data",
+                     "variant_walk", "is_code_car"}
         car_specs: Dict[str, Dict] = {}
         for car_name, car_data in comparison_data.items():
             if isinstance(car_data, dict) and "error" not in car_data:
                 car_specs[car_name] = {
-                    k: str(v)[:120]
+                    k: str(v)[:200]
                     for k, v in car_data.items()
                     if k not in SKIP_KEYS and v and v not in ["Not Available", "N/A", "-", ""]
                     and not k.endswith("_citation")
                 }
 
-        image_list_text = "\n".join(
-            f"{i+1}. Car: {img['car_name']} | Feature: {img['feature']}"
-            for i, img in enumerate(images_list)
-        )
+        # Build per-image context: include the car's FULL spec data for the specific car shown
+        image_entries = []
+        for i, img in enumerate(images_list):
+            car_name = img['car_name']
+            feature  = img['feature']
+            car_data = car_specs.get(car_name, {})
+            # Include ALL spec values for this specific car so Gemini has accurate context
+            car_context = "; ".join(f"{k}: {v}" for k, v in list(car_data.items())[:60])
+            image_entries.append(
+                f"{i+1}. Car: {car_name} | Feature shown: {feature}\n"
+                f"   Verified specs for {car_name}: {car_context[:1500]}"
+            )
+
+        image_list_text = "\n\n".join(image_entries)
 
         prompt = f"""You are an automotive analyst writing image captions for a competitive benchmarking report.
 
 Category: {category.title()}
 Cars being compared: {', '.join(car_specs.keys())}
 
-Car specifications summary:
-{json.dumps(car_specs, indent=2)[:3000]}
+CRITICAL RULES:
+1. Base EVERY note ONLY on the "Verified specs" provided below — do NOT invent or assume.
+2. If the verified specs confirm a feature IS present (e.g., "rear AC vents: Yes"), say it positively.
+3. NEVER write about the absence of a feature that the verified specs confirm is present.
+4. Max 18 words per note. Crisp, professional language.
 
 Images to caption:
 {image_list_text}
 
-Write ONE short analytical note per image (max 18 words each).
-- Be specific to the car and the feature shown
-- Highlight what it means from a product or competitive standpoint
-- Use crisp, professional language (no fluff)
-
-Return ONLY a JSON object like:
+Return ONLY a JSON object:
 {{"notes": ["note for image 1", "note for image 2", ...]}}
 
 The array must have exactly {len(images_list)} entries."""
@@ -410,7 +419,10 @@ def generate_technical_spec_section(comparison_data: Dict[str, Any], page_start:
             for car_name in car_names:
                 car_data = comparison_data.get(car_name, {})
                 value = car_data.get(key, "-")
-                if value in EMPTY_VALUES:
+                # Guard against dict/list values (e.g. from PDF extraction)
+                if isinstance(value, (dict, list)):
+                    value = "-"
+                elif value in EMPTY_VALUES:
                     value = "-"
                 values.append(value)
 
@@ -1173,7 +1185,8 @@ def generate_drivetrain_comparison_section(
         HTML string — concatenated drivetrain sections for all cars
     """
     car_names = [name for name, data in comparison_data.items()
-                 if isinstance(data, dict) and "error" not in data]
+                 if isinstance(data, dict) and "error" not in data
+                 and not name.strip().upper().startswith("CODE:")]
 
     if not car_names:
         return ""
@@ -2623,6 +2636,494 @@ def get_image_section_styles() -> str:
 
 
 # ============================================================================
+# VENN DIAGRAM SECTION  (Chart.js venn plugin + sliding window)
+# ============================================================================
+
+def _derive_venn_from_summary(
+    summary_data: Dict[str, Any],
+    comparison_data: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Build Venn feature sets directly from summary_data which already has
+    features_not_in_car1 (car2-unique) and features_in_car1_only (car1-unique).
+    Makes a small Gemini call only to identify COMMON features shared by both cars.
+    Returns {"features": [...], "_car_names": [...], "car1_unique": [...], "car2_unique": [...], "common": [...]}
+    """
+    SKIP_KEYS = {
+        "images", "source_urls", "gcs_folder", "scraping_method", "timestamp",
+        "chart_gcs_uri", "chart_signed_url", "summary_data", "variant_walk",
+        "car_name", "method", "is_code_car",
+    }
+    EMPTY = {"Not Available", "N/A", "not available", "n/a", "-", "", "None", "Not found"}
+
+    car_names = [n for n, d in comparison_data.items()
+                 if isinstance(d, dict) and "error" not in d]
+    if len(car_names) < 2 or not summary_data:
+        return {}
+
+    car1, car2 = car_names[0], car_names[1]
+
+    # Flatten car1-unique features from features_in_car1_only
+    car1_unique: List[str] = []
+    for category, items in (summary_data.get("features_in_car1_only") or {}).items():
+        if isinstance(items, list):
+            for item in items:
+                s = str(item).strip()
+                if s:
+                    car1_unique.append(s)
+
+    # Flatten car2-unique features from features_not_in_car1
+    car2_unique: List[str] = []
+    for category, items in (summary_data.get("features_not_in_car1") or {}).items():
+        if isinstance(items, list):
+            for item in items:
+                s = str(item).strip()
+                if s:
+                    car2_unique.append(s)
+
+    # Build condensed spec data (for common-feature extraction)
+    condensed: Dict[str, dict] = {}
+    for car_name, car_data in comparison_data.items():
+        if not isinstance(car_data, dict) or "error" in car_data:
+            continue
+        condensed[car_name] = {
+            k: str(v)[:120]
+            for k, v in car_data.items()
+            if k not in SKIP_KEYS
+            and not k.endswith("_citation")
+            and v and str(v).strip() not in EMPTY
+        }
+
+    # Ask Gemini only for COMMON features (much smaller prompt)
+    common_features: List[str] = []
+    try:
+        from vertexai.generative_models import GenerativeModel
+        model = GenerativeModel("gemini-2.5-flash")
+
+        unique_combined = car1_unique + car2_unique  # already-known differences
+        prompt = f"""You are an automotive analyst. Two vehicles are being compared:
+- {car1} (Car 1)
+- {car2} (Car 2)
+
+We already know the DIFFERENCES:
+- Features unique to {car1}: {json.dumps(car1_unique[:20])}
+- Features unique to {car2}: {json.dumps(car2_unique[:20])}
+
+Shared specification data for both cars:
+{json.dumps(condensed, indent=2)[:3000]}
+
+Task: List 10-20 features/specifications that are COMMON to BOTH cars (present in both).
+Focus on: safety features, engine type, transmission options, body type, shared tech, similar comfort items.
+Each item should be a concise plain-English feature description.
+
+Return ONLY valid JSON:
+{{"common_features": ["Feature 1", "Feature 2", ...]}}"""
+
+        response = model.generate_content(prompt)
+        text = response.text.strip()
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+        text = text.strip()
+        data = json.loads(text)
+        common_features = data.get("common_features", [])
+    except Exception as e:
+        print(f"[Venn] Common features extraction failed: {e}")
+        common_features = []
+
+    # Build the unified features list in the original format
+    features: List[Dict] = []
+    for item in car1_unique:
+        features.append({"name": item, "present_in": [car1]})
+    for item in car2_unique:
+        features.append({"name": item, "present_in": [car2]})
+    for item in common_features:
+        features.append({"name": item, "present_in": [car1, car2]})
+
+    return {
+        "features": features,
+        "_car_names": car_names,
+        # Pre-computed sets for quick access
+        "car1_unique": car1_unique,
+        "car2_unique": car2_unique,
+        "common": common_features,
+    }
+
+
+def _compute_window_sets(features: List[Dict], window: List[str]) -> Dict[str, List[str]]:
+    """
+    Given a list of {name, present_in} features and a window of car names,
+    compute which features belong to each region:
+      unique_<car>  — only that car within window
+      pair_<A>_<B>  — shared by exactly A & B within window (3-car windows only)
+      common        — all cars in window
+    Returns dict keyed by region name → feature list.
+    """
+    window_set = set(window)
+    regions: Dict[str, List[str]] = {"common": []}
+    for car in window:
+        regions[f"unique_{car}"] = []
+    if len(window) == 3:
+        for i in range(len(window)):
+            for j in range(i + 1, len(window)):
+                regions[f"pair_{window[i]}_{window[j]}"] = []
+
+    for feat in features:
+        present = set(feat.get("present_in", [])) & window_set
+        if not present:
+            continue
+        name = feat["name"]
+        if present == window_set:
+            regions["common"].append(name)
+        elif len(present) == 1:
+            [car] = present
+            regions[f"unique_{car}"].append(name)
+        elif len(present) == 2 and len(window) == 3:
+            [c1, c2] = sorted(present, key=lambda x: window.index(x))
+            regions[f"pair_{c1}_{c2}"].append(name)
+    return regions
+
+
+def generate_venn_diagram_section(
+    comparison_data: Dict[str, Any],
+    summary_data: Dict[str, Any] = None,
+) -> str:
+    """
+    Render Venn diagram using pre-computed summary_data (features_not_in_car1,
+    features_in_car1_only). A small Gemini call extracts COMMON features only.
+    Shows actual spec TEXT items in each Venn region — no numbers in the diagram.
+    - 2 cars  → 1 two-circle Venn
+    - 3 cars  → 1 three-circle Venn
+    - 4+ cars → sliding window of 3: [0:3], [1:4], [2:5], ...
+    """
+    if not summary_data:
+        return ""
+    venn_data = _derive_venn_from_summary(summary_data, comparison_data)
+    if not venn_data:
+        return ""
+
+    car_names: List[str] = venn_data.get("_car_names", [])
+    features: List[Dict] = venn_data.get("features", [])
+    if len(car_names) < 2 or not features:
+        return ""
+
+    n = len(car_names)
+    COLORS = ["#cc0000", "#1a1a1a", "#0066cc", "#059669", "#7c3aed", "#d97706"]
+    ALPHA  = ["rgba(204,0,0,0.18)", "rgba(26,26,26,0.14)", "rgba(0,102,204,0.18)",
+              "rgba(5,150,105,0.18)", "rgba(124,58,237,0.18)", "rgba(217,119,6,0.18)"]
+
+    # Build sliding windows
+    if n <= 3:
+        windows = [car_names[:]]
+    else:
+        windows = [car_names[i:i+3] for i in range(n - 2)]
+
+    # ── helper: feature list HTML ─────────────────────────────────────────────
+    def feat_list(items: List[str], bullet_color: str) -> str:
+        if not items:
+            return '<p class="venn-empty">None identified</p>'
+        lis = "".join(
+            f'<li style="--bc:{bullet_color}">{f}</li>' for f in items
+        )
+        return f"<ul class='venn-feat-list'>{lis}</ul>"
+
+    # ── build each diagram block ──────────────────────────────────────────────
+    diagrams_html = ""
+
+    def _make_venn_html(window: List[str], regions: Dict) -> str:
+        """
+        Generate an HTML-based Venn diagram showing actual spec texts in each region.
+        Three overlapping sections: Car1-only | Common | Car2-only
+        """
+        common = regions.get("common", [])
+        w_size = len(window)
+
+        MAX_VISIBLE = 12  # items shown before "show more"
+
+        def region_items_html(items: List[str], color: str, bg: str) -> str:
+            if not items:
+                return '<p class="venn-empty-inline">None identified</p>'
+            shown = items[:MAX_VISIBLE]
+            hidden = items[MAX_VISIBLE:]
+            lis = "".join(
+                f'<li class="venn-item-text" style="border-left: 3px solid {color};">{item}</li>'
+                for item in shown
+            )
+            extra = ""
+            if hidden:
+                extra_lis = "".join(
+                    f'<li class="venn-item-text" style="border-left: 3px solid {color};">{item}</li>'
+                    for item in hidden
+                )
+                extra = f'<ul class="venn-item-list venn-hidden-items" id="venn-extra-{hash(str(items))}" style="display:none;">{extra_lis}</ul>'
+                extra += f'<button class="venn-show-more" onclick="this.previousElementSibling.style.display=\'block\';this.style.display=\'none\';">+ {len(hidden)} more</button>'
+            return f'<ul class="venn-item-list">{lis}</ul>{extra}'
+
+        if w_size == 2:
+            c1, c2 = COLORS[0], COLORS[1]
+            a1, a2 = ALPHA[0], ALPHA[1]
+            u1 = regions.get(f"unique_{window[0]}", [])
+            u2 = regions.get(f"unique_{window[1]}", [])
+            n1 = window[0]
+            n2 = window[1]
+
+            return f"""
+<div class="venn-text-layout">
+    <div class="venn-region venn-left-region" style="border-color:{c1}; background: {a1};">
+        <div class="venn-region-title" style="color:{c1}; border-bottom: 2px solid {c1};">
+            Only in {n1} <span class="venn-count-badge" style="background:{c1};">{len(u1)}</span>
+        </div>
+        {region_items_html(u1, c1, a1)}
+    </div>
+    <div class="venn-region venn-center-region" style="border-color:#374151; background: rgba(55,65,81,0.08);">
+        <div class="venn-region-title" style="color:#374151; border-bottom: 2px solid #374151;">
+            Common to Both <span class="venn-count-badge" style="background:#374151;">{len(common)}</span>
+        </div>
+        {region_items_html(common, '#374151', 'rgba(55,65,81,0.08)')}
+    </div>
+    <div class="venn-region venn-right-region" style="border-color:{c2}; background: {a2};">
+        <div class="venn-region-title" style="color:{c2}; border-bottom: 2px solid {c2};">
+            Only in {n2} <span class="venn-count-badge" style="background:{c2};">{len(u2)}</span>
+        </div>
+        {region_items_html(u2, c2, a2)}
+    </div>
+</div>"""
+
+        elif w_size == 3:
+            # 3-car: show unique for each + common
+            parts = []
+            for i, car in enumerate(window):
+                col = COLORS[i % len(COLORS)]
+                alp = ALPHA[i % len(ALPHA)]
+                u = regions.get(f"unique_{car}", [])
+                parts.append(f"""
+    <div class="venn-region venn-multi-region" style="border-color:{col}; background:{alp};">
+        <div class="venn-region-title" style="color:{col}; border-bottom:2px solid {col};">
+            Only in {car} <span class="venn-count-badge" style="background:{col};">{len(u)}</span>
+        </div>
+        {region_items_html(u, col, alp)}
+    </div>""")
+            # Pair regions
+            for i in range(w_size):
+                for j in range(i + 1, w_size):
+                    p = regions.get(f"pair_{window[i]}_{window[j]}", [])
+                    if p:
+                        parts.append(f"""
+    <div class="venn-region venn-multi-region" style="border-color:#6b7280; background:rgba(107,114,128,0.1);">
+        <div class="venn-region-title" style="color:#6b7280; border-bottom:2px solid #6b7280;">
+            {window[i]} &amp; {window[j]} <span class="venn-count-badge" style="background:#6b7280;">{len(p)}</span>
+        </div>
+        {region_items_html(p, '#6b7280', 'rgba(107,114,128,0.1)')}
+    </div>""")
+            # Common all
+            parts.append(f"""
+    <div class="venn-region venn-multi-region" style="border-color:#374151; background:rgba(55,65,81,0.1);">
+        <div class="venn-region-title" style="color:#374151; border-bottom:2px solid #374151;">
+            Common to All 3 <span class="venn-count-badge" style="background:#374151;">{len(common)}</span>
+        </div>
+        {region_items_html(common, '#374151', 'rgba(55,65,81,0.1)')}
+    </div>""")
+
+            return f'<div class="venn-text-layout venn-multi-layout">{"".join(parts)}</div>'
+
+        return ""
+
+    for w_idx, window in enumerate(windows):
+        w_size  = len(window)
+        regions = _compute_window_sets(features, window)
+
+        # Subtitle for diagram
+        if len(windows) > 1:
+            subtitle = f"Window {w_idx+1}: {' · '.join(window)}"
+        else:
+            subtitle = ""
+
+        # HTML-based Venn with actual spec texts
+        venn_html_content = _make_venn_html(window, regions)
+
+        diagrams_html += f"""
+    <div class="venn-block">
+        {"<div class='venn-window-label'>" + subtitle + "</div>" if subtitle else ""}
+        <div class="venn-canvas-wrap">
+            {venn_html_content}
+        </div>
+    </div>"""
+
+    html = f"""
+    <div class="content venn-section" id="venn-section">
+        <div class="section-header">
+            <div class="icon-wrapper">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/>
+                </svg>
+            </div>
+            <h2>Feature Venn Diagram{"s" if len(windows) > 1 else ""}</h2>
+        </div>
+
+        {diagrams_html}
+
+        <div class="venn-note">
+            <strong>Note:</strong> Unique features derived from the comparison summary.
+            Common features extracted via AI from shared specification data.
+            {"Sliding window of 3 cars shown per diagram." if len(windows) > 1 else ""}
+        </div>
+    </div>
+
+    <style>
+        .venn-section {{ margin-bottom: 40px; }}
+
+        .venn-block {{
+            margin-bottom: 48px;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            overflow: hidden;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+        }}
+
+        .venn-window-label {{
+            padding: 10px 20px;
+            background: #1a1a1a;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }}
+
+        .venn-canvas-wrap {{
+            padding: 24px;
+            background: white;
+        }}
+
+        /* Text-based Venn layout */
+        .venn-text-layout {{
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            overflow: hidden;
+        }}
+
+        .venn-multi-layout {{
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        }}
+
+        .venn-region {{
+            padding: 0;
+            border-right: 1px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
+        }}
+
+        .venn-region:last-child {{ border-right: none; }}
+
+        .venn-left-region {{
+            border-radius: 10px 0 0 10px;
+        }}
+
+        .venn-right-region {{
+            border-radius: 0 10px 10px 0;
+        }}
+
+        .venn-center-region {{
+            border-left: 3px solid rgba(55,65,81,0.3);
+            border-right: 3px solid rgba(55,65,81,0.3);
+        }}
+
+        .venn-region-title {{
+            padding: 12px 14px;
+            font-size: 13px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }}
+
+        .venn-count-badge {{
+            color: #fff;
+            padding: 2px 9px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 800;
+            flex-shrink: 0;
+        }}
+
+        .venn-item-list {{
+            list-style: none;
+            padding: 10px 12px;
+            margin: 0;
+            flex: 1;
+        }}
+
+        .venn-item-text {{
+            padding: 5px 8px 5px 10px;
+            font-size: 12px;
+            line-height: 1.5;
+            color: #1f2937;
+            margin-bottom: 4px;
+            border-radius: 0 4px 4px 0;
+            background: rgba(255,255,255,0.7);
+        }}
+
+        .venn-empty-inline {{
+            font-size: 11px;
+            color: #9ca3af;
+            font-style: italic;
+            padding: 10px 12px;
+            margin: 0;
+        }}
+
+        .venn-hidden-items {{
+            padding: 0 12px;
+            margin: 0;
+        }}
+
+        .venn-show-more {{
+            background: none;
+            border: none;
+            color: #6b7280;
+            font-size: 11px;
+            cursor: pointer;
+            padding: 4px 12px 8px 12px;
+            text-decoration: underline;
+            font-weight: 600;
+        }}
+
+        .venn-show-more:hover {{ color: #374151; }}
+
+        .venn-note {{
+            margin-top: 4px;
+            padding: 10px 14px;
+            background: #f9fafb;
+            border-radius: 6px;
+            font-size: 12px;
+            border-left: 4px solid #374151;
+            color: #6b7280;
+        }}
+
+        @media (max-width: 768px) {{
+            .venn-text-layout {{ grid-template-columns: 1fr !important; }}
+            .venn-region {{ border-right: none !important; border-bottom: 1px solid #e5e7eb; }}
+            .venn-region:last-child {{ border-bottom: none; }}
+            .venn-left-region, .venn-right-region {{ border-radius: 0; }}
+        }}
+
+        @media print {{
+            .venn-block {{ page-break-inside: avoid; break-inside: avoid; }}
+            .venn-hidden-items {{ display: block !important; }}
+            .venn-show-more {{ display: none !important; }}
+        }}
+    </style>
+    """
+
+    return html
+
+
+# ============================================================================
 # VARIANT WALK SECTION
 # ============================================================================
 
@@ -3099,5 +3600,294 @@ def generate_price_ladder_section(comparison_data: Dict[str, Any]) -> str:
         }}
     </style>
     """
+
+    return html
+
+
+# ---------------------------------------------------------------------------
+# Vehicle Highlights Section
+# ---------------------------------------------------------------------------
+
+def _get_val(car_data: Dict[str, Any], key: str) -> str:
+    """Return a scraped value, falling back to empty string for N/A variants."""
+    raw = car_data.get(key, "")
+    if not raw or str(raw).strip().lower() in ("not available", "n/a", "none", ""):
+        return ""
+    return str(raw).strip()
+
+
+def generate_vehicle_highlights_section(comparison_data: Dict[str, Any]) -> str:
+    """
+    Generate an 'Overall Highlights' section with one card per vehicle.
+    Uses already-scraped data — no additional API calls.
+    """
+    if not comparison_data:
+        return ""
+
+    car_entries = [
+        (name, data) for name, data in comparison_data.items()
+        if isinstance(data, dict) and "error" not in data
+    ]
+    if not car_entries:
+        return ""
+
+    # --- build one card per car ---
+    cards_html = ""
+    for car_name, cd in car_entries:
+        # Hero image
+        hero_url = ""
+        images = cd.get("images") or {}
+        hero_list = images.get("hero", [])
+        if hero_list:
+            first = hero_list[0]
+            if isinstance(first, (list, tuple)) and first:
+                hero_url = first[0]
+            elif isinstance(first, str):
+                hero_url = first
+
+        img_html = (
+            f'<img class="vh-hero-img" src="{hero_url}" alt="{car_name}" '
+            f'onerror="this.parentElement.style.display=\'none\'">'
+            if hero_url else ""
+        )
+
+        # ---- grouped stat rows ----
+        def row(icon, label, value):
+            if not value:
+                return ""
+            # truncate long values for display
+            display = value if len(value) <= 90 else value[:87] + "…"
+            return f'''
+            <div class="vh-stat-row">
+                <span class="vh-stat-icon">{icon}</span>
+                <span class="vh-stat-label">{label}</span>
+                <span class="vh-stat-value">{display}</span>
+            </div>'''
+
+        def group(title, rows_html):
+            if not rows_html.strip():
+                return ""
+            return f'''
+            <div class="vh-group">
+                <div class="vh-group-title">{title}</div>
+                {rows_html}
+            </div>'''
+
+        # Overview
+        ov = (
+            row("₹", "Price Range", _get_val(cd, "price_range")) +
+            row("⭐", "User Rating", _get_val(cd, "user_rating")) +
+            row("📦", "Monthly Sales", _get_val(cd, "monthly_sales")) +
+            row("🪑", "Seating", _get_val(cd, "seating_capacity"))
+        )
+
+        # Performance
+        accel = _get_val(cd, "acceleration")
+        torque = _get_val(cd, "torque")
+        # shorten torque (first sentence / first clause)
+        if torque and len(torque) > 60:
+            torque = torque.split("(")[0].split(",")[0].strip()
+        pf = (
+            row("⚡", "Acceleration", accel) +
+            row("🔩", "Torque", torque) +
+            row("⛽", "Mileage", _get_val(cd, "mileage")) +
+            row("🏙️", "City Performance", _get_val(cd, "city_performance")) +
+            row("🛣️", "Highway Performance", _get_val(cd, "highway_performance"))
+        )
+
+        # Safety
+        sf = (
+            row("🛡️", "NCAP Rating", _get_val(cd, "ncap_rating")) +
+            row("💥", "Airbags", _get_val(cd, "airbags")) +
+            row("🤖", "ADAS", _get_val(cd, "adas")) +
+            row("🔒", "Safety Features", _get_val(cd, "vehicle_safety_features"))
+        )
+
+        # Comfort & Tech
+        ct = (
+            row("🌡️", "Climate Control", _get_val(cd, "climate_control")) +
+            row("📱", "Infotainment", _get_val(cd, "infotainment_screen")) +
+            row("🔗", "Connectivity", _get_val(cd, "apple_carplay")) +
+            row("🔆", "Sunroof", _get_val(cd, "sunroof")) +
+            row("💺", "Ventilated Seats", _get_val(cd, "ventilated_seats")) +
+            row("🎵", "Audio", _get_val(cd, "audio_system"))
+        )
+
+        # Ride & Handling
+        rh = (
+            row("🛤️", "Ride Quality", _get_val(cd, "ride_quality")) +
+            row("⚖️", "Stability", _get_val(cd, "stability")) +
+            row("🔈", "NVH", _get_val(cd, "nvh"))
+        )
+
+        body_html = (
+            group("Overview", ov) +
+            group("Performance", pf) +
+            group("Safety", sf) +
+            group("Comfort & Technology", ct) +
+            group("Ride & Handling", rh)
+        )
+
+        cards_html += f'''
+        <div class="vh-card">
+            <div class="vh-card-header">
+                {img_html}
+                <div class="vh-car-title">{car_name}</div>
+            </div>
+            <div class="vh-card-body">
+                {body_html}
+            </div>
+        </div>'''
+
+    html = f'''
+    <div class="content vh-section" id="vehicle-highlights">
+        <div class="section-header">
+            <div class="icon-wrapper">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+            </div>
+            <h2>Vehicle Highlights</h2>
+        </div>
+        <p class="vh-subtitle">Key metrics and features for each vehicle at a glance</p>
+        <div class="vh-cards-grid">
+            {cards_html}
+        </div>
+    </div>
+
+    <style>
+        .vh-section {{ margin-top: 40px; }}
+
+        .vh-subtitle {{
+            font-size: 13px;
+            color: #6c757d;
+            margin: -8px 0 24px 0;
+        }}
+
+        .vh-cards-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 28px;
+            align-items: start;
+        }}
+
+        .vh-card {{
+            background: #fff;
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            border: 1px solid #e9ecef;
+            transition: box-shadow 0.3s;
+        }}
+
+        .vh-card:hover {{
+            box-shadow: 0 8px 32px rgba(0,0,0,0.13);
+        }}
+
+        .vh-card-header {{
+            position: relative;
+            background: linear-gradient(135deg, #1c2a39 0%, #2E3B4E 100%);
+        }}
+
+        .vh-hero-img {{
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            display: block;
+            opacity: 0.85;
+        }}
+
+        .vh-car-title {{
+            padding: 14px 18px;
+            font-size: 17px;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: 0.5px;
+            background: linear-gradient(135deg, #1c2a39 0%, #2E3B4E 100%);
+        }}
+
+        .vh-card-body {{
+            padding: 18px;
+        }}
+
+        .vh-group {{
+            margin-bottom: 18px;
+        }}
+
+        .vh-group:last-child {{
+            margin-bottom: 0;
+        }}
+
+        .vh-group-title {{
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #dd032b;
+            border-bottom: 1px solid #f0f0f0;
+            padding-bottom: 6px;
+            margin-bottom: 10px;
+        }}
+
+        .vh-stat-row {{
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 6px 0;
+            border-bottom: 1px solid #f8f8f8;
+        }}
+
+        .vh-stat-row:last-child {{
+            border-bottom: none;
+        }}
+
+        .vh-stat-icon {{
+            font-size: 14px;
+            flex-shrink: 0;
+            width: 22px;
+            text-align: center;
+            margin-top: 1px;
+        }}
+
+        .vh-stat-label {{
+            font-size: 11px;
+            font-weight: 600;
+            color: #495057;
+            min-width: 110px;
+            flex-shrink: 0;
+            padding-top: 1px;
+        }}
+
+        .vh-stat-value {{
+            font-size: 12px;
+            color: #212529;
+            line-height: 1.5;
+            flex: 1;
+        }}
+
+        @media (max-width: 768px) {{
+            .vh-cards-grid {{
+                grid-template-columns: 1fr;
+            }}
+        }}
+
+        @media print {{
+            .vh-card {{
+                page-break-inside: avoid;
+                break-inside: avoid;
+                box-shadow: none;
+                border: 1px solid #dee2e6;
+            }}
+            .vh-hero-img {{
+                height: 140px;
+                object-fit: contain;
+                background: #f8f9fa;
+            }}
+        }}
+    </style>
+    '''
 
     return html

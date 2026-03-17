@@ -660,8 +660,17 @@ function App() {
                     <Settings size={24} strokeWidth={1.5} />
                   </div>
                   <div className="card-content">
-                    <div className="card-title">Prototype Analysis</div>
-                    <div className="card-description">Compare internal prototype with competitor</div>
+                    <div className="card-title">Prototype Analysis (RAG)</div>
+                    <div className="card-description">Fetch internal CODE: car specs from RAG corpus, then compare with external cars</div>
+                  </div>
+                </button>
+                <button className="query-card" onClick={() => setInput('compare CODE:PROTO1 from uploaded PDF with ')}>
+                  <div className="card-icon-wrapper">
+                    <FileText size={24} strokeWidth={1.5} />
+                  </div>
+                  <div className="card-content">
+                    <div className="card-title">Prototype Analysis (PDF)</div>
+                    <div className="card-description">Upload spec PDF — say: compare CODE:[name] from uploaded PDF with [external car name]</div>
                   </div>
                 </button>
                 <button className="query-card" onClick={() => setInput('Summarize this PDF')}>

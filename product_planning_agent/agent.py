@@ -138,52 +138,11 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
     Tool to scrape car data using Custom Search API OR Gemini's direct URL analysis with ALL 19 specifications.
 
     IMPORTANT FOR CODE CARS:
-    If CODE CARS are detected (names with "CODE:" prefix or ALL CAPS format):
+    If CODE CARS are detected (names with "CODE:" prefix):
 
     STEP 1: Call 'scrape_cars_tool' FIRST to identify the code cars.
 
-    STEP 2: If the response status is "awaiting_code_car_specs", ask the user:
-
-    > "Is this a **released car** or an **internal product**?"
-
-    ---
-
-    🚗 If user says **RELEASED CAR / NOT INTERNAL / PUBLIC**:
-    - Treat it as a normal car.
-    - Call `scrape_cars_tool` with `use_custom_search=True` to fetch data via Google Custom Search API.
-    - Proceed with standard web scraping workflow.
-
-    ---
-
-    If user says **INTERNAL PRODUCT / PROTOTYPE / CODE CAR**:
-    Ask how they want to provide specifications:
-
-    > "Would you like to manually specify specifications for the code car(s)?"
-
-    Provide **three options**:
-
-    1. **MANUAL ENTRY** (ONE-BY-ONE or BULK)
-    2. **RAG CORPUS** (Vertex RAG query)
-    3. **BLANK** (Leave all fields empty)
-
-    ---
-
-    📝 If user says **YES / MANUAL**:
-    Ask how they want to enter the data:
-
-    1. ONE-BY-ONE METHOD
-       - Call:
-         add_code_car_specs_tool(car_name="CODE:PROTO1")
-       - The ADK automatically prompts for all **91 specifications**, one at a time.
-       - User must type a value for each spec or respond with 'skip', 'n/a', or blank to leave it empty.
-       - After completion (status "success"), call `scrape_cars_tool` again to generate the comparison report.
-
-    2. BULK / ALL-AT-ONCE METHOD
-       - Call:
-         add_code_car_specs_bulk_tool(car_name="CODE:PROTO1", specifications="{...}")
-       - User provides all 91 specs in JSON format at once.
-       - Faster but requires properly formatted JSON.
-       - After this call, execute `scrape_cars_tool` again to generate the report.
+    STEP 2: If the response status is "awaiting_code_car_specs", present the TWO options to the user.
 
     ---
 
@@ -194,16 +153,20 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
 
     ---
 
-    ⭕ If user says **BLANK / EMPTY / LEAVE**:
-    - The agent marks all fields as "Not Available".
-    - No manual entry or web scraping is done.
-    - Call `scrape_cars_tool` again with `user_decision="blank"`.
+    📄 If user uploads a PDF:
+    - User must say: "compare CODE:[name] from uploaded PDF with [external car name]"
+    - Read the PDF, extract all specs for the CODE car, map to the 87-spec field names
+    - Call: save_pdf_car_specs_tool(car_name="CODE:PROTO1", specs_json='{...}')
+    - Then call: scrape_cars_tool(car_names="CODE:PROTO1, ExternalCar") — no user_decision needed
+    - CODE car specs will be pre-filled from PDF; external cars sourced normally via web search
+
+    ---
 
     Args:
         car_names: Comma-separated list of car names (minimum 1, maximum 10)
                    Example: "Mahindra Thar" or "CODE:PROTO1, Mahindra Thar, Maruti Jimny"
                    Can be single car for individual analysis or multiple for comparison
-        user_decision: User's choice for code cars: 'manual', 'rag', or 'blank'
+        user_decision: User's choice for code cars: 'rag'
         use_custom_search: If True (default), use Custom Search API; if False, use Gemini URL parsing
 
     Returns:
@@ -228,22 +191,32 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
     code_cars = [car for car in car_list if is_code_car(car)]
 
     if code_cars:
-        # Check if specs were collected for code cars
+        # Check if specs were already collected (RAG) or pre-filled via PDF upload
         collected_specs = getattr(add_code_car_specs_tool, 'collected_specs', {})
-        uncollected_code_cars = [car for car in code_cars if car not in collected_specs]
+        pdf_specs_available = getattr(save_pdf_car_specs_tool, 'pdf_specs', {})
+        uncollected_code_cars = [
+            car for car in code_cars
+            if car not in collected_specs and car not in pdf_specs_available
+        ]
 
         if uncollected_code_cars and not user_decision:
+            example_car = uncollected_code_cars[0]
             return json.dumps({
                 "status": "awaiting_code_car_specs",
-                "message": f"I detected {len(code_cars)} CODE CAR(s): {', '.join(code_cars)}\n\n" +
-                          f"For the code car(s), I can either:\n" +
-                          f"1. Let you manually specify all specifications (recommended for prototypes)\n" +
-                          f"2. Query the RAG corpus / GCS for specifications\n\n" +
-                          f"3. Leave the specifications blank/empty\n\n" +
-                          f"Please respond:\n" +
-                          f"- 'yes' or 'manual' - to manually enter specifications\n" +
-                          f"- 'rag' or 'gcs' - to query the RAG corpus\n" +
-                          f"- 'blank' or 'empty' - to leave all specifications empty",
+                "message": (
+                    f"I detected {len(uncollected_code_cars)} internal CODE CAR(s): {', '.join(uncollected_code_cars)}\n\n"
+                    f"Please choose how to provide the specifications:\n\n"
+                    f"**Option 1 — Query RAG Corpus**\n"
+                    f"Reply with: `rag`\n"
+                    f"Specifications will be fetched automatically from the Vertex RAG knowledge base.\n\n"
+                    f"**Option 2 — Upload PDF**\n"
+                    f"1. Attach the specification PDF to your next message.\n"
+                    f"2. Then say exactly:\n"
+                    f"   `compare {example_car} from uploaded PDF with <external car name>`\n"
+                    f"   (e.g. `compare {example_car} from uploaded PDF with Hyundai Creta`)\n"
+                    f"The internal car specs will be extracted from the PDF and pre-filled; "
+                    f"external cars will be sourced normally via web search."
+                ),
                 "code_cars_detected": code_cars,
                 "code_cars_needing_specs": uncollected_code_cars,
                 "awaiting_decision": True
@@ -253,34 +226,7 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
         if user_decision:
             decision = user_decision.lower().strip()
 
-            if decision in ['blank', 'empty', 'leave', 'skip blank', 'leave blank']:
-                # User wants to leave code cars blank
-                print(f"\n→ User chose to leave code car(s) blank: {', '.join(uncollected_code_cars)}")
-                for car in uncollected_code_cars:
-                    blank_specs = create_blank_specs_for_code_car(car)
-                    if not hasattr(add_code_car_specs_tool, 'collected_specs'):
-                        add_code_car_specs_tool.collected_specs = {}
-                    add_code_car_specs_tool.collected_specs[car] = blank_specs
-                    print(f" Created blank spec structure for '{car}'")
-
-            elif decision in ['yes', 'y', 'manual', 'enter', 'specify']:
-                # User wants manual entry - offer both methods
-                return json.dumps({
-                    "status": "needs_manual_entry",
-                    "message": f"Great! I'll collect specifications for: {', '.join(uncollected_code_cars)}\n\n" +
-                              f"I have TWO methods for entering specifications:\n\n" +
-                              f"**Method 1: One-by-one (Interactive)**\n" +
-                              f"I'll ask you for each of the 19 specifications individually.\n" +
-                              f"Tool: 'add_code_car_specs_tool'\n\n" +
-                              f"**Method 2: All-at-once (Bulk)**\n" +
-                              f"Provide all specifications in JSON format in one go.\n" +
-                              f"Tool: 'add_code_car_specs_bulk_tool'\n\n" +
-                              f"Which method would you prefer?",
-                    "code_cars_needing_manual_entry": uncollected_code_cars,
-                    "methods_available": ["one-by-one", "bulk"]
-                }, indent=2)
-
-            elif decision in ['rag', 'gcs', 'corpus', 'vertex rag', 'rag corpus']:
+            if decision in ['rag', 'gcs', 'corpus', 'vertex rag', 'rag corpus']:
                 # User wants to query RAG corpus
                 print(f"\n→ User chose RAG corpus query for code car(s): {', '.join(uncollected_code_cars)}")
 
@@ -308,7 +254,12 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
             else:
                 return json.dumps({
                     "status": "error",
-                    "error": f"Invalid decision: '{user_decision}'. Please respond with 'manual', 'rag', or 'blank'."
+                    "error": (
+                        f"Invalid decision: '{user_decision}'. "
+                        f"Please reply with 'rag' to query the RAG corpus, "
+                        f"or upload a PDF and say "
+                        f"'compare {code_cars[0]} from uploaded PDF with <external car name>'."
+                    )
                 })
 
     start_time = time.time()
@@ -353,10 +304,43 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
         asyncio.run() internally so each thread owns its own event loop."""
         manual_specs = manual_specs_dict.get(car)
         # Check if PDF specs were saved for this car
-        pdf_specs_dict = getattr(save_pdf_car_specs_tool, 'pdf_specs', {})
-        pdf_specs = pdf_specs_dict.get(car)
+        pdf_specs_store = getattr(save_pdf_car_specs_tool, 'pdf_specs', {})
+        pdf_specs = pdf_specs_store.get(car)
 
-        if manual_specs and manual_specs.get('left_blank'):
+        if is_code_car(car):
+            # CODE: internal cars must NEVER be web-scraped
+            if manual_specs and not manual_specs.get('left_blank'):
+                # RAG/manually-collected specs — use directly
+                print(f"[{car}] Using RAG/manual specs (no web search)")
+                car_data = manual_specs
+            elif pdf_specs:
+                # PDF-uploaded specs — merge onto blank base
+                print(f"[{car}] Using PDF-uploaded specs (no web search)")
+                car_data = create_blank_specs_for_code_car(car)
+                car_data['left_blank'] = False
+                car_data['manual_entry'] = False
+                car_data['source_urls'] = ["PDF uploaded by user"]
+                car_data['images'] = {}
+                for field, value in pdf_specs.items():
+                    # Skip citation-like keys the agent may have included
+                    if field.endswith("_citation"):
+                        continue
+                    # Flatten dicts/lists to a plain string
+                    if isinstance(value, dict):
+                        value = value.get("value") or value.get("text") or str(value)
+                    elif isinstance(value, list):
+                        value = ", ".join(str(v) for v in value)
+                    if value and str(value).strip() not in ("", "N/A", "Not Available"):
+                        car_data[field] = str(value).strip()
+                        car_data[f"{field}_citation"] = {
+                            "source_url": "PDF uploaded by user",
+                            "citation_text": "Extracted from PDF uploaded by user"
+                        }
+            else:
+                # No specs collected yet — use blank rather than web-scraping
+                print(f"[{car}] No specs available for CODE car, using blank")
+                car_data = create_blank_specs_for_code_car(car)
+        elif manual_specs and manual_specs.get('left_blank'):
             print(f"[{car}] Using blank specifications")
             car_data = manual_specs
         else:
@@ -827,15 +811,25 @@ infotainment_screen, apple_carplay, sunroof, boot_space, wheelbase, parking, off
 
 **1. Market Cars (Public Vehicles)**
 - Call `scrape_cars_tool(car_names="Car1, Car2, Car3")`
-- Fetches 87 specs via Custom Search API (80-90% accuracy)
 - Returns browser-viewable HTML report with interactive charts
 
 **2. Code Cars (Prototypes/Internal)**
-- Detected by: "CODE:" prefix or ALL CAPS names
-- Three options for specs:
-  a) Manual: `add_code_car_specs_tool` (interactive) or `add_code_car_specs_bulk_tool` (JSON)
-  b) RAG: Set `user_decision="rag"` to query Vertex corpus
-  c) Blank: Set `user_decision="blank"` for empty specs
+- Detected by: "CODE:" prefix
+- Two options for specs:
+  a) RAG: Set `user_decision="rag"` to query Vertex corpus automatically
+  b) PDF: User uploads PDF and says "compare CODE:[name] from uploaded PDF with [external car]"
+     - Read the PDF, extract CODE car specs, call `save_pdf_car_specs_tool(car_name="CODE:X", specs_json='{...}')`
+     - Then call `scrape_cars_tool(car_names="CODE:X, ExternalCar")` — no user_decision needed
+     - Internal car specs pre-filled from PDF; external cars sourced via scarpe_cars_tool
+
+**PDF Mode D — Internal CODE Car from PDF (new):**
+- Triggered when user uploads PDF and says "compare CODE:[name] from uploaded PDF with [external car]"
+- Steps:
+  1. Read the PDF — find all specs for the CODE car inside it
+  2. Map specs to the 87-spec field names (price_range, mileage, performance, torque, etc.)
+  3. Call: `save_pdf_car_specs_tool(car_name="CODE:PROTO1", specs_json='{...}')`
+  4. Call: `scrape_cars_tool(car_names="CODE:PROTO1, ExternalCar1, ExternalCar2")`
+  5. Return the HTML report URL
 
 ## HANDLING TOOL RESPONSE STATUSES
 
@@ -844,24 +838,14 @@ infotainment_screen, apple_carplay, sunroof, boot_space, wheelbase, parking, off
 1. **"status": "awaiting_code_car_specs"**
    - Meaning: CODE car detected, need user decision
    - Action: Display the "message" field to user and wait for their response
-   - Next: User will say "manual", "rag", or "blank"
+   - Next: User will reply 'rag' OR upload a PDF and say "compare CODE:[name] from uploaded PDF with [external car]"
 
-2. **"status": "needs_manual_entry"**
-   - Meaning: User chose manual entry, need to pick method
-   - Action: Display the "message" field to user asking ONE-BY-ONE or BULK
-   - Next: If user says "one by one" → call `add_code_car_specs_tool(car_name="CODE:XXX")`
-   - Next: If user says "bulk" → call `add_code_car_specs_bulk_tool(car_name="CODE:XXX", specifications="{...}")`
-   - After specs tool completes: Call `scrape_cars_tool` again (same car_names, no user_decision)
-
-3. **"status": "success"**
+2. **"status": "success"**
    - Meaning: Comparison complete
    - Action: Display the HTML report URL
 
-4. **"status": "error"**
-   - Meaning: Something failed
-   - Action: Display the "error" field to user
 
-**CRITICAL: When you get "awaiting_code_car_specs" or "needs_manual_entry", you MUST:**
+**CRITICAL: When you get "awaiting_code_car_specs", you MUST:**
 - Show the message to user
 - Wait for user response
 - Then call the appropriate tool based on their answer
@@ -893,26 +877,28 @@ infotainment_screen, apple_carplay, sunroof, boot_space, wheelbase, parking, off
    → Mahindra Thar: fully scraped as normal
 6. Present HTML report URL
 
-**Code Car (Multi-Step Flow):**
+**Code Car via RAG:**
 1. User: "Compare CODE:PROTO1 with Thar"
 2. Call: `scrape_cars_tool(car_names="CODE:PROTO1, Mahindra Thar")`
-   → Returns: `"status": "awaiting_code_car_specs"` with message
+   → Returns: `"status": "awaiting_code_car_specs"` with 2-option message
 3. Show the message to user and wait for their decision
-4. User says: "manual" (or "yes", "manual entry", etc.)
-5. Call: `scrape_cars_tool(car_names="CODE:PROTO1, Mahindra Thar", user_decision="manual")`
-   → Returns: `"status": "needs_manual_entry"` asking for ONE-BY-ONE or BULK
-6. Show the message to user and wait for their choice
-7a. If user says "one by one" (or "interactive", "step by step"):
-    Call: `add_code_car_specs_tool(car_name="CODE:PROTO1")`
-    → Tool will interactively prompt for all 91 specs
-    → After completion, call: `scrape_cars_tool(car_names="CODE:PROTO1, Mahindra Thar")`
-7b. If user says "bulk" (or "all at once", "json"):
-    Call: `add_code_car_specs_bulk_tool(car_name="CODE:PROTO1", specifications="{...}")`
-    → User provides JSON with all specs
-    → After completion, call: `scrape_cars_tool(car_names="CODE:PROTO1, Mahindra Thar")`
-8. Alternative decisions at step 4:
-   - User says "rag": Call `scrape_cars_tool(car_names="...", user_decision="rag")`
-   - User says "blank": Call `scrape_cars_tool(car_names="...", user_decision="blank")`
+4. User says: "rag"
+5. Call: `scrape_cars_tool(car_names="CODE:PROTO1, Mahindra Thar", user_decision="rag")`
+   → RAG corpus queried automatically for CODE:PROTO1 specs
+6. Present HTML report URL
+
+**Code Car via PDF upload:**
+1. User: "Compare CODE:PROTO1 with Thar"
+2. Call: `scrape_cars_tool(car_names="CODE:PROTO1, Mahindra Thar")`
+   → Returns: `"status": "awaiting_code_car_specs"` with 2-option message
+3. Show the message to user and wait for their decision
+4. User attaches PDF and says: "compare CODE:PROTO1 from uploaded PDF with Mahindra Thar"
+5. Read the PDF → extract CODE:PROTO1 specs → map to 87-spec field names
+6. Call: `save_pdf_car_specs_tool(car_name="CODE:PROTO1", specs_json='{...}')`
+7. Call: `scrape_cars_tool(car_names="CODE:PROTO1, Mahindra Thar")`
+   → CODE:PROTO1: pre-filled from PDF; citation = "PDF uploaded by user"
+   → Mahindra Thar: fully scraped as normal
+8. Present HTML report URL
 
 ## 87 SPECIFICATIONS
 

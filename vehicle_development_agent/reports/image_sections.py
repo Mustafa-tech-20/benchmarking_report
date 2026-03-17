@@ -1064,7 +1064,8 @@ def generate_drivetrain_comparison_section(
         HTML string — concatenated drivetrain sections for all cars
     """
     car_names = [name for name, data in comparison_data.items()
-                 if isinstance(data, dict) and "error" not in data]
+                 if isinstance(data, dict) and "error" not in data
+                 and not name.strip().upper().startswith("CODE:")]
 
     if not car_names:
         return ""

@@ -133,11 +133,17 @@ IMPORTANT:
         # Repair and parse JSON using json-repair to handle malformed JSON
         try:
             repaired_json = repair_json(response_text)
-            variant_data = json.loads(repaired_json)
+            if isinstance(repaired_json, str):
+                variant_data = json.loads(repaired_json)
+            else:
+                variant_data = repaired_json
         except Exception as repair_error:
             print(f"  JSON repair failed: {str(repair_error)[:100]}")
             # Fallback to standard JSON parsing
             variant_data = json.loads(response_text)
+
+        if not variant_data.get('variants'):
+            print(f"  Variant walk: Gemini returned empty — raw snippet: {response_text[:200]}")
 
         return variant_data
 
