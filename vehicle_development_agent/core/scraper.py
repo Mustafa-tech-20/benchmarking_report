@@ -926,6 +926,7 @@ def phase0_official_site_extraction(car_name: str) -> Dict[str, Any]:
 
     specs = {}
     citations = {}
+    lock = concurrent.futures.thread.threading.Lock()
 
     # Split into batches of 10
     spec_batches = [
@@ -933,28 +934,30 @@ def phase0_official_site_extraction(car_name: str) -> Dict[str, Any]:
         for i in range(0, len(OFFICIAL_SITE_PRIORITY_SPECS), 10)
     ]
 
-    for batch_idx, batch in enumerate(spec_batches, 1):
-        print(f"    Batch {batch_idx}/{len(spec_batches)}: Extracting {len(batch)} specs...", end=" ")
-
+    def run_batch(args):
+        batch_idx, batch = args
         try:
             extracted = extract_specs_from_official_site(car_name, url, batch)
-
-            found_count = 0
+            results = []
             for spec_name, value in extracted.items():
                 if spec_name in OFFICIAL_SITE_PRIORITY_SPECS and value and "Not found" not in value:
+                    results.append((spec_name, value))
+            print(f"    Batch {batch_idx}/{len(spec_batches)}: ✓ {len(results)}/{len(batch)}")
+            return results
+        except Exception as e:
+            print(f"    Batch {batch_idx}/{len(spec_batches)}: ✗ Error: {str(e)[:30]}")
+            return []
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(spec_batches)) as executor:
+        for batch_results in executor.map(run_batch, enumerate(spec_batches, 1)):
+            with lock:
+                for spec_name, value in batch_results:
                     specs[spec_name] = value
                     citations[spec_name] = {
                         "source_url": url,
                         "citation_text": f"Official {brand} website",
                         "engine": "OFFICIAL",
                     }
-                    found_count += 1
-
-            print(f"✓ {found_count}/{len(batch)}")
-            time.sleep(0.5)  # Delay between batches
-
-        except Exception as e:
-            print(f"✗ Error: {str(e)[:30]}")
 
     total_found = len(specs)
     accuracy = (total_found / len(OFFICIAL_SITE_PRIORITY_SPECS) * 100) if OFFICIAL_SITE_PRIORITY_SPECS else 0
@@ -1808,10 +1811,7 @@ async def async_scrape_car_data(car_name: str) -> Dict[str, Any]:
         Dict with car specifications and metadata
     """
     try:
-        from benchmarking_agent.core.async_scraper import (
-            async_phase1_per_spec_search,
-            gemini_api
-        )
+        from benchmarking_agent.core.async_scraper import gemini_api
         from benchmarking_agent.extraction.async_images import async_extract_autocar_images
     except ImportError as e:
         print(f"Async modules not available: {e}")
@@ -1827,13 +1827,13 @@ async def async_scrape_car_data(car_name: str) -> Dict[str, Any]:
 
     start_time = time.time()
 
-    # Phase 0: Official brand site extraction (still sync - Gemini SDK limitation)
+    # Phase 0: Official brand site extraction (parallel batches)
     phase0_result = phase0_official_site_extraction(car_name)
     specs = phase0_result["specs"].copy()
     citations = phase0_result["citations"].copy()
 
-    # Phase 1: Async per-spec search for remaining specs
-    phase1_result = await async_phase1_per_spec_search(car_name, existing_specs=specs)
+    # Phase 1: Sync per-spec search with batched Gemini extraction (faster than async per-spec)
+    phase1_result = phase1_per_spec_search(car_name, existing_specs=specs)
 
     # Merge Phase 1 results
     for spec_name, value in phase1_result["specs"].items():
