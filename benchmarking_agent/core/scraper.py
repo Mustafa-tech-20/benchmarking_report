@@ -217,6 +217,19 @@ CAR_SPECS = [
     # Dimensions & Specs (from image + checklist)
     "wheelbase", "ground_clearance", "boot_space", "chasis",
     "fuel_type", "engine_displacement",
+
+    # NEW: ADAS Features (for checklist - 6 specs)
+    "adaptive_cruise_control", "lane_keep_assist", "blind_spot_monitor",
+    "automatic_emergency_braking", "360_camera", "lane_departure_warning",
+
+    # NEW: Active Safety (for checklist - 3 specs)
+    "traction_control", "hill_descent_control", "abs",
+
+    # NEW: Technology & Connectivity (for checklist - 4 specs)
+    "wireless_carplay", "heads_up_display", "wireless_charging", "built_in_navigation",
+
+    # NEW: Comfort & Premium Features (for checklist - 5 specs)
+    "panoramic_sunroof", "heated_seats", "keyless_entry", "ambient_lighting", "auto_headlamps",
 ]
 
 
@@ -336,6 +349,32 @@ SPEC_KEYWORDS = {
     "seat_features_detailed": "seat features backrest split ratio recline lumbar support thigh ventilation",
     "rear_seat_features": "rear seat features fold center armrest cup holder recline",
     "seatbelt_features": "seatbelt features pretensioner load limiter height adjuster",
+
+    # NEW: ADAS Features (18 new keywords for 70% checklist coverage)
+    "adaptive_cruise_control": "adaptive cruise control ACC",
+    "lane_keep_assist": "lane keep assist LKA",
+    "blind_spot_monitor": "blind spot monitoring BSM",
+    "automatic_emergency_braking": "automatic emergency braking AEB",
+    "360_camera": "360 degree camera surround view",
+    "lane_departure_warning": "lane departure warning LDW",
+
+    # NEW: Active Safety
+    "traction_control": "traction control TCS",
+    "hill_descent_control": "hill descent control HDC",
+    "abs": "ABS anti-lock braking",
+
+    # NEW: Technology & Connectivity
+    "wireless_carplay": "wireless CarPlay Android Auto",
+    "heads_up_display": "heads-up display HUD",
+    "wireless_charging": "wireless charging pad phone",
+    "built_in_navigation": "built-in navigation GPS",
+
+    # NEW: Comfort & Premium Features
+    "panoramic_sunroof": "panoramic sunroof",
+    "heated_seats": "heated seats front",
+    "keyless_entry": "keyless entry smart key",
+    "ambient_lighting": "ambient lighting interior",
+    "auto_headlamps": "automatic headlamps auto lights",
 }
 
 

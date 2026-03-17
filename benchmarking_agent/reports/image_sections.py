@@ -21,6 +21,13 @@ def _generate_ai_notes_for_gallery(
     try:
         from vertexai.generative_models import GenerativeModel
 
+        # Return empty if no images
+        if not images_list:
+            print(f"  No images for {category} - skipping AI notes")
+            return []
+
+        print(f"  Generating AI notes for {len(images_list)} {category} images...")
+
         # Build compact car specs context (exclude images/citations to keep prompt small)
         SKIP_KEYS = {"images", "source_urls", "gcs_folder", "scraping_method",
                      "timestamp", "chart_gcs_uri", "chart_signed_url", "summary_data",
@@ -86,10 +93,22 @@ The array must have exactly {len(images_list)} entries."""
         # Pad or trim to match images count
         while len(notes) < len(images_list):
             notes.append("")
+
+        print(f"  ✓ Generated {len(notes)} AI notes for {category}")
         return notes[:len(images_list)]
 
-    except Exception:
-        return [""] * len(images_list)
+    except Exception as e:
+        print(f"  ✗ AI notes generation failed for {category}: {e}")
+        print(f"  Using fallback notes instead...")
+        # Fallback: generate simple descriptive notes based on feature names
+        fallback_notes = []
+        for img in images_list:
+            car_name = img.get('car_name', 'Car')
+            feature = img.get('feature', 'Feature')
+            # Create a simple note based on the feature
+            note = f"{car_name} showcases {feature.lower()}"
+            fallback_notes.append(note)
+        return fallback_notes
 
 
 def generate_hero_section(comparison_data: Dict[str, Any]) -> str:
@@ -517,6 +536,12 @@ _FEATURE_TYPES: Dict[str, str] = {
     "Total USB Ports":          "count",
     "Tow Capacity (kg)":        "count",
     "NCAP Safety Rating":       "count",
+    # new count features
+    "Front Cup Holders":                "count",
+    "Rear Cup Holders":                 "count",
+    "No of Wireless Charging Pads":     "count",
+    "Cup Holder at Tail Door":          "count",
+    "Hooks at Tail Door":               "count",
     # spec features — show meaningful text
     "Seat Material":            "spec",
     "Fuel Type":                "spec",
@@ -528,6 +553,15 @@ _FEATURE_TYPES: Dict[str, str] = {
     "Audio System":             "spec",
     "Drive Modes":              "spec",
     "Terrain Modes":            "spec",
+    # new spec features
+    "Front Door Scuff Material":        "spec",
+    "Rear Door Scuff Material":         "spec",
+    "Voice Assistant Type":             "spec",
+    "Co-Driver Seat Adjustment":        "spec",
+    "Power Seat Controls Location":     "spec",
+    "Seatbelt Warning":                 "spec",
+    "Display Language":                 "spec",
+    "Audio Brand":                      "spec",
     # everything else defaults to "binary"
 }
 
@@ -587,6 +621,39 @@ _SCRAPED_KEY_MAP = {
     "Wheelbase (mm)":               "wheelbase",
     "Boot Space (litres)":          "boot_space",
     "Chassis Type":                 "chasis",
+    # New features with accurate scraped data overlap
+    "Crash Sensor":                 "vehicle_safety_features",
+    "Seatbelt Tongue Holder 2nd Row": "seatbelt_features",
+    "Infotainment Touch":           "infotainment_screen",
+    "Audio Brand":                  "audio_system",
+
+    # NEW: 18 additional mappings for 70% checklist coverage
+    # ADAS Features (6)
+    "Adaptive Cruise Control":      "adaptive_cruise_control",
+    "Lane Keep Assist":             "lane_keep_assist",
+    "Blind Spot Monitor":           "blind_spot_monitor",
+    "Automatic Emergency Braking":  "automatic_emergency_braking",
+    "360 Degree Camera":            "360_camera",
+    "Lane Departure Warning":       "lane_departure_warning",
+
+    # Active Safety (3)
+    "Traction Control":             "traction_control",
+    "Hill Descent Control":         "hill_descent_control",
+    "ABS":                          "abs",
+
+    # Technology & Connectivity (4)
+    "Wireless CarPlay":             "wireless_carplay",
+    "Wireless Android Auto":        "wireless_carplay",  # Same as wireless CarPlay
+    "Heads-Up Display":             "heads_up_display",
+    "Wireless Charging":            "wireless_charging",
+    "Built-in Navigation":          "built_in_navigation",
+
+    # Comfort & Premium Features (5)
+    "Panoramic Sunroof":            "panoramic_sunroof",
+    "Heated Front Seats":           "heated_seats",
+    "Keyless Entry":                "keyless_entry",
+    "Ambient Lighting":             "ambient_lighting",
+    "Auto Headlamps":               "auto_headlamps",
 }
 
 # Pre-defined feature batches — ~10 features each, all run in parallel
@@ -673,6 +740,52 @@ _FEATURE_BATCHES = [
                      "Rear Cup Holders", "Total USB Ports", "12V Power Outlet",
                      "Tow Capacity (kg)"]
     },
+    # ── New categories from reference spec sheets ──────────────────────────
+    {
+        "category": "Boot & Trunk", "description": "Storage & Boot Utilities",
+        "features": ["Trunk Metal Anchor Points", "Trunk Storage Box",
+                     "Trunk Subwoofer", "Dashcam Provision",
+                     "Cup Holder at Tail Door", "Hooks at Tail Door",
+                     "Warning Triangle at Tail Door", "Door Magnetic Strap"]
+    },
+    {
+        "category": "Floor Console", "description": "Armrest & Charging",
+        "features": ["Armrest Sliding", "Armrest Soft", "Armrest Storage",
+                     "Wireless Charging Front Row", "No of Wireless Charging Pads"]
+    },
+    {
+        "category": "Door & Trim", "description": "Door Panel Details",
+        "features": ["Front Door Scuff Material", "Rear Door Scuff Material"]
+    },
+    {
+        "category": "Steering & Voice", "description": "Controls & Voice Assistance",
+        "features": ["Voice Recognition Steering Wheel", "Voice Assistant Type",
+                     "Multi-language Voice Commands", "Amazon Alexa Voice Assistant",
+                     "Active Noise Reduction", "Intelligent Voice Control",
+                     "Intelligent Dodge", "Intelligent Parking Assist"]
+    },
+    {
+        "category": "Seats Extended", "description": "Power & Memory",
+        "features": ["Co-Driver Seat Adjustment", "Power Seat Controls Location",
+                     "Programmable Memory Seat", "Seatbelt Warning",
+                     "Seatbelt Tongue Holder 2nd Row", "Crash Sensor"]
+    },
+    {
+        "category": "Technology Extended", "description": "Connectivity & Media",
+        "features": ["Infotainment Touch", "Display Language",
+                     "Phone Sync Audio", "Bluetooth Hands Free",
+                     "AM/FM Radio", "Digital Radio DAB",
+                     "Wireless Smartphone Integration"]
+    },
+    {
+        "category": "Branded Audio", "description": "Sound System Details",
+        "features": ["Audio Brand", "Dolby Atmos", "Speed Sensing Volume"]
+    },
+    {
+        "category": "Others", "description": "Unique Features",
+        "features": ["Transparent Car Bottom Camera", "Car Picnic Table",
+                     "Safety Belt Holder 2nd Row", "Front Rear Parking Sensor Radar"]
+    },
 ]
 
 
@@ -756,83 +869,122 @@ def _fetch_binary_feature_comparison(car_names: List[str], comparison_data: Dict
                 "description": batch["description"],
             })
 
-    print(f"  Feature comparison: {len(resolved)} from scraped data")
+    print(f"  Feature comparison: {len(resolved)} from scraped data, {len(missing_features)} need search")
 
     # ------------------------------------------------------------------
-    # Step 2: single Gemini call for 10 essential features not in scraped data
+    # Step 2: Custom Search API (1 query per feature) + batch Gemini extraction
+    #         (10 features per Gemini call, all batches in parallel)
     # ------------------------------------------------------------------
-    _ESSENTIAL_FEATURES = [
-        "Front Airbags", "Side Airbags", "Curtain Airbags",
-        "ABS", "Traction Control",
-        "360 Degree Camera", "Wireless CarPlay",
-        "Panoramic Sunroof",
-        "4WD / AWD",
-        "Automatic Emergency Braking",
-    ]
+    import threading
+    import concurrent.futures
 
     gemini_resolved: Dict[str, Dict] = {}
 
-    essential_to_fetch = [
-        f for f in missing_features
-        if f["name"] in _ESSENTIAL_FEATURES and f["name"] not in resolved
-    ]
-
-    if essential_to_fetch:
+    if missing_features:
         try:
-            from google import genai
-            from google.genai import types
+            from benchmarking_agent.core.scraper import (
+                google_custom_search, SEARCH_ENGINE_ID,
+                call_gemini_simple, GEMINI_WORKERS,
+            )
 
-            PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT")
-            client = genai.Client(vertexai=True, project=PROJECT_ID, location="global")
-
+            cars_str = " vs ".join(car_names)
             car1 = car_names[0]
             car2 = car_names[1] if len(car_names) > 1 else "Competitor"
-            cars_str = " vs ".join(car_names)
 
-            feat_list = "\n".join(f"- {f['name']}" for f in essential_to_fetch)
-            prompt = f"""For {cars_str}, look up each feature and return whether each car has it.
+            # ── 2a: one Custom Search query per missing feature ────────────
+            print(f"  Running {len(missing_features)} custom search queries...")
+            search_results_map: Dict[str, list] = {}
 
-Features:
-{feat_list}
+            def _search_feature(feat_info):
+                feat_name = feat_info["name"]
+                query = f"{cars_str} {feat_name}"
+                try:
+                    return feat_name, google_custom_search(query, SEARCH_ENGINE_ID, num_results=3)
+                except Exception:
+                    return feat_name, []
 
+            with concurrent.futures.ThreadPoolExecutor(max_workers=15) as ex:
+                for fname, results in ex.map(_search_feature, missing_features):
+                    search_results_map[fname] = results
+
+            # ── 2b: batch Gemini extraction, 10 features per call, parallel ─
+            BATCH_SIZE = 10
+            feat_batches = [
+                missing_features[i:i + BATCH_SIZE]
+                for i in range(0, len(missing_features), BATCH_SIZE)
+            ]
+            print(f"  {len(feat_batches)} Gemini extraction batches firing in parallel...")
+
+            _lock = threading.Lock()
+
+            def _extract_batch(batch):
+                sections = []
+                json_lines = []
+                for feat_info in batch:
+                    feat_name = feat_info["name"]
+                    results = search_results_map.get(feat_name, [])
+                    section = f"--- FEATURE: {feat_name} ---\n"
+                    for i, r in enumerate(results[:3], 1):
+                        section += f"[{i}] {r.get('domain', '')}: {r.get('snippet', '')}\n"
+                    if not results:
+                        section += "(no search results — use training knowledge)\n"
+                    sections.append(section)
+                    json_lines.append(
+                        f'    {{"name": "{feat_name}", "{car1}": <value>, "{car2}": <value>}}'
+                    )
+
+                prompt = f"""For {cars_str}, determine each feature's value from the snippets below.
+
+{"".join(sections)}
 Rules:
-- true/false for yes/no features
-- integer for counts (e.g. Front Airbags → 2)
-- false if the car does not have the feature
+- true / false for yes/no features
+- integer for counts (e.g. 2 for cup holders)
+- short text ≤20 chars for material/type/brand (e.g. "Leatherette")
+- false if feature is absent
 
-Return ONLY valid JSON:
+Return ONLY valid JSON (no markdown):
 {{
   "features": [
-    {{"name": "Feature Name", "{car1}": true, "{car2}": false}}
+{chr(10).join(json_lines)}
   ]
 }}"""
+                try:
+                    text = call_gemini_simple(prompt).strip()
+                    if "```json" in text:
+                        text = text.split("```json")[1].split("```")[0]
+                    elif "```" in text:
+                        text = text.split("```")[1].split("```")[0]
+                    text = text.strip()
+                    if "{" in text and "}" in text:
+                        text = text[text.index("{"):text.rindex("}") + 1]
+                    result = json_repair.loads(text)
+                    return result.get("features", [])
+                except Exception as e:
+                    print(f"  Extraction batch error: {e}")
+                    return []
 
-            tools = [types.Tool(google_search=types.GoogleSearch())]
-            config = types.GenerateContentConfig(
-                tools=tools, temperature=0.1, max_output_tokens=512
-            )
-            response = client.models.generate_content(
-                model="gemini-2.5-flash", contents=prompt, config=config
-            )
-            if response and response.text:
-                text = response.text.strip()
-                if "```json" in text:
-                    text = text.split("```json")[1].split("```")[0]
-                elif "```" in text:
-                    text = text.split("```")[1].split("```")[0]
-                text = text.strip()
-                if "{" in text and "}" in text:
-                    text = text[text.index("{"):text.rindex("}") + 1]
-                result = json_repair.loads(text)
-                for feat_obj in result.get("features", []):
-                    name = feat_obj.get("name", "")
-                    if name:
-                        gemini_resolved[name] = {cn: feat_obj.get(cn) for cn in car_names}
+            with concurrent.futures.ThreadPoolExecutor(max_workers=len(feat_batches)) as ex:
+                future_to_batch = {ex.submit(_extract_batch, b): b for b in feat_batches}
+                for future in concurrent.futures.as_completed(future_to_batch):
+                    for feat_obj in future.result():
+                        name = feat_obj.get("name", "")
+                        if name:
+                            with _lock:
+                                gemini_resolved[name] = {cn: feat_obj.get(cn) for cn in car_names}
 
-            print(f"  Gemini returned {len(gemini_resolved)} essential features in 1 call")
+            print(f"  Fetched {len(gemini_resolved)} features via search + {len(feat_batches)} Gemini calls")
 
         except Exception as e:
-            print(f"  Gemini feature fetch error: {e}")
+            print(f"  Feature search/extraction error: {e}")
+
+    # Write resolved feature values back into comparison_data so checklist_transformer can use them
+    _extra_prefix = "xfeat_"
+    for feat_name, car_vals in {**resolved, **gemini_resolved}.items():
+        key = _extra_prefix + feat_name.lower().replace(" ", "_").replace("/", "_").replace(
+            "-", "_").replace("(", "").replace(")", "").replace(".", "").replace("&", "_")
+        for cn, val in car_vals.items():
+            if cn in comparison_data:
+                comparison_data[cn][key] = val
 
     # ------------------------------------------------------------------
     # Step 3: assemble into ordered category structure from _FEATURE_BATCHES
@@ -2748,19 +2900,26 @@ def _compute_window_sets(features: List[Dict], window: List[str]) -> Dict[str, L
     """
     Given a list of {name, present_in} features and a window of car names,
     compute which features belong to each region:
-      unique_<car>  — only that car within window
-      pair_<A>_<B>  — shared by exactly A & B within window (3-car windows only)
-      common        — all cars in window
-    Returns dict keyed by region name → feature list.
+      unique_<car>        — only that car within window
+      pair_<A>_<B>        — shared by exactly A & B (for 3 or 4-car windows)
+      triple_<A>_<B>_<C>  — shared by exactly 3 cars (4-car windows only)
+      common              — all cars in window
     """
     window_set = set(window)
     regions: Dict[str, List[str]] = {"common": []}
     for car in window:
         regions[f"unique_{car}"] = []
-    if len(window) == 3:
+    # pair regions for 3 and 4-car windows
+    if len(window) >= 3:
         for i in range(len(window)):
             for j in range(i + 1, len(window)):
                 regions[f"pair_{window[i]}_{window[j]}"] = []
+    # triple regions for 4-car window
+    if len(window) == 4:
+        for i in range(len(window)):
+            for j in range(i + 1, len(window)):
+                for k in range(j + 1, len(window)):
+                    regions[f"triple_{window[i]}_{window[j]}_{window[k]}"] = []
 
     for feat in features:
         present = set(feat.get("present_in", [])) & window_set
@@ -2772,9 +2931,16 @@ def _compute_window_sets(features: List[Dict], window: List[str]) -> Dict[str, L
         elif len(present) == 1:
             [car] = present
             regions[f"unique_{car}"].append(name)
-        elif len(present) == 2 and len(window) == 3:
+        elif len(present) == 2:
             [c1, c2] = sorted(present, key=lambda x: window.index(x))
-            regions[f"pair_{c1}_{c2}"].append(name)
+            key = f"pair_{c1}_{c2}"
+            if key in regions:
+                regions[key].append(name)
+        elif len(present) == 3 and len(window) == 4:
+            [c1, c2, c3] = sorted(present, key=lambda x: window.index(x))
+            key = f"triple_{c1}_{c2}_{c3}"
+            if key in regions:
+                regions[key].append(name)
     return regions
 
 
@@ -2783,12 +2949,13 @@ def generate_venn_diagram_section(
     summary_data: Dict[str, Any] = None,
 ) -> str:
     """
-    Render Venn diagram using pre-computed summary_data (features_not_in_car1,
-    features_in_car1_only). A small Gemini call extracts COMMON features only.
-    Shows actual spec TEXT items in each Venn region — no numbers in the diagram.
-    - 2 cars  → 1 two-circle Venn
-    - 3 cars  → 1 three-circle Venn
-    - 4+ cars → sliding window of 3: [0:3], [1:4], [2:5], ...
+    Render Venn diagram in the style of the reference image:
+    - Large semi-transparent pastel overlapping circles
+    - Short spec names placed directly inside each region (unique + intersections)
+    - Car names bold in each unique region, like the reference
+    - Detailed expandable list below
+    - 2 cars → 2-circle | 3 cars → 3-circle triangle | 4 cars → 2×2 grid
+    - 5+ cars → sliding windows of 4
     """
     if not summary_data:
         return ""
@@ -2801,141 +2968,118 @@ def generate_venn_diagram_section(
     if len(car_names) < 2 or not features:
         return ""
 
-    n = len(car_names)
-    COLORS = ["#cc0000", "#1a1a1a", "#0066cc", "#059669", "#7c3aed", "#d97706"]
-    ALPHA  = ["rgba(204,0,0,0.18)", "rgba(26,26,26,0.14)", "rgba(0,102,204,0.18)",
-              "rgba(5,150,105,0.18)", "rgba(124,58,237,0.18)", "rgba(217,119,6,0.18)"]
+    import re as _re
 
-    # Build sliding windows
-    if n <= 3:
+    n = len(car_names)
+
+    # Pastel fills matching the reference image palette
+    FILLS   = [
+        "rgba(190,175,175,0.50)",   # muted warm-gray  (like Gandalf)
+        "rgba(230,215,110,0.50)",   # amber-yellow      (like Dark Lord Sauron)
+        "rgba(155,155,210,0.50)",   # periwinkle-purple (like Tom Bombadil)
+        "rgba(220,150,155,0.50)",   # dusty-rose        (like Santa Claus)
+    ]
+    STROKES = ["#9a8888", "#b09020", "#6868b0", "#b06068"]
+    ALPHA   = [
+        "rgba(190,175,175,0.13)",
+        "rgba(230,215,110,0.13)",
+        "rgba(155,155,210,0.13)",
+        "rgba(220,150,155,0.13)",
+    ]
+
+    # Shorten a feature description to a concise spec name (2-3 words max)
+    def _short(desc: str, max_words: int = 3) -> str:
+        s = _re.sub(r'\s*\([^)]*\)', '', str(desc)).strip()
+        s = _re.sub(r'\s*—.*$', '', s).strip()
+        words = s.split()
+        return ' '.join(words[:max_words])
+
+    # Build sliding windows — up to 4 cars per diagram
+    if n <= 4:
         windows = [car_names[:]]
     else:
-        windows = [car_names[i:i+3] for i in range(n - 2)]
+        windows = [car_names[i:i+4] for i in range(n - 3)]
 
-    # ── helper: feature list HTML ─────────────────────────────────────────────
-    def feat_list(items: List[str], bullet_color: str) -> str:
+    # ── helper: collapsible detail list below the SVG ────────────────────────
+    MAX_VISIBLE = 12
+
+    def region_items_html(items: List[str], color: str, bg: str) -> str:
         if not items:
-            return '<p class="venn-empty">None identified</p>'
+            return '<p class="venn-empty-inline">None identified</p>'
+        shown  = items[:MAX_VISIBLE]
+        hidden = items[MAX_VISIBLE:]
         lis = "".join(
-            f'<li style="--bc:{bullet_color}">{f}</li>' for f in items
+            f'<li class="venn-item-text" style="border-left:3px solid {color};">{item}</li>'
+            for item in shown
         )
-        return f"<ul class='venn-feat-list'>{lis}</ul>"
+        extra = ""
+        if hidden:
+            uid = abs(hash(str(items[:3])))
+            extra_lis = "".join(
+                f'<li class="venn-item-text" style="border-left:3px solid {color};">{item}</li>'
+                for item in hidden
+            )
+            extra  = f'<ul class="venn-item-list venn-hidden-items" id="vx{uid}" style="display:none;">{extra_lis}</ul>'
+            extra += (f'<button class="venn-show-more" '
+                      f'onclick="document.getElementById(\'vx{uid}\').style.display=\'block\';'
+                      f'this.style.display=\'none\';">+ {len(hidden)} more</button>')
+        return f'<ul class="venn-item-list">{lis}</ul>{extra}'
 
-    # ── build each diagram block ──────────────────────────────────────────────
+    # ── foreignObject helper: places text block at a region centroid ─────────
+    # Shows car name (bold) in unique regions + short spec names
+    MAX_IN_CIRCLE = 5   # items shown inside SVG per region
+
+    def _fo(x: int, y: int, w: int, h: int,
+            title: str, title_color: str,
+            items: List[str], is_intersection: bool = False) -> str:
+        """Render a foreignObject text block centred at (x,y)."""
+        short_items = [_short(i) for i in items[:MAX_IN_CIRCLE]]
+        overflow    = len(items) - MAX_IN_CIRCLE
+        items_html  = ", ".join(short_items)
+        overflow_el = f'<div class="vr-more">+{overflow} more</div>' if overflow > 0 else ""
+        title_el    = (f'<div class="vr-title" style="color:{title_color};">{title}</div>'
+                       if title else "")
+        content_cls = "vr-inter" if is_intersection else "vr-unique"
+        return (
+            f'<foreignObject x="{x - w//2}" y="{y - h//2}" width="{w}" height="{h}">'
+            f'<div xmlns="http://www.w3.org/1999/xhtml" class="vr-box {content_cls}">'
+            f'{title_el}'
+            f'<div class="vr-items">{items_html}{overflow_el}</div>'
+            f'</div></foreignObject>'
+        )
+
+    # ── build each window diagram ─────────────────────────────────────────────
     diagrams_html = ""
 
-    def _make_venn_html(window: List[str], regions: Dict) -> str:
-        """
-        Generate an HTML-based Venn diagram showing actual spec texts in each region.
-        Three overlapping sections: Car1-only | Common | Car2-only
-        """
+    def _make_venn_svg(window: List[str], regions: Dict) -> str:
         common = regions.get("common", [])
-        w_size = len(window)
+        w = len(window)
 
-        MAX_VISIBLE = 12  # items shown before "show more"
+        # ── 2-car ──────────────────────────────────────────────────────────
+        if w == 2:
+            ca, cb   = window
+            sa, sb   = STROKES[0], STROKES[1]
+            aa, ab_  = ALPHA[0], ALPHA[1]
+            u_a = regions.get(f"unique_{ca}", [])
+            u_b = regions.get(f"unique_{cb}", [])
 
-        def region_items_html(items: List[str], color: str, bg: str) -> str:
-            if not items:
-                return '<p class="venn-empty-inline">None identified</p>'
-            shown = items[:MAX_VISIBLE]
-            hidden = items[MAX_VISIBLE:]
-            lis = "".join(
-                f'<li class="venn-item-text" style="border-left: 3px solid {color};">{item}</li>'
-                for item in shown
-            )
-            extra = ""
-            if hidden:
-                extra_lis = "".join(
-                    f'<li class="venn-item-text" style="border-left: 3px solid {color};">{item}</li>'
-                    for item in hidden
-                )
-                extra = f'<ul class="venn-item-list venn-hidden-items" id="venn-extra-{hash(str(items))}" style="display:none;">{extra_lis}</ul>'
-                extra += f'<button class="venn-show-more" onclick="this.previousElementSibling.style.display=\'block\';this.style.display=\'none\';">+ {len(hidden)} more</button>'
-            return f'<ul class="venn-item-list">{lis}</ul>{extra}'
+            fo_a    = _fo(148, 185, 175, 200, ca, sa, u_a)
+            fo_com  = _fo(450, 185, 160, 200, "", "#444", common, True)
+            fo_b    = _fo(752, 185, 175, 200, cb, sb, u_b)
 
-        if w_size == 2:
-            c1, c2 = COLORS[0], COLORS[1]
-            a1, a2 = ALPHA[0], ALPHA[1]
-            u1 = regions.get(f"unique_{window[0]}", [])
-            u2 = regions.get(f"unique_{window[1]}", [])
-            n1 = window[0]
-            n2 = window[1]
+            svg = f"""<svg viewBox="0 0 900 370" width="100%" preserveAspectRatio="xMidYMid meet"
+     style="font-family:Georgia,serif;">
+  <circle cx="305" cy="185" r="205" fill="{FILLS[0]}" stroke="{sa}" stroke-width="1.2"/>
+  <circle cx="595" cy="185" r="205" fill="{FILLS[1]}" stroke="{sb}" stroke-width="1.2"/>
+  {fo_a}{fo_com}{fo_b}
+</svg>"""
+            panels = _detail_panels(window, regions, STROKES, ALPHA, common)
+            return f'<div class="venn-svg-outer">{svg}</div>{panels}'
 
-            # Truncate car names for SVG display
-            n1_svg = (n1[:20] + "…") if len(n1) > 20 else n1
-            n2_svg = (n2[:20] + "…") if len(n2) > 20 else n2
-
-            def svg_tspans(items, x, anchor, color, y_start=108, max_items=8):
-                shown = items[:max_items]
-                result = ""
-                for i, item in enumerate(shown):
-                    label = (item[:34] + "…") if len(item) > 34 else item
-                    if i == 0:
-                        result += f'<tspan x="{x}" y="{y_start}" fill="{color}" text-anchor="{anchor}" font-size="11.5">• {label}</tspan>'
-                    else:
-                        result += f'<tspan x="{x}" dy="17" fill="{color}" text-anchor="{anchor}" font-size="11.5">• {label}</tspan>'
-                if len(items) > max_items:
-                    result += f'<tspan x="{x}" dy="17" fill="{color}" text-anchor="{anchor}" font-size="11" font-style="italic">+{len(items) - max_items} more — see full list below</tspan>'
-                return result
-
-            left_tspans   = svg_tspans(u1,     42,  "start",  c1)
-            center_tspans = svg_tspans(common,  450, "middle", "#4B5563")
-            right_tspans  = svg_tspans(u2,      858, "end",    c2)
-
-            return f"""
-<div class="venn-svg-outer">
-  <svg viewBox="0 0 900 390" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block; border-radius:10px 10px 0 0;">
-    <!-- Left circle (Car 1) -->
-    <ellipse cx="278" cy="210" rx="258" ry="168" fill="rgba(204,0,0,0.11)" stroke="{c1}" stroke-width="2.5" stroke-opacity="0.75"/>
-    <!-- Right circle (Car 2) -->
-    <ellipse cx="622" cy="210" rx="258" ry="168" fill="rgba(26,26,26,0.07)" stroke="{c2}" stroke-width="2.5" stroke-opacity="0.75"/>
-
-    <!-- Car name labels -->
-    <text x="145" y="30" text-anchor="middle" fill="{c1}" font-size="15" font-weight="700">{n1_svg}</text>
-    <text x="755" y="30" text-anchor="middle" fill="{c2}" font-size="15" font-weight="700">{n2_svg}</text>
-    <text x="450"  y="30" text-anchor="middle" fill="#374151" font-size="13.5" font-weight="600">Common</text>
-
-    <!-- Count badge circles -->
-    <circle cx="145" cy="65" r="26" fill="{c1}" opacity="0.92"/>
-    <circle cx="450" cy="65" r="26" fill="#374151" opacity="0.92"/>
-    <circle cx="755" cy="65" r="26" fill="{c2}" opacity="0.92"/>
-
-    <!-- Count numbers inside badges -->
-    <text x="145" y="72" text-anchor="middle" fill="white" font-size="17" font-weight="800">{len(u1)}</text>
-    <text x="450" y="72" text-anchor="middle" fill="white" font-size="17" font-weight="800">{len(common)}</text>
-    <text x="755" y="72" text-anchor="middle" fill="white" font-size="17" font-weight="800">{len(u2)}</text>
-
-    <!-- Feature items as text inside each circle region -->
-    <text>{left_tspans}</text>
-    <text>{center_tspans}</text>
-    <text>{right_tspans}</text>
-  </svg>
-</div>
-
-<div class="venn-text-layout" style="border-radius:0 0 10px 10px; margin-top:0; border-top: none;">
-    <div class="venn-region venn-left-region" style="border-color:{c1}; background: {a1}; border-radius:0 0 0 10px;">
-        <div class="venn-region-title" style="color:{c1}; border-bottom: 2px solid {c1};">
-            Only in {n1} <span class="venn-count-badge" style="background:{c1};">{len(u1)}</span>
-        </div>
-        {region_items_html(u1, c1, a1)}
-    </div>
-    <div class="venn-region venn-center-region" style="border-color:#374151; background: rgba(55,65,81,0.08);">
-        <div class="venn-region-title" style="color:#374151; border-bottom: 2px solid #374151;">
-            Common to Both <span class="venn-count-badge" style="background:#374151;">{len(common)}</span>
-        </div>
-        {region_items_html(common, '#374151', 'rgba(55,65,81,0.08)')}
-    </div>
-    <div class="venn-region venn-right-region" style="border-color:{c2}; background: {a2}; border-radius:0 0 10px 0;">
-        <div class="venn-region-title" style="color:{c2}; border-bottom: 2px solid {c2};">
-            Only in {n2} <span class="venn-count-badge" style="background:{c2};">{len(u2)}</span>
-        </div>
-        {region_items_html(u2, c2, a2)}
-    </div>
-</div>"""
-
-        elif w_size == 3:
-            c0, c1_3, c2_3 = COLORS[0], COLORS[1], COLORS[2]
-            ca, cb, cc = window[0], window[1], window[2]
+        # ── 3-car (triangle) ───────────────────────────────────────────────
+        if w == 3:
+            ca, cb, cc = window
+            sa, sb, sc = STROKES[0], STROKES[1], STROKES[2]
             u_a  = regions.get(f"unique_{ca}", [])
             u_b  = regions.get(f"unique_{cb}", [])
             u_c  = regions.get(f"unique_{cc}", [])
@@ -2943,111 +3087,102 @@ def generate_venn_diagram_section(
             p_ac = regions.get(f"pair_{ca}_{cc}", [])
             p_bc = regions.get(f"pair_{cb}_{cc}", [])
 
-            na_s = (ca[:16] + "…") if len(ca) > 16 else ca
-            nb_s = (cb[:16] + "…") if len(cb) > 16 else cb
-            nc_s = (cc[:16] + "…") if len(cc) > 16 else cc
+            fo_a   = _fo(450,  65, 175, 155, ca, sa, u_a)
+            fo_b   = _fo(155, 430, 175, 130, cb, sb, u_b)
+            fo_c   = _fo(745, 430, 175, 130, cc, sc, u_c)
+            fo_ab  = _fo(346, 238, 130, 100, "", "#666", p_ab,  True)
+            fo_ac  = _fo(554, 238, 130, 100, "", "#666", p_ac,  True)
+            fo_bc  = _fo(450, 400, 130, 100, "", "#666", p_bc,  True)
+            fo_com = _fo(450, 298, 140, 100, "", "#333", common, True)
 
-            # 3-circle SVG Venn (triangle arrangement: top / bottom-left / bottom-right)
-            svg3 = f"""
-<div class="venn-svg-outer">
-  <svg viewBox="0 0 900 470" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block; border-radius:10px 10px 0 0;">
-    <!-- Circle A — top (Car 1) -->
-    <circle cx="450" cy="178" r="168" fill="rgba(204,0,0,0.10)" stroke="{c0}" stroke-width="2.5" stroke-opacity="0.8"/>
-    <!-- Circle B — bottom-left (Car 2) -->
-    <circle cx="308" cy="302" r="168" fill="rgba(26,26,26,0.07)" stroke="{c1_3}" stroke-width="2.5" stroke-opacity="0.8"/>
-    <!-- Circle C — bottom-right (Car 3) -->
-    <circle cx="592" cy="302" r="168" fill="rgba(0,102,204,0.07)" stroke="{c2_3}" stroke-width="2.5" stroke-opacity="0.8"/>
+            svg = f"""<svg viewBox="0 0 900 540" width="100%" preserveAspectRatio="xMidYMid meet"
+     style="font-family:Georgia,serif;">
+  <circle cx="450" cy="205" r="190" fill="{FILLS[0]}" stroke="{sa}" stroke-width="1.2"/>
+  <circle cx="305" cy="358" r="190" fill="{FILLS[1]}" stroke="{sb}" stroke-width="1.2"/>
+  <circle cx="595" cy="358" r="190" fill="{FILLS[2]}" stroke="{sc}" stroke-width="1.2"/>
+  {fo_a}{fo_b}{fo_c}{fo_ab}{fo_ac}{fo_bc}{fo_com}
+</svg>"""
+            panels = _detail_panels(window, regions, STROKES, ALPHA, common)
+            return f'<div class="venn-svg-outer">{svg}</div>{panels}'
 
-    <!-- Car name labels (outside circles at top) -->
-    <text x="450" y="22"  text-anchor="middle" fill="{c0}"   font-size="13.5" font-weight="700">{na_s}</text>
-    <text x="130" y="22"  text-anchor="middle" fill="{c1_3}" font-size="13.5" font-weight="700">{nb_s}</text>
-    <text x="770" y="22"  text-anchor="middle" fill="{c2_3}" font-size="13.5" font-weight="700">{nc_s}</text>
+        # ── 4-car (2×2 grid, like reference image) ─────────────────────────
+        if w == 4:
+            ca, cb, cc, cd = window
+            sa, sb, sc, sd = STROKES[0], STROKES[1], STROKES[2], STROKES[3]
+            u_a  = regions.get(f"unique_{ca}", [])
+            u_b  = regions.get(f"unique_{cb}", [])
+            u_c  = regions.get(f"unique_{cc}", [])
+            u_d  = regions.get(f"unique_{cd}", [])
+            p_ab = regions.get(f"pair_{ca}_{cb}", [])
+            p_cd = regions.get(f"pair_{cc}_{cd}", [])
+            p_ac = regions.get(f"pair_{ca}_{cc}", [])
+            p_bd = regions.get(f"pair_{cb}_{cd}", [])
+            p_ad = regions.get(f"pair_{ca}_{cd}", [])
+            p_bc = regions.get(f"pair_{cb}_{cc}", [])
 
-    <!-- Unique-region count badges -->
-    <circle cx="450" cy="108" r="24" fill="{c0}"   opacity="0.92"/>
-    <text x="450" cy="108" y="114" text-anchor="middle" fill="white" font-size="14" font-weight="800">{len(u_a)}</text>
-    <text x="450" y="128"  text-anchor="middle" fill="{c0}"   font-size="9.5">only</text>
+            # Unique corner blocks — positioned in the outermost region of each circle
+            fo_a  = _fo(148, 168, 160, 145, ca, sa, u_a)
+            fo_b  = _fo(752, 168, 160, 145, cb, sb, u_b)
+            fo_c  = _fo(148, 520, 160, 145, cc, sc, u_c)
+            fo_d  = _fo(752, 520, 160, 145, cd, sd, u_d)
+            # Pair intersections
+            fo_ab = _fo(450, 168, 135,  95, "", "#555", p_ab, True)
+            fo_cd = _fo(450, 522, 135,  95, "", "#555", p_cd, True)
+            fo_ac = _fo(175, 342, 130,  95, "", "#555", p_ac, True)
+            fo_bd = _fo(725, 342, 130,  95, "", "#555", p_bd, True)
+            fo_ad = _fo(528, 270, 120,  85, "", "#777", p_ad, True)
+            fo_bc = _fo(372, 415, 120,  85, "", "#777", p_bc, True)
+            # Center — common to all 4
+            fo_com = _fo(450, 342, 145, 105, "", "#222", common, True)
 
-    <circle cx="172" cy="330" r="24" fill="{c1_3}" opacity="0.92"/>
-    <text x="172" y="336" text-anchor="middle" fill="white" font-size="14" font-weight="800">{len(u_b)}</text>
-    <text x="172" y="350" text-anchor="middle" fill="{c1_3}" font-size="9.5">only</text>
-
-    <circle cx="728" cy="330" r="24" fill="{c2_3}" opacity="0.92"/>
-    <text x="728" y="336" text-anchor="middle" fill="white" font-size="14" font-weight="800">{len(u_c)}</text>
-    <text x="728" y="350" text-anchor="middle" fill="{c2_3}" font-size="9.5">only</text>
-
-    <!-- Pair-intersection count badges -->
-    <circle cx="358" cy="225" r="21" fill="#6b7280" opacity="0.9"/>
-    <text x="358" y="231" text-anchor="middle" fill="white" font-size="12" font-weight="700">{len(p_ab)}</text>
-    <text x="358" y="246" text-anchor="middle" fill="#6b7280" font-size="8.5">{na_s[:7]}∩{nb_s[:7]}</text>
-
-    <circle cx="542" cy="225" r="21" fill="#6b7280" opacity="0.9"/>
-    <text x="542" y="231" text-anchor="middle" fill="white" font-size="12" font-weight="700">{len(p_ac)}</text>
-    <text x="542" y="246" text-anchor="middle" fill="#6b7280" font-size="8.5">{na_s[:7]}∩{nc_s[:7]}</text>
-
-    <circle cx="450" cy="358" r="21" fill="#6b7280" opacity="0.9"/>
-    <text x="450" y="364" text-anchor="middle" fill="white" font-size="12" font-weight="700">{len(p_bc)}</text>
-    <text x="450" y="379" text-anchor="middle" fill="#6b7280" font-size="8.5">{nb_s[:7]}∩{nc_s[:7]}</text>
-
-    <!-- Common to all 3 — centre badge -->
-    <circle cx="450" cy="272" r="26" fill="#374151" opacity="0.93"/>
-    <text x="450" y="278" text-anchor="middle" fill="white" font-size="15" font-weight="800">{len(common)}</text>
-    <text x="450" y="293" text-anchor="middle" fill="#374151" font-size="9">all 3</text>
-  </svg>
-</div>"""
-
-            # Full text grid (7 regions) below SVG
-            parts = []
-            for i, (car, col, alp) in enumerate(zip(window, COLORS, ALPHA)):
-                u = regions.get(f"unique_{car}", [])
-                parts.append(f"""
-    <div class="venn-region venn-multi-region" style="border-color:{col}; background:{alp};">
-        <div class="venn-region-title" style="color:{col}; border-bottom:2px solid {col};">
-            Only in {car} <span class="venn-count-badge" style="background:{col};">{len(u)}</span>
-        </div>
-        {region_items_html(u, col, alp)}
-    </div>""")
-            for i in range(w_size):
-                for j in range(i + 1, w_size):
-                    p = regions.get(f"pair_{window[i]}_{window[j]}", [])
-                    if p:
-                        parts.append(f"""
-    <div class="venn-region venn-multi-region" style="border-color:#6b7280; background:rgba(107,114,128,0.1);">
-        <div class="venn-region-title" style="color:#6b7280; border-bottom:2px solid #6b7280;">
-            {window[i]} &amp; {window[j]} <span class="venn-count-badge" style="background:#6b7280;">{len(p)}</span>
-        </div>
-        {region_items_html(p, '#6b7280', 'rgba(107,114,128,0.1)')}
-    </div>""")
-            parts.append(f"""
-    <div class="venn-region venn-multi-region" style="border-color:#374151; background:rgba(55,65,81,0.1);">
-        <div class="venn-region-title" style="color:#374151; border-bottom:2px solid #374151;">
-            Common to All 3 <span class="venn-count-badge" style="background:#374151;">{len(common)}</span>
-        </div>
-        {region_items_html(common, '#374151', 'rgba(55,65,81,0.1)')}
-    </div>""")
-
-            return svg3 + f'<div class="venn-text-layout venn-multi-layout" style="border-radius:0 0 10px 10px; border-top:none;">{"".join(parts)}</div>'
+            svg = f"""<svg viewBox="0 0 900 690" width="100%" preserveAspectRatio="xMidYMid meet"
+     style="font-family:Georgia,serif;">
+  <circle cx="308" cy="262" r="210" fill="{FILLS[0]}" stroke="{sa}" stroke-width="1.2"/>
+  <circle cx="592" cy="262" r="210" fill="{FILLS[1]}" stroke="{sb}" stroke-width="1.2"/>
+  <circle cx="308" cy="428" r="210" fill="{FILLS[2]}" stroke="{sc}" stroke-width="1.2"/>
+  <circle cx="592" cy="428" r="210" fill="{FILLS[3]}" stroke="{sd}" stroke-width="1.2"/>
+  {fo_a}{fo_b}{fo_c}{fo_d}
+  {fo_ab}{fo_cd}{fo_ac}{fo_bd}{fo_ad}{fo_bc}
+  {fo_com}
+</svg>"""
+            panels = _detail_panels(window, regions, STROKES, ALPHA, common)
+            return f'<div class="venn-svg-outer">{svg}</div>{panels}'
 
         return ""
 
+    def _detail_panels(window, regions, strokes, alpha, common) -> str:
+        """Collapsible detail grid shown below the SVG."""
+        parts = []
+        for car, col, alp in zip(window, strokes, alpha):
+            u = regions.get(f"unique_{car}", [])
+            parts.append(f'<div class="venn-region venn-multi-region" style="border-color:{col};background:{alp};">'
+                         f'<div class="venn-region-title" style="color:{col};border-bottom:2px solid {col};">'
+                         f'Only in {car} <span class="venn-count-badge" style="background:{col};">{len(u)}</span></div>'
+                         f'{region_items_html(u, col, alp)}</div>')
+        wn = len(window)
+        for i in range(wn):
+            for j in range(i+1, wn):
+                p = regions.get(f"pair_{window[i]}_{window[j]}", [])
+                if p:
+                    parts.append(f'<div class="venn-region venn-multi-region" style="border-color:#6b7280;background:rgba(107,114,128,0.1);">'
+                                 f'<div class="venn-region-title" style="color:#6b7280;border-bottom:2px solid #6b7280;">'
+                                 f'{window[i]} &amp; {window[j]} <span class="venn-count-badge" style="background:#6b7280;">{len(p)}</span></div>'
+                                 f'{region_items_html(p,"#6b7280","rgba(107,114,128,0.1)")}</div>')
+        lbl = f"All {wn}" if wn > 2 else "Both"
+        parts.append(f'<div class="venn-region venn-multi-region" style="border-color:#374151;background:rgba(55,65,81,0.1);">'
+                     f'<div class="venn-region-title" style="color:#374151;border-bottom:2px solid #374151;">'
+                     f'Common to {lbl} <span class="venn-count-badge" style="background:#374151;">{len(common)}</span></div>'
+                     f'{region_items_html(common,"#374151","rgba(55,65,81,0.1)")}</div>')
+        return f'<div class="venn-text-layout venn-multi-layout">{"".join(parts)}</div>'
+
     for w_idx, window in enumerate(windows):
-        w_size  = len(window)
-        regions = _compute_window_sets(features, window)
-
-        # Subtitle for diagram
-        if len(windows) > 1:
-            subtitle = f"Window {w_idx+1}: {' · '.join(window)}"
-        else:
-            subtitle = ""
-
-        # HTML-based Venn with actual spec texts
-        venn_html_content = _make_venn_html(window, regions)
-
+        regions  = _compute_window_sets(features, window)
+        subtitle = f"Window {w_idx+1}: {' · '.join(window)}" if len(windows) > 1 else ""
         diagrams_html += f"""
     <div class="venn-block">
         {"<div class='venn-window-label'>" + subtitle + "</div>" if subtitle else ""}
         <div class="venn-canvas-wrap">
-            {venn_html_content}
+            {_make_venn_svg(window, regions)}
         </div>
     </div>"""
 
@@ -3062,13 +3197,10 @@ def generate_venn_diagram_section(
             </div>
             <h2>Feature Venn Diagram{"s" if len(windows) > 1 else ""}</h2>
         </div>
-
         {diagrams_html}
-
         <div class="venn-note">
-            <strong>Note:</strong> Unique features derived from the comparison summary.
-            Common features extracted via AI from shared specification data.
-            {"Sliding window of 3 cars shown per diagram." if len(windows) > 1 else ""}
+            <strong>Note:</strong> Unique &amp; common features derived from AI analysis of spec data.
+            {"Sliding window of 4 cars per diagram." if len(windows) > 1 else ""}
         </div>
     </div>
 
@@ -3080,8 +3212,8 @@ def generate_venn_diagram_section(
             border: 1px solid #e5e7eb;
             border-radius: 12px;
             overflow: hidden;
-            background: white;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+            background: #fff;
+            box-shadow: 0 2px 14px rgba(0,0,0,0.07);
         }}
 
         .venn-window-label {{
@@ -3094,32 +3226,59 @@ def generate_venn_diagram_section(
         }}
 
         .venn-canvas-wrap {{
-            padding: 24px;
-            background: white;
+            padding: 12px 12px 0 12px;
+            background: #fff;
         }}
 
-        /* SVG Venn circle visual */
         .venn-svg-outer {{
-            background: #fafafa;
-            border: 1px solid #e5e7eb;
-            border-bottom: none;
-            border-radius: 10px 10px 0 0;
-            padding: 16px 8px 0 8px;
-            overflow: hidden;
+            background: #fff;
+            overflow: visible;
         }}
 
-        /* Text-based Venn layout */
+        /* ── text blocks inside SVG regions ── */
+        .vr-box {{
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            height: 100%;
+            padding: 4px;
+            box-sizing: border-box;
+        }}
+        .vr-title {{
+            font-family: Georgia, serif;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+            line-height: 1.2;
+        }}
+        .vr-items {{
+            font-family: Georgia, serif;
+            font-size: 11px;
+            color: #2d2d2d;
+            line-height: 1.55;
+        }}
+        .vr-more {{
+            font-size: 9.5px;
+            color: #888;
+            font-style: italic;
+            margin-top: 2px;
+        }}
+        .vr-inter .vr-items {{ font-size: 10.5px; color: #333; }}
+
+        /* ── detail panels below diagram ── */
         .venn-text-layout {{
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
             gap: 0;
             border: 1px solid #e5e7eb;
-            border-radius: 10px;
+            border-top: none;
+            border-radius: 0 0 10px 10px;
             overflow: hidden;
-        }}
-
-        .venn-multi-layout {{
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            margin: 0 4px 14px 4px;
         }}
 
         .venn-region {{
@@ -3128,101 +3287,80 @@ def generate_venn_diagram_section(
             display: flex;
             flex-direction: column;
         }}
-
         .venn-region:last-child {{ border-right: none; }}
-
-        .venn-left-region {{
-            border-radius: 10px 0 0 10px;
-        }}
-
-        .venn-right-region {{
-            border-radius: 0 10px 10px 0;
-        }}
-
-        .venn-center-region {{
-            border-left: 3px solid rgba(55,65,81,0.3);
-            border-right: 3px solid rgba(55,65,81,0.3);
-        }}
+        .venn-multi-region {{ border-bottom: 1px solid #e5e7eb; }}
 
         .venn-region-title {{
-            padding: 12px 14px;
-            font-size: 13px;
+            padding: 9px 11px;
+            font-size: 11.5px;
             font-weight: 700;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 8px;
+            gap: 6px;
         }}
 
         .venn-count-badge {{
             color: #fff;
-            padding: 2px 9px;
-            border-radius: 12px;
-            font-size: 11px;
+            padding: 2px 7px;
+            border-radius: 10px;
+            font-size: 10.5px;
             font-weight: 800;
             flex-shrink: 0;
         }}
 
         .venn-item-list {{
             list-style: none;
-            padding: 10px 12px;
+            padding: 6px 9px;
             margin: 0;
             flex: 1;
         }}
 
         .venn-item-text {{
-            padding: 5px 8px 5px 10px;
-            font-size: 12px;
+            padding: 3px 7px 3px 9px;
+            font-size: 11px;
             line-height: 1.5;
             color: #1f2937;
-            margin-bottom: 4px;
-            border-radius: 0 4px 4px 0;
-            background: rgba(255,255,255,0.7);
+            margin-bottom: 2px;
+            border-radius: 0 3px 3px 0;
         }}
 
         .venn-empty-inline {{
             font-size: 11px;
             color: #9ca3af;
             font-style: italic;
-            padding: 10px 12px;
+            padding: 7px 9px;
             margin: 0;
         }}
 
-        .venn-hidden-items {{
-            padding: 0 12px;
-            margin: 0;
-        }}
+        .venn-hidden-items {{ padding: 0 9px; margin: 0; }}
 
         .venn-show-more {{
             background: none;
             border: none;
             color: #6b7280;
-            font-size: 11px;
+            font-size: 10.5px;
             cursor: pointer;
-            padding: 4px 12px 8px 12px;
+            padding: 2px 9px 7px;
             text-decoration: underline;
             font-weight: 600;
         }}
-
         .venn-show-more:hover {{ color: #374151; }}
 
         .venn-note {{
-            margin-top: 4px;
-            padding: 10px 14px;
+            margin: 4px 0 0;
+            padding: 7px 13px;
             background: #f9fafb;
             border-radius: 6px;
-            font-size: 12px;
-            border-left: 4px solid #374151;
+            font-size: 11px;
+            border-left: 4px solid #555;
             color: #6b7280;
         }}
 
         @media (max-width: 768px) {{
             .venn-text-layout {{ grid-template-columns: 1fr !important; }}
             .venn-region {{ border-right: none !important; border-bottom: 1px solid #e5e7eb; }}
-            .venn-region:last-child {{ border-bottom: none; }}
-            .venn-left-region, .venn-right-region {{ border-radius: 0; }}
         }}
-
         @media print {{
             .venn-block {{ page-break-inside: avoid; break-inside: avoid; }}
             .venn-hidden-items {{ display: block !important; }}
