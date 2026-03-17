@@ -1404,12 +1404,8 @@ Return ONLY this JSON (no markdown):
 
 def phase2_gemini_search_fallback(car_name: str, current_specs: Dict[str, str]) -> Dict[str, Any]:
     """
-    Phase 2: Multi-source parallel search for missing specs.
-
-    TWO-STEP approach (inspired by clinical trials multi-registry parallel search):
-    Step 1: Search ALL 8 automotive sources IN PARALLEL for all missing specs
-            — each source searched independently, like individual clinical trial registries
-    Step 2: Aggregate results — first non-empty value per spec wins, with source tracking
+    Phase 2: Extract missing specs by giving Gemini the direct CardDekho URL.
+    Batches of 10 specs are fired in parallel — no Google Search grounding.
 
     Returns: {specs: {spec_name: value}, citations: {spec_name: {source_url}}}
     """
@@ -1421,101 +1417,98 @@ def phase2_gemini_search_fallback(car_name: str, current_specs: Dict[str, str]) 
     if not missing_specs:
         return {"specs": {}, "citations": {}}
 
+    cardekho_url = build_cardekho_url(car_name)
+
     print(f"\n{'='*60}")
-    print(f"PHASE 2: MULTI-SOURCE PARALLEL SEARCH ({len(missing_specs)} missing specs)")
+    print(f"PHASE 2: CARDEKHO URL EXTRACTION ({len(missing_specs)} missing specs)")
+    print(f"  URL: {cardekho_url}")
     print(f"{'='*60}\n")
-    print(f"  Searching {len(AUTOMOTIVE_SPEC_SOURCES)} sources in PARALLEL...")
-    print(f"  Sources: {', '.join(s['name'] for s in AUTOMOTIVE_SPEC_SOURCES)}\n")
 
-    # Split missing specs into batches of 15 — keeps each prompt focused and avoids truncation
-    PHASE2_BATCH_SIZE = 15
-    spec_batches = [missing_specs[i:i+PHASE2_BATCH_SIZE] for i in range(0, len(missing_specs), PHASE2_BATCH_SIZE)]
+    PHASE2_BATCH_SIZE = 10
+    MAX_PARALLEL_BATCHES = 3  # Limit parallel execution to prevent hangs
+    spec_batches = [missing_specs[i:i + PHASE2_BATCH_SIZE] for i in range(0, len(missing_specs), PHASE2_BATCH_SIZE)]
+    print(f"  {len(spec_batches)} batches of up to {PHASE2_BATCH_SIZE} specs")
+    print(f"  Processing {MAX_PARALLEL_BATCHES} batches at a time\n")
 
-    # Build all (source × batch) task combinations
-    tasks = [
-        (source, batch_idx, batch)
-        for source in AUTOMOTIVE_SPEC_SOURCES
-        for batch_idx, batch in enumerate(spec_batches)
-    ]
+    import threading
+    specs: Dict[str, str] = {}
+    citations: Dict[str, Dict] = {}
+    lock = threading.Lock()
 
-    print(f"  Total queries: {len(tasks)} ({len(AUTOMOTIVE_SPEC_SOURCES)} sources × {len(spec_batches)} batches)\n")
+    def _call_batch(batch: List[str]) -> Dict[str, Any]:
+        spec_guide_lines = []
+        json_lines = []
+        for spec in batch:
+            desc = SPEC_DESCRIPTIONS.get(spec, spec.replace("_", " ").title())
+            spec_guide_lines.append(f"- **{spec}**: {desc}")
+            json_lines.append(f'  "{spec}": {{"value": "...", "source_url": "{cardekho_url}"}}')
 
-    # Collect all results: spec_name -> list of {value, source_url, source_name}
-    all_results: Dict[str, List[Dict]] = {}
-    source_counts = {source["name"]: 0 for source in AUTOMOTIVE_SPEC_SOURCES}
+        prompt = f"""Visit the following CarDekho page and extract the listed specifications for {car_name}.
 
-    def run_source_batch(source, batch_idx, batch):
-        result = search_single_source_for_specs(car_name, source, batch)
-        found = {}
-        for spec_name in batch:
-            spec_data = result.get(spec_name, {})
-            if isinstance(spec_data, dict):
-                value = spec_data.get("value", "Not found")
-                raw_url = spec_data.get("source_url", source["url"])
-            else:
-                value = str(spec_data) if spec_data else "Not found"
-                raw_url = source["url"]
+URL: {cardekho_url}
 
-            # Always normalize to a trusted citation URL
-            source_url = normalize_citation_url(raw_url, source["name"])
+SPECIFICATIONS TO EXTRACT:
+{chr(10).join(spec_guide_lines)}
 
-            if value and value not in ["Not found", "Not Available", "", "N/A"]:
-                found[spec_name] = {"value": value, "source_url": source_url, "source_name": source["name"]}
+RULES:
+- Navigate to the URL above and read the spec table
+- Include units where applicable: bhp, Nm, kmpl, mm, litres, kg, sec
+- If a spec is not present on the page, set value to "Not found"
+- source_url must always be: {cardekho_url}
 
-        return source["name"], batch_idx, found
+Return ONLY this JSON (no markdown):
+{{
+{chr(10).join(json_lines)}
+}}"""
+        try:
+            raw = call_gemini_simple(prompt)
+            text = raw.strip()
+            if "```json" in text:
+                text = text.split("```json")[1].split("```")[0]
+            elif "```" in text:
+                text = text.split("```")[1].split("```")[0]
+            text = text.strip()
+            if "{" in text and "}" in text:
+                text = text[text.index("{"):text.rindex("}") + 1]
+            return json_repair.loads(text)
+        except Exception as e:
+            print(f"  Batch error ({batch[0]}…): {e}")
+            return {}
 
-    # Run all tasks in parallel with bounded concurrency
-    max_workers = min(len(tasks), GEMINI_WORKERS)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(run_source_batch, source, batch_idx, batch): (source["name"], batch_idx)
-            for source, batch_idx, batch in tasks
-        }
+    # Process batches in groups of MAX_PARALLEL_BATCHES to prevent hangs
+    BATCH_TIMEOUT = 120  # 2 minutes timeout per batch
 
-        for future in concurrent.futures.as_completed(futures):
-            src_name, batch_idx = futures[future]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_PARALLEL_BATCHES) as executor:
+        future_to_batch = {executor.submit(_call_batch, batch): batch for batch in spec_batches}
+        for future in concurrent.futures.as_completed(future_to_batch, timeout=BATCH_TIMEOUT * len(spec_batches)):
+            batch = future_to_batch[future]
             try:
-                src_name, b_idx, found = future.result()
-                source_counts[src_name] = source_counts.get(src_name, 0) + len(found)
-
-                for spec_name, data in found.items():
-                    if spec_name not in all_results:
-                        all_results[spec_name] = []
-                    all_results[spec_name].append(data)
-
-                print(f"    {src_name} (batch {b_idx+1}/{len(spec_batches)}): {len(found)} specs found")
-
+                result = future.result(timeout=BATCH_TIMEOUT)
+                found_count = 0
+                for spec_name in batch:
+                    spec_data = result.get(spec_name, {})
+                    value = spec_data.get("value", "Not found") if isinstance(spec_data, dict) else str(spec_data or "Not found")
+                    if value and value not in ["Not found", "Not Available", "", "N/A"]:
+                        with lock:
+                            specs[spec_name] = value
+                            citations[spec_name] = {
+                                "source_url": cardekho_url,
+                                "citation_text": "Extracted from CarDekho via Gemini",
+                            }
+                        found_count += 1
+                print(f"  Batch ({batch[0]}…): {found_count}/{len(batch)} found")
+            except concurrent.futures.TimeoutError:
+                print(f"  Batch ({batch[0]}…): TIMEOUT after {BATCH_TIMEOUT}s - skipping")
             except Exception as e:
-                print(f"    {src_name}: Error - {str(e)[:60]}")
+                print(f"  Batch ({batch[0]}…): Error - {e}")
 
-    # Step 2: Aggregate — first found value per spec wins
-    specs = {}
-    citations = {}
-
-    for spec_name, results in all_results.items():
-        if results:
-            best = results[0]
-            specs[spec_name] = best["value"]
-            citations[spec_name] = {
-                "source_url": best["source_url"],
-                "citation_text": f"Extracted from {best['source_name']} via Gemini+Search",
-            }
-
-    # Print source breakdown
-    print(f"\n  Source breakdown:")
-    for src_name, count in source_counts.items():
-        if count > 0:
-            print(f"    {src_name}: {count} specs")
-
-    recovered = len(specs)
-    print(f"\n  Phase 2 Complete: Recovered {recovered}/{len(missing_specs)} specs")
-
+    print(f"\n  Phase 2 Complete: Recovered {len(specs)}/{len(missing_specs)} specs")
     return {"specs": specs, "citations": citations}
 
 
 # Backward compatibility alias
 def phase2_cardekho_fallback(car_name: str, current_specs: Dict[str, str]) -> Dict[str, Any]:
-    """Alias for phase2_gemini_search_fallback (backward compatibility)."""
+    """Alias for phase2_gemini_search_fallback."""
     return phase2_gemini_search_fallback(car_name, current_specs)
 
 
