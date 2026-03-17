@@ -6,6 +6,8 @@ Generates PDF-style image galleries for car comparison reports
 from typing import Dict, Any, List
 from datetime import datetime
 
+from vehicle_development_agent.config import GEMINI_LITE_MODEL
+
 
 def generate_hero_section(comparison_data: Dict[str, Any]) -> str:
     """
@@ -688,7 +690,7 @@ Return ONLY valid JSON:
                         tools=tools, temperature=0.1, max_output_tokens=1024
                     )
                     response = client.models.generate_content(
-                        model="gemini-2.5-flash", contents=prompt, config=config
+                        model=GEMINI_LITE_MODEL, contents=prompt, config=config
                     )
                     if response and response.text:
                         text = response.text.strip()

@@ -9,6 +9,8 @@ import json
 from typing import Dict, Any, List
 from vertexai.generative_models import GenerativeModel
 
+from vehicle_development_agent.config import GEMINI_MAIN_MODEL
+
 
 def extract_detailed_reviews(car_names: List[str], search_sites: List[str]) -> Dict[str, Any]:
     """
@@ -23,7 +25,7 @@ def extract_detailed_reviews(car_names: List[str], search_sites: List[str]) -> D
         Dictionary with detailed review data for each car
     """
     try:
-        model = GenerativeModel("gemini-2.5-flash")
+        model = GenerativeModel(GEMINI_MAIN_MODEL)
 
         # Format car list and site list for prompt
         cars_list = ", ".join(car_names)

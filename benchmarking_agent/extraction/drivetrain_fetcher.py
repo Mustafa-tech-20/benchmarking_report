@@ -179,8 +179,9 @@ Return ONLY valid JSON, no markdown or explanation text.'''
             max_output_tokens=4096,
         )
 
+        from benchmarking_agent.config import GEMINI_MAIN_MODEL
         response = await gemini_client.aio.models.generate_content(
-            model="gemini-2.5-flash",
+            model=GEMINI_MAIN_MODEL,
             contents=prompt,
             config=config,
         )

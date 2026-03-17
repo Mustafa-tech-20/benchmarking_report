@@ -9,6 +9,8 @@ import json
 from typing import Dict, Any, List
 from vertexai.generative_models import GenerativeModel
 
+from vehicle_development_agent.config import GEMINI_MAIN_MODEL
+
 
 def extract_comparative_graphs_data(car_names: List[str], existing_spec_data: Dict[str, Any] = None, detailed_reviews: Dict[str, Any] = None) -> Dict[str, Any]:
     """
@@ -24,7 +26,7 @@ def extract_comparative_graphs_data(car_names: List[str], existing_spec_data: Di
         Dictionary with graph data for multiple comparison categories
     """
     try:
-        model = GenerativeModel("gemini-2.5-flash")
+        model = GenerativeModel(GEMINI_MAIN_MODEL)
 
         # Format car list for prompt
         cars_list = ", ".join(car_names)

@@ -9,7 +9,7 @@ from google.adk.agents import Agent
 from shared_utils import safe_json_parse, clean_json_response
 from vertexai.generative_models import GenerativeModel
 
-from benchmarking_agent.config import SIGNED_URL_EXPIRATION_HOURS
+from benchmarking_agent.config import SIGNED_URL_EXPIRATION_HOURS, GEMINI_MAIN_MODEL
 from benchmarking_agent.utils.helpers import is_code_car
 from benchmarking_agent.core.scraper import (
     scrape_car_data,
@@ -51,7 +51,7 @@ def generate_comparison_summary(comparison_data: Dict[str, Any]) -> Dict[str, An
                         if value not in ["Not Available", "Not found", "N/A", "-", ""]:
                             condensed_data[car_name][key] = str(value)[:200]
 
-        model = GenerativeModel("gemini-2.5-flash")
+        model = GenerativeModel(GEMINI_MAIN_MODEL)
 
         prompt = f"""You are an automotive analyst comparing two vehicles. Analyze the specification data and identify feature differences.
 
@@ -546,7 +546,7 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
 
 root_agent = Agent(
     name="Car_Comparison_AI_Agent",
-    model="gemini-2.5-flash",
+    model=GEMINI_MAIN_MODEL,
     description="AI agent for comprehensive car analysis and comparison with 87 specs using Custom Search API. Supports single car analysis or multi-car comparison. Handles PDFs, prototypes, and market vehicles.",
 
     instruction="""You are a car benchmarking specialist. You analyze and compare vehicles using 87 specifications. You can analyze a single car or compare multiple cars (up to 10).

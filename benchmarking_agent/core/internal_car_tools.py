@@ -9,6 +9,7 @@ import os, json
 import vertexai
 from vertexai.preview import rag
 from vertexai.generative_models import GenerativeModel
+from benchmarking_agent.config import GEMINI_MAIN_MODEL
 
 # 87 car specifications (matching car_search.py)
 CAR_SPECS = [
@@ -622,7 +623,7 @@ def query_rag_for_code_car_specs(car_name: str, rag_corpus: str) -> Dict[str, An
         original_location = os.getenv("GOOGLE_CLOUD_LOCATION", "asia-south1")
         vertexai.init(project=project_id, location=original_location)
 
-        model = GenerativeModel("gemini-2.5-flash")
+        model = GenerativeModel(GEMINI_MAIN_MODEL)
 
         extraction_prompt = f"""
         Based on the following RAG corpus data about {car_name}, extract all 91 specifications.

@@ -10,6 +10,7 @@ from shared_utils import safe_json_parse, clean_json_response
 from vertexai.generative_models import GenerativeModel
 
 from benchmarking_agent.config import SIGNED_URL_EXPIRATION_HOURS
+from vehicle_development_agent.config import GEMINI_MAIN_MODEL
 from benchmarking_agent.utils.helpers import is_code_car
 from benchmarking_agent.core.scraper import (
     scrape_car_data,
@@ -53,7 +54,7 @@ def generate_ai_analysis_summary(comparison_data: Dict[str, Any]) -> str:
                     if value and value not in ["Not Available", "Not found", "N/A"]:
                         condensed_data[car_name][spec] = str(value)[:100]
 
-        model = GenerativeModel("gemini-2.5-flash")
+        model = GenerativeModel(GEMINI_MAIN_MODEL)
 
         prompt = f"""You are a senior automotive engineer providing strategic analysis for a vehicle development team.
 
@@ -95,7 +96,7 @@ def extract_vehicle_dynamics_ratings(car_list: List[str]) -> Dict[str, Any]:
     Converts user opinions into structured ratings (0-10) for each vehicle dynamic attribute.
     """
     try:
-        model = GenerativeModel("gemini-2.5-flash")
+        model = GenerativeModel(GEMINI_MAIN_MODEL)
 
         dynamics_attributes = [
             "Ride Quality", "Handling", "Steering Feel", "Braking Performance",
@@ -181,7 +182,7 @@ def generate_comparison_summary(comparison_data: Dict[str, Any]) -> Dict[str, An
                         if value not in ["Not Available", "Not found", "N/A", "-", ""]:
                             condensed_data[car_name][key] = str(value)[:200]
 
-        model = GenerativeModel("gemini-2.5-flash")
+        model = GenerativeModel(GEMINI_MAIN_MODEL)
 
         prompt = f"""You are an automotive analyst comparing two vehicles. Analyze the specification data and identify feature differences.
 
@@ -673,7 +674,7 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
 
 root_agent = Agent(
     name="Vehicle_Development_AI_Agent",
-    model="gemini-2.5-flash",
+    model=GEMINI_MAIN_MODEL,
     description="AI agent for vehicle development and engineering analysis with 87 specs, 15 visual graphs, and detailed reviews using Custom Search API. Supports single car analysis or multi-car comparison. Handles PDFs, prototypes, and market vehicles.",
 
     instruction="""You are a car benchmarking specialist. You analyze and compare vehicles using 87 specifications with comprehensive visual analytics. You can analyze a single car or compare multiple cars (up to 10).

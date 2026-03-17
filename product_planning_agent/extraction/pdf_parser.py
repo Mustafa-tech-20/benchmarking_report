@@ -9,6 +9,7 @@ import base64
 import json
 from typing import Optional
 from vertexai.generative_models import GenerativeModel, Part
+from product_planning_agent.config import GEMINI_MAIN_MODEL
 
 
 def analyze_document_tool(
@@ -104,7 +105,7 @@ IMPORTANT: Also extract ALL car names/models mentioned in this document.
 Return them as a list in the JSON response under "car_names_found" key."""
 
         # Call Gemini with document
-        model = GenerativeModel("gemini-2.5-flash")
+        model = GenerativeModel(GEMINI_MAIN_MODEL)
         response = model.generate_content([prompt, doc_part])
         analysis = response.text.strip()
 

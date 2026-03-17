@@ -2,8 +2,10 @@ import json
 import time
 from typing import Dict, Any
 
+import vertexai
 from vertexai.generative_models import GenerativeModel
 
+from benchmarking_agent.config import GEMINI_LITE_MODEL, GEMINI_LITE_LOCATION, PROJECT_ID
 from benchmarking_agent.utils.helpers import generate_sales_data_urls
 
 
@@ -15,7 +17,9 @@ import sys
 sys.path.append("/app")
 from shared_utils import safe_json_parse, clean_json_response
     try:
-        model = GenerativeModel("gemini-2.5-flash")
+        # Initialize vertexai with lite model location (us-central1)
+        vertexai.init(project=PROJECT_ID, location=GEMINI_LITE_LOCATION)
+        model = GenerativeModel(GEMINI_LITE_MODEL)
 
         prompt = f"""
         You are visiting this webpage: {url}

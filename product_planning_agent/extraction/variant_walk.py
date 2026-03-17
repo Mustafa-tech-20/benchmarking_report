@@ -6,6 +6,7 @@ import json
 from typing import Dict, Any
 from vertexai.generative_models import GenerativeModel
 from json_repair import repair_json
+from product_planning_agent.config import GEMINI_MAIN_MODEL
 
 
 def extract_variant_walk(car_name: str) -> Dict[str, Any]:
@@ -22,7 +23,7 @@ def extract_variant_walk(car_name: str) -> Dict[str, Any]:
     """
     try:
         # Use Gemini to extract variant structure directly
-        model = GenerativeModel("gemini-2.5-flash")
+        model = GenerativeModel(GEMINI_MAIN_MODEL)
 
         prompt = f"""Extract all variant names, features, and pricing for {car_name} from your knowledge.
 

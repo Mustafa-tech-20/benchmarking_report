@@ -13,6 +13,7 @@ from shared_utils import safe_json_parse, clean_json_response
 from typing import Dict, List, Any
 from vertexai.generative_models import GenerativeModel
 import json
+from product_planning_agent.config import GEMINI_MAIN_MODEL
 
 # Trusted YouTube channels for car reviews (Indian automotive channels)
 TRUSTED_YOUTUBE_CHANNELS = [
@@ -47,7 +48,7 @@ def get_proscons_from_youtube(car_name: str, channel_name: str) -> Dict[str, Any
         Dictionary with pros, cons, publication, video_title, and link
     """
     try:
-        model = GenerativeModel("gemini-2.5-flash")
+        model = GenerativeModel(GEMINI_MAIN_MODEL)
 
         prompt = f"""Analyze the {car_name} based on typical reviews from the {channel_name} YouTube channel.
 

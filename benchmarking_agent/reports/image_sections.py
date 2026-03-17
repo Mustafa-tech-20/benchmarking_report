@@ -14,69 +14,129 @@ def _generate_ai_notes_for_gallery(
     comparison_data: Dict[str, Any],
 ) -> List[str]:
     """
-    Use Gemini to generate short analytical notes for each gallery image.
-    Returns a list of note strings matching the order of images_list.
-    Falls back to empty strings on any error.
+    Generate spec-based notes for each gallery image using actual scraped data.
+    Creates 1-2 line notes elaborating on the specific spec data for each car.
     """
     try:
+        import vertexai
         from vertexai.generative_models import GenerativeModel
+        from benchmarking_agent.config import GEMINI_LITE_MODEL, GEMINI_LITE_LOCATION, PROJECT_ID
 
         # Return empty if no images
         if not images_list:
             print(f"  No images for {category} - skipping AI notes")
             return []
 
-        print(f"  Generating AI notes for {len(images_list)} {category} images...")
+        print(f"  Generating spec-based AI notes for {len(images_list)} {category} images...")
 
-        # Build compact car specs context (exclude images/citations to keep prompt small)
-        SKIP_KEYS = {"images", "source_urls", "gcs_folder", "scraping_method",
-                     "timestamp", "chart_gcs_uri", "chart_signed_url", "summary_data",
-                     "variant_walk", "is_code_car"}
-        car_specs: Dict[str, Dict] = {}
-        for car_name, car_data in comparison_data.items():
-            if isinstance(car_data, dict) and "error" not in car_data:
-                car_specs[car_name] = {
-                    k: str(v)[:200]
-                    for k, v in car_data.items()
-                    if k not in SKIP_KEYS and v and v not in ["Not Available", "N/A", "-", ""]
-                    and not k.endswith("_citation")
-                }
+        # Initialize vertexai with lite model location (us-central1)
+        vertexai.init(project=PROJECT_ID, location=GEMINI_LITE_LOCATION)
 
-        # Build per-image context: include the car's FULL spec data for the specific car shown
+        # Map feature names to relevant spec fields
+        FEATURE_SPEC_MAP = {
+            # Exterior features
+            "headlight": ["led", "headlamp", "lighting", "projector"],
+            "drl": ["drl", "daytime_running", "led"],
+            "tail": ["tail_lamp", "rear_light", "led"],
+            "wheel": ["alloy_wheel", "wheel_size", "tyre_size"],
+            "exterior": ["led", "drl", "alloy_wheel", "sunroof"],
+            "front": ["led", "grille", "bumper"],
+            "rear": ["tail_lamp", "boot_space"],
+            "side": ["alloy_wheel", "wheel_size", "door"],
+
+            # Interior features
+            "steering": ["steering", "telescopic_steering", "cruise_control"],
+            "seat": ["seat_material", "ventilated_seats", "seat_features_detailed", "seating_capacity"],
+            "infotainment": ["infotainment_screen", "resolution", "apple_carplay", "digital_display"],
+            "cluster": ["digital_display", "instrument_cluster"],
+            "console": ["armrest", "button", "gear_shift"],
+            "interior": ["seat_material", "climate_control", "soft_trims"],
+
+            # Technology features
+            "touchscreen": ["infotainment_screen", "resolution", "touch_response"],
+            "display": ["digital_display", "resolution", "infotainment_screen"],
+            "screen": ["infotainment_screen", "resolution"],
+            "technology": ["infotainment_screen", "digital_display", "apple_carplay", "audio_system"],
+
+            # Comfort features
+            "sunroof": ["sunroof", "panoramic"],
+            "ac": ["climate_control", "rear_ac_vents"],
+            "armrest": ["armrest", "center_armrest"],
+            "comfort": ["climate_control", "ventilated_seats", "armrest"],
+
+            # Safety features
+            "airbag": ["airbags", "airbag_types_breakdown", "safety_features"],
+            "safety": ["airbags", "ncap_rating", "adas", "vehicle_safety_features"],
+        }
+
+        # Build per-image entries with relevant specs
         image_entries = []
         for i, img in enumerate(images_list):
             car_name = img['car_name']
-            feature  = img['feature']
-            car_data = car_specs.get(car_name, {})
-            # Include ALL spec values for this specific car so Gemini has accurate context
-            car_context = "; ".join(f"{k}: {v}" for k, v in list(car_data.items())[:60])
+            feature_name = img['feature'].lower()
+
+            # Get car data
+            car_data = comparison_data.get(car_name, {})
+            if not isinstance(car_data, dict) or "error" in car_data:
+                car_data = {}
+
+            # Find relevant specs for this feature
+            relevant_specs = {}
+            for keyword, spec_fields in FEATURE_SPEC_MAP.items():
+                if keyword in feature_name:
+                    for field in spec_fields:
+                        if field in car_data:
+                            val = car_data[field]
+                            if val and val not in ["Not Available", "N/A", "-", ""]:
+                                relevant_specs[field] = str(val)[:150]
+
+            # If no specific mapping found, include category-based specs
+            if not relevant_specs:
+                category_lower = category.lower()
+                for keyword, spec_fields in FEATURE_SPEC_MAP.items():
+                    if keyword in category_lower:
+                        for field in spec_fields:
+                            if field in car_data:
+                                val = car_data[field]
+                                if val and val not in ["Not Available", "N/A", "-", ""]:
+                                    relevant_specs[field] = str(val)[:150]
+
+            # Format specs for prompt
+            specs_text = "; ".join(f"{k}: {v}" for k, v in relevant_specs.items()) if relevant_specs else "No specific data available"
+
             image_entries.append(
-                f"{i+1}. Car: {car_name} | Feature shown: {feature}\n"
-                f"   Verified specs for {car_name}: {car_context[:1500]}"
+                f"{i+1}. Car: {car_name} | Feature: {img['feature']}\n"
+                f"   Scraped specs: {specs_text}"
             )
 
         image_list_text = "\n\n".join(image_entries)
 
-        prompt = f"""You are an automotive analyst writing image captions for a competitive benchmarking report.
+        prompt = f"""You are writing 1-2 line notes for a car benchmarking report.
 
-Category: {category.title()}
-Cars being compared: {', '.join(car_specs.keys())}
+For each image below, write a factual note based ONLY on the scraped spec data provided.
 
-CRITICAL RULES:
-1. Base EVERY note ONLY on the "Verified specs" provided below — do NOT invent or assume.
-2. If the verified specs confirm a feature IS present (e.g., "rear AC vents: Yes"), say it positively.
-3. NEVER write about the absence of a feature that the verified specs confirm is present.
-4. Max 18 words per note. Crisp, professional language.
+RULES:
+1. Use ONLY the "Scraped specs" data - don't make up information
+2. Keep it to 1-2 lines (max 15 words)
+3. Be specific and highlight key numbers/features
+4. If no specs available, write a generic placeholder
+5. Professional, factual tone
+
+Examples of good notes:
+- "Features LED projector headlamps with DRL signature lighting"
+- "10.25-inch touchscreen with wireless Apple CarPlay and Android Auto"
+- "Dual-tone leatherette seats with ventilation and lumbar support"
+- "6 airbags including side and curtain for comprehensive protection"
 
 Images to caption:
 {image_list_text}
 
 Return ONLY a JSON object:
-{{"notes": ["note for image 1", "note for image 2", ...]}}
+{{"notes": ["note 1", "note 2", ...]}}
 
-The array must have exactly {len(images_list)} entries."""
+Array must have exactly {len(images_list)} entries."""
 
-        model = GenerativeModel("gemini-2.5-flash")
+        model = GenerativeModel(GEMINI_LITE_MODEL)
         response = model.generate_content(prompt)
         text = response.text.strip()
 
@@ -94,19 +154,18 @@ The array must have exactly {len(images_list)} entries."""
         while len(notes) < len(images_list):
             notes.append("")
 
-        print(f"  ✓ Generated {len(notes)} AI notes for {category}")
+        print(f"  ✓ Generated {len(notes)} spec-based AI notes for {category}")
         return notes[:len(images_list)]
 
     except Exception as e:
         print(f"  ✗ AI notes generation failed for {category}: {e}")
         print(f"  Using fallback notes instead...")
-        # Fallback: generate simple descriptive notes based on feature names
+        # Fallback: use spec data directly
         fallback_notes = []
         for img in images_list:
             car_name = img.get('car_name', 'Car')
             feature = img.get('feature', 'Feature')
-            # Create a simple note based on the feature
-            note = f"{car_name} showcases {feature.lower()}"
+            note = f"{car_name} {feature.lower()}"
             fallback_notes.append(note)
         return fallback_notes
 
@@ -2972,19 +3031,19 @@ def generate_venn_diagram_section(
 
     n = len(car_names)
 
-    # Pastel fills matching the reference image palette
+    # Mahindra brand colors - red, blue, gray palette (no yellow)
     FILLS   = [
-        "rgba(190,175,175,0.50)",   # muted warm-gray  (like Gandalf)
-        "rgba(230,215,110,0.50)",   # amber-yellow      (like Dark Lord Sauron)
-        "rgba(155,155,210,0.50)",   # periwinkle-purple (like Tom Bombadil)
-        "rgba(220,150,155,0.50)",   # dusty-rose        (like Santa Claus)
+        "rgba(180,180,190,0.50)",   # soft gray
+        "rgba(220,100,100,0.50)",   # mahindra red/coral
+        "rgba(100,150,220,0.50)",   # mahindra blue
+        "rgba(160,160,170,0.50)",   # medium gray
     ]
-    STROKES = ["#9a8888", "#b09020", "#6868b0", "#b06068"]
+    STROKES = ["#8888a0", "#cc0000", "#0066cc", "#888899"]
     ALPHA   = [
-        "rgba(190,175,175,0.13)",
-        "rgba(230,215,110,0.13)",
-        "rgba(155,155,210,0.13)",
-        "rgba(220,150,155,0.13)",
+        "rgba(180,180,190,0.13)",
+        "rgba(220,100,100,0.13)",
+        "rgba(100,150,220,0.13)",
+        "rgba(160,160,170,0.13)",
     ]
 
     # Shorten a feature description to a concise spec name (2-3 words max)
@@ -3063,14 +3122,14 @@ def generate_venn_diagram_section(
             u_a = regions.get(f"unique_{ca}", [])
             u_b = regions.get(f"unique_{cb}", [])
 
-            fo_a    = _fo(148, 185, 175, 200, ca, sa, u_a)
-            fo_com  = _fo(450, 185, 160, 200, "", "#444", common, True)
-            fo_b    = _fo(752, 185, 175, 200, cb, sb, u_b)
+            fo_a    = _fo(148, 210, 175, 200, ca, sa, u_a)
+            fo_com  = _fo(450, 210, 160, 200, "", "#444", common, True)
+            fo_b    = _fo(752, 210, 175, 200, cb, sb, u_b)
 
-            svg = f"""<svg viewBox="0 0 900 370" width="100%" preserveAspectRatio="xMidYMid meet"
+            svg = f"""<svg viewBox="0 0 900 420" width="100%" preserveAspectRatio="xMidYMid meet"
      style="font-family:Georgia,serif;">
-  <circle cx="305" cy="185" r="205" fill="{FILLS[0]}" stroke="{sa}" stroke-width="1.2"/>
-  <circle cx="595" cy="185" r="205" fill="{FILLS[1]}" stroke="{sb}" stroke-width="1.2"/>
+  <circle cx="305" cy="210" r="195" fill="{FILLS[0]}" stroke="{sa}" stroke-width="1.2"/>
+  <circle cx="595" cy="210" r="195" fill="{FILLS[1]}" stroke="{sb}" stroke-width="1.2"/>
   {fo_a}{fo_com}{fo_b}
 </svg>"""
             panels = _detail_panels(window, regions, STROKES, ALPHA, common)
@@ -3087,19 +3146,19 @@ def generate_venn_diagram_section(
             p_ac = regions.get(f"pair_{ca}_{cc}", [])
             p_bc = regions.get(f"pair_{cb}_{cc}", [])
 
-            fo_a   = _fo(450,  65, 175, 155, ca, sa, u_a)
-            fo_b   = _fo(155, 430, 175, 130, cb, sb, u_b)
-            fo_c   = _fo(745, 430, 175, 130, cc, sc, u_c)
-            fo_ab  = _fo(346, 238, 130, 100, "", "#666", p_ab,  True)
-            fo_ac  = _fo(554, 238, 130, 100, "", "#666", p_ac,  True)
-            fo_bc  = _fo(450, 400, 130, 100, "", "#666", p_bc,  True)
-            fo_com = _fo(450, 298, 140, 100, "", "#333", common, True)
+            fo_a   = _fo(450,  75, 175, 155, ca, sa, u_a)
+            fo_b   = _fo(155, 440, 175, 130, cb, sb, u_b)
+            fo_c   = _fo(745, 440, 175, 130, cc, sc, u_c)
+            fo_ab  = _fo(346, 248, 130, 100, "", "#666", p_ab,  True)
+            fo_ac  = _fo(554, 248, 130, 100, "", "#666", p_ac,  True)
+            fo_bc  = _fo(450, 408, 130, 100, "", "#666", p_bc,  True)
+            fo_com = _fo(450, 308, 140, 100, "", "#333", common, True)
 
-            svg = f"""<svg viewBox="0 0 900 540" width="100%" preserveAspectRatio="xMidYMid meet"
+            svg = f"""<svg viewBox="0 0 900 580" width="100%" preserveAspectRatio="xMidYMid meet"
      style="font-family:Georgia,serif;">
-  <circle cx="450" cy="205" r="190" fill="{FILLS[0]}" stroke="{sa}" stroke-width="1.2"/>
-  <circle cx="305" cy="358" r="190" fill="{FILLS[1]}" stroke="{sb}" stroke-width="1.2"/>
-  <circle cx="595" cy="358" r="190" fill="{FILLS[2]}" stroke="{sc}" stroke-width="1.2"/>
+  <circle cx="450" cy="220" r="180" fill="{FILLS[0]}" stroke="{sa}" stroke-width="1.2"/>
+  <circle cx="305" cy="365" r="180" fill="{FILLS[1]}" stroke="{sb}" stroke-width="1.2"/>
+  <circle cx="595" cy="365" r="180" fill="{FILLS[2]}" stroke="{sc}" stroke-width="1.2"/>
   {fo_a}{fo_b}{fo_c}{fo_ab}{fo_ac}{fo_bc}{fo_com}
 </svg>"""
             panels = _detail_panels(window, regions, STROKES, ALPHA, common)
@@ -3121,26 +3180,26 @@ def generate_venn_diagram_section(
             p_bc = regions.get(f"pair_{cb}_{cc}", [])
 
             # Unique corner blocks — positioned in the outermost region of each circle
-            fo_a  = _fo(148, 168, 160, 145, ca, sa, u_a)
-            fo_b  = _fo(752, 168, 160, 145, cb, sb, u_b)
-            fo_c  = _fo(148, 520, 160, 145, cc, sc, u_c)
-            fo_d  = _fo(752, 520, 160, 145, cd, sd, u_d)
+            fo_a  = _fo(148, 180, 160, 145, ca, sa, u_a)
+            fo_b  = _fo(752, 180, 160, 145, cb, sb, u_b)
+            fo_c  = _fo(148, 560, 160, 145, cc, sc, u_c)
+            fo_d  = _fo(752, 560, 160, 145, cd, sd, u_d)
             # Pair intersections
-            fo_ab = _fo(450, 168, 135,  95, "", "#555", p_ab, True)
-            fo_cd = _fo(450, 522, 135,  95, "", "#555", p_cd, True)
-            fo_ac = _fo(175, 342, 130,  95, "", "#555", p_ac, True)
-            fo_bd = _fo(725, 342, 130,  95, "", "#555", p_bd, True)
-            fo_ad = _fo(528, 270, 120,  85, "", "#777", p_ad, True)
-            fo_bc = _fo(372, 415, 120,  85, "", "#777", p_bc, True)
+            fo_ab = _fo(450, 180, 135,  95, "", "#555", p_ab, True)
+            fo_cd = _fo(450, 560, 135,  95, "", "#555", p_cd, True)
+            fo_ac = _fo(175, 370, 130,  95, "", "#555", p_ac, True)
+            fo_bd = _fo(725, 370, 130,  95, "", "#555", p_bd, True)
+            fo_ad = _fo(528, 290, 120,  85, "", "#777", p_ad, True)
+            fo_bc = _fo(372, 450, 120,  85, "", "#777", p_bc, True)
             # Center — common to all 4
-            fo_com = _fo(450, 342, 145, 105, "", "#222", common, True)
+            fo_com = _fo(450, 370, 145, 105, "", "#222", common, True)
 
-            svg = f"""<svg viewBox="0 0 900 690" width="100%" preserveAspectRatio="xMidYMid meet"
+            svg = f"""<svg viewBox="0 0 900 740" width="100%" preserveAspectRatio="xMidYMid meet"
      style="font-family:Georgia,serif;">
-  <circle cx="308" cy="262" r="210" fill="{FILLS[0]}" stroke="{sa}" stroke-width="1.2"/>
-  <circle cx="592" cy="262" r="210" fill="{FILLS[1]}" stroke="{sb}" stroke-width="1.2"/>
-  <circle cx="308" cy="428" r="210" fill="{FILLS[2]}" stroke="{sc}" stroke-width="1.2"/>
-  <circle cx="592" cy="428" r="210" fill="{FILLS[3]}" stroke="{sd}" stroke-width="1.2"/>
+  <circle cx="308" cy="280" r="200" fill="{FILLS[0]}" stroke="{sa}" stroke-width="1.2"/>
+  <circle cx="592" cy="280" r="200" fill="{FILLS[1]}" stroke="{sb}" stroke-width="1.2"/>
+  <circle cx="308" cy="460" r="200" fill="{FILLS[2]}" stroke="{sc}" stroke-width="1.2"/>
+  <circle cx="592" cy="460" r="200" fill="{FILLS[3]}" stroke="{sd}" stroke-width="1.2"/>
   {fo_a}{fo_b}{fo_c}{fo_d}
   {fo_ab}{fo_cd}{fo_ac}{fo_bd}{fo_ad}{fo_bc}
   {fo_com}

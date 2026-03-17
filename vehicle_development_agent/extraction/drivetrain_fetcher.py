@@ -14,6 +14,8 @@ from google import genai
 from google.genai import types
 from json_repair import repair_json
 
+from vehicle_development_agent.config import GEMINI_MAIN_MODEL
+
 logger = logging.getLogger(__name__)
 
 # Initialize Gemini client for Google Search grounding (requires Vertex AI)
@@ -180,7 +182,7 @@ Return ONLY valid JSON, no markdown or explanation text.'''
         )
 
         response = await gemini_client.aio.models.generate_content(
-            model="gemini-2.5-flash",
+            model=GEMINI_MAIN_MODEL,
             contents=prompt,
             config=config,
         )

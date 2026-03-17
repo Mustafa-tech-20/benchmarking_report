@@ -63,3 +63,11 @@ GCS_BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
 SERVICE_ACCOUNT_JSON = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 GCS_FOLDER_PREFIX = "car-comparisons/"
 SIGNED_URL_EXPIRATION_HOURS = 168  # URLs expire after 6 days
+
+# Gemini Model Configuration
+# Main model for complex analysis, reasoning, and extraction tasks
+GEMINI_MAIN_MODEL = os.getenv("GEMINI_MAIN_MODEL", "gemini-2.5-flash")
+# Lite model for simple tasks like image notes, quick extractions, simple parsing
+GEMINI_LITE_MODEL = os.getenv("GEMINI_LITE_MODEL", "gemini-2.5-flash-lite")
+# Location for lite model (gemini-2.5-flash-lite only available in us-central1)
+GEMINI_LITE_LOCATION = os.getenv("GEMINI_LITE_LOCATION", "us-central1")

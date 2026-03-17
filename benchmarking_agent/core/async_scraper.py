@@ -27,6 +27,8 @@ from benchmarking_agent.config import (
     SEARCH_ENGINE_ID,
     COMPANY_SEARCH_ID,
     CUSTOM_SEARCH_URL,
+    GEMINI_MAIN_MODEL,
+    GEMINI_LITE_MODEL,
 )
 from benchmarking_agent.async_config import rate_limit_config
 from benchmarking_agent.core.async_utils import (
@@ -58,7 +60,7 @@ class GeminiAPI:
     """Async wrapper for Gemini API with rate limiting and fallback."""
 
     def __init__(self):
-        self.current_model = "gemini-2.5-flash"
+        self.current_model = GEMINI_MAIN_MODEL
         self.rate_limit_count = 0
         self.rate_limit_threshold = 10
         self.flash_lock = asyncio.Lock()
@@ -84,7 +86,7 @@ class GeminiAPI:
         # Choose rate limiter and model based on current state
         if use_flash and self.rate_limit_count < self.rate_limit_threshold:
             limiter = gemini_flash_limiter
-            model_name = "gemini-2.5-flash"
+            model_name = GEMINI_MAIN_MODEL
             lock = self.flash_lock
         else:
             limiter = gemini_pro_limiter
@@ -153,8 +155,8 @@ class GeminiAPI:
     def reset_rate_limit_count(self):
         """Reset rate limit counter (call at start of new scraping session)."""
         self.rate_limit_count = 0
-        self.current_model = "gemini-2.5-flash"
-        logger.info("Gemini rate limit counter reset")
+        self.current_model = GEMINI_MAIN_MODEL
+        logger.info(f"Gemini rate limit counter reset - using {GEMINI_MAIN_MODEL}")
 
 
 # Global Gemini API instance

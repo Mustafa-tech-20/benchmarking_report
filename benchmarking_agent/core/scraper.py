@@ -25,7 +25,10 @@ from vertexai.generative_models import GenerativeModel, GenerationConfig
 from google import genai
 from google.genai import types
 
-from benchmarking_agent.config import GOOGLE_API_KEY, SEARCH_ENGINE_ID, COMPANY_SEARCH_ID, CUSTOM_SEARCH_URL
+from benchmarking_agent.config import (
+    GOOGLE_API_KEY, SEARCH_ENGINE_ID, COMPANY_SEARCH_ID, CUSTOM_SEARCH_URL,
+    GEMINI_MAIN_MODEL, GEMINI_LITE_MODEL
+)
 
 # Initialize Gemini client for Google Search grounding (requires Vertex AI)
 # Google Search grounding only works with Vertex AI, not API key
@@ -65,16 +68,17 @@ EXTRACTION_CONFIG = GenerationConfig(
 )
 
 # Track Gemini model and rate limit failures
-_gemini_model = "gemini-2.5-flash"
+_gemini_model = None  # Will be set to GEMINI_MAIN_MODEL on first use
 _rate_limit_count = 0
 _RATE_LIMIT_THRESHOLD = 10  # Switch to Pro after 10 rate limits
 
 
 def reset_gemini_model():
-    """Reset to Flash model at the start of each scraping session."""
+    """Reset to Main model at the start of each scraping session."""
     global _gemini_model, _rate_limit_count
-    _gemini_model = "gemini-2.5-flash"
+    _gemini_model = GEMINI_MAIN_MODEL
     _rate_limit_count = 0
+    print(f"  Using Gemini Main Model: {_gemini_model}")
 
 
 # ============================================================================
@@ -793,7 +797,7 @@ def call_gemini_simple(prompt: str) -> str:
 
                 # Switch to Pro model after threshold
                 if (_rate_limit_count >= _RATE_LIMIT_THRESHOLD and
-                    _gemini_model == "gemini-2.5-flash"):
+                    _gemini_model == GEMINI_MAIN_MODEL):
                     _gemini_model = "gemini-2.5-pro"
                     print(f"\n  ⚠️  Switching to Gemini Pro after {_rate_limit_count} rate limits")
 
@@ -1418,7 +1422,7 @@ Return ONLY this JSON (no markdown):
         )
 
         response = _gemini_search_client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=GEMINI_MAIN_MODEL,
             contents=prompt,
             config=config,
         )
@@ -1463,8 +1467,10 @@ def phase2_gemini_search_fallback(car_name: str, current_specs: Dict[str, str]) 
     print(f"{'='*60}\n")
 
     PHASE2_BATCH_SIZE = 10
+    MAX_PARALLEL_BATCHES = 3  # Limit parallel execution to prevent hangs
     spec_batches = [missing_specs[i:i + PHASE2_BATCH_SIZE] for i in range(0, len(missing_specs), PHASE2_BATCH_SIZE)]
-    print(f"  {len(spec_batches)} batches of up to {PHASE2_BATCH_SIZE} specs, firing in parallel\n")
+    print(f"  {len(spec_batches)} batches of up to {PHASE2_BATCH_SIZE} specs")
+    print(f"  Processing {MAX_PARALLEL_BATCHES} batches at a time\n")
 
     import threading
     specs: Dict[str, str] = {}
@@ -1511,12 +1517,15 @@ Return ONLY this JSON (no markdown):
             print(f"  Batch error ({batch[0]}…): {e}")
             return {}
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(spec_batches)) as executor:
+    # Process batches in groups of MAX_PARALLEL_BATCHES to prevent hangs
+    BATCH_TIMEOUT = 120  # 2 minutes timeout per batch
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_PARALLEL_BATCHES) as executor:
         future_to_batch = {executor.submit(_call_batch, batch): batch for batch in spec_batches}
-        for future in concurrent.futures.as_completed(future_to_batch):
+        for future in concurrent.futures.as_completed(future_to_batch, timeout=BATCH_TIMEOUT * len(spec_batches)):
             batch = future_to_batch[future]
             try:
-                result = future.result()
+                result = future.result(timeout=BATCH_TIMEOUT)
                 found_count = 0
                 for spec_name in batch:
                     spec_data = result.get(spec_name, {})
@@ -1530,8 +1539,10 @@ Return ONLY this JSON (no markdown):
                             }
                         found_count += 1
                 print(f"  Batch ({batch[0]}…): {found_count}/{len(batch)} found")
+            except concurrent.futures.TimeoutError:
+                print(f"  Batch ({batch[0]}…): TIMEOUT after {BATCH_TIMEOUT}s - skipping")
             except Exception as e:
-                print(f"  Batch result error: {e}")
+                print(f"  Batch ({batch[0]}…): Error - {e}")
 
     print(f"\n  Phase 2 Complete: Recovered {len(specs)}/{len(missing_specs)} specs")
     return {"specs": specs, "citations": citations}

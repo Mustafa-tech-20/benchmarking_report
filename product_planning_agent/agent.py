@@ -10,6 +10,7 @@ from shared_utils import safe_json_parse, clean_json_response
 from vertexai.generative_models import GenerativeModel
 
 from benchmarking_agent.config import SIGNED_URL_EXPIRATION_HOURS, GOOGLE_API_KEY
+from product_planning_agent.config import GEMINI_MAIN_MODEL
 from benchmarking_agent.utils.helpers import is_code_car
 from benchmarking_agent.core.scraper import (
     scrape_car_data,
@@ -53,7 +54,7 @@ def generate_comparison_summary(comparison_data: Dict[str, Any]) -> str:
                     if value and value not in ["Not Available", "Not found", "N/A"]:
                         condensed_data[car_name][spec] = str(value)[:100]
 
-        model = GenerativeModel("gemini-2.5-flash")
+        model = GenerativeModel(GEMINI_MAIN_MODEL)
 
         prompt = f"""You are an automotive industry analyst providing strategic guidance for a product development team.
 
@@ -764,7 +765,7 @@ def generate_youtube_proscons_report_tool(car_names: str, num_channels: int = 2)
 
 root_agent = Agent(
     name="Product_Planning_AI_Agent",
-    model="gemini-2.5-flash",
+    model=GEMINI_MAIN_MODEL,
     description="AI agent for product planning and strategic vehicle comparison with 87 specs using Custom Search API. Supports PDFs, prototypes, and market vehicles.",
 
     instruction="""You are a car benchmarking specialist. You compare vehicles using 87 specifications.
