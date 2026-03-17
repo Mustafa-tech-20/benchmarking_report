@@ -421,24 +421,6 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
         #         "citation_text": "Code car - sales data not applicable",
         #     }
 
-        # Extract variant walk data
-        if not car_data.get('is_code_car'):
-            print(f"[{car}] Extracting variant walk data...")
-            try:
-                from product_planning_agent.extraction.variant_walk import extract_variant_walk
-                variant_data = extract_variant_walk(car)
-                if variant_data and variant_data.get('variants'):
-                    car_data['variant_walk'] = variant_data
-                    print(f"[{car}] ✓ Extracted {len(variant_data.get('variants', {}))} variants")
-                else:
-                    print(f"[{car}] Variant walk: Gemini returned empty variants")
-                    car_data['variant_walk'] = None
-            except Exception as vw_err:
-                print(f"[{car}] Variant walk error: {vw_err}")
-                car_data['variant_walk'] = None
-        else:
-            car_data['variant_walk'] = None
-
         # Count actually found specs (exclude all empty/not-found variations)
         empty_values = ("Not Available", "N/A", "Not found", "not found", None, "", "—", "-", "None")
         populated = sum(
@@ -459,6 +441,33 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
         except Exception as exc:
             print(f"[{car}] FAILED: {exc}")
             results["comparison_data"][car] = {"car_name": car, "error": str(exc)}
+
+    # --- Parallel variant walk extraction (after all specs are done) ---
+    from product_planning_agent.extraction.variant_walk import extract_variant_walk
+
+    def _fetch_variant(car_name: str):
+        car_data = results["comparison_data"].get(car_name, {})
+        if car_data.get('is_code_car') or "error" in car_data:
+            return car_name, None
+        print(f"[{car_name}] Extracting variant walk data...")
+        try:
+            variant_data = extract_variant_walk(car_name)
+            if variant_data and variant_data.get('variants'):
+                print(f"[{car_name}] ✓ Extracted {len(variant_data.get('variants', {}))} variants")
+                return car_name, variant_data
+            else:
+                print(f"[{car_name}] Variant walk: Gemini returned empty variants")
+                return car_name, None
+        except Exception as vw_err:
+            print(f"[{car_name}] Variant walk error: {vw_err}")
+            return car_name, None
+
+    non_code_cars = [c for c in results["comparison_data"] if not results["comparison_data"][c].get('is_code_car')]
+    if non_code_cars:
+        print(f"\nFetching variant walk for {len(non_code_cars)} cars in parallel...")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(non_code_cars)) as vex:
+            for car_name, variant_data in vex.map(_fetch_variant, non_code_cars):
+                results["comparison_data"][car_name]['variant_walk'] = variant_data
 
     # Clear collected specs and PDF specs for next comparison
     if hasattr(add_code_car_specs_tool, 'collected_specs'):

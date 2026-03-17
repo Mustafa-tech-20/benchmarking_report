@@ -816,11 +816,11 @@ def create_comparison_chart_html(
         .nav-dropdown-toggle {{ cursor: pointer; display: flex; align-items: center; gap: 4px; background: none; border: none; font-family: inherit; }}
         .nav-dropdown-toggle::after {{ content: "▾"; font-size: 10px; opacity: 0.6; }}
         .nav-dropdown-menu {{
-            display: none; position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+            display: none; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
             background: #fff; border: 1px solid #e5e7eb; border-radius: 8px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.12); padding: 6px 0; min-width: 160px; z-index: 999;
+            padding-top: 12px; margin-top: -6px;
         }}
-        .nav-dropdown:hover .nav-dropdown-menu {{ display: block; }}
         .nav-dropdown-menu a {{
             display: block; padding: 8px 16px; font-size: 13px; color: #374151;
             text-decoration: none; font-weight: 500; white-space: nowrap; transition: background 0.15s;
@@ -2474,7 +2474,21 @@ def create_comparison_chart_html(
         function printReport() {{ window.print(); }}
         function toggleExpand(button) {{ const content = button.previousElementSibling; content.classList.toggle('expanded'); button.textContent = content.classList.contains('expanded') ? 'Read less' : 'Read more'; }}
         function toggleCitations(event) {{ event.preventDefault(); const citationsSection = document.getElementById('citations-section'); const mainContent = document.querySelectorAll('.content:not(#citations-section), .cover-page, .hero-image-page, .spec-page, .feature-page, .drivetrain-page, .summary-comparison-page, .container'); const toggleButton = document.getElementById('citations-toggle'); const navLinks = document.querySelectorAll('.main-nav a:not(#citations-toggle)'); if (citationsSection.style.display === 'none') {{ citationsSection.style.display = 'block'; citationsSection.style.position = 'relative'; mainContent.forEach(section => {{ section.style.display = 'none'; }}); navLinks.forEach(link => {{ link.style.display = 'none'; }}); toggleButton.textContent = 'Go Back'; }} else {{ citationsSection.style.display = 'none'; mainContent.forEach(section => {{ if (section.classList.contains('container')) {{ section.style.display = 'block'; }} else if (section.classList.contains('content')) {{ section.style.display = 'block'; }} else {{ section.style.display = 'flex'; }} }}); navLinks.forEach(link => {{ link.style.display = 'block'; }}); toggleButton.textContent = 'Citations'; }} window.scrollTo({{ top: 0, behavior: 'smooth' }}); }}
-        document.addEventListener('DOMContentLoaded', () => {{ const observer = new IntersectionObserver((entries) => {{ entries.forEach(entry => {{ if (entry.isIntersecting) {{ entry.target.classList.add('is-visible'); observer.unobserve(entry.target); }} }}); }}, {{ threshold: 0.1 }}); document.querySelectorAll('.animate-on-scroll').forEach(el => observer.observe(el)); }});
+        document.addEventListener('DOMContentLoaded', () => {{
+            const observer = new IntersectionObserver((entries) => {{ entries.forEach(entry => {{ if (entry.isIntersecting) {{ entry.target.classList.add('is-visible'); observer.unobserve(entry.target); }} }}); }}, {{ threshold: 0.1 }});
+            document.querySelectorAll('.animate-on-scroll').forEach(el => observer.observe(el));
+
+            // Dropdown: close only after 200ms delay so mouse can move from button → menu
+            document.querySelectorAll('.nav-dropdown').forEach(function(dd) {{
+                var closeTimer = null;
+                function openMenu()  {{ clearTimeout(closeTimer); dd.querySelector('.nav-dropdown-menu').style.display = 'block'; }}
+                function scheduleClose() {{ closeTimer = setTimeout(function() {{ dd.querySelector('.nav-dropdown-menu').style.display = 'none'; }}, 200); }}
+                dd.addEventListener('mouseenter', openMenu);
+                dd.addEventListener('mouseleave', scheduleClose);
+                dd.querySelector('.nav-dropdown-menu').addEventListener('mouseenter', function() {{ clearTimeout(closeTimer); }});
+                dd.querySelector('.nav-dropdown-menu').addEventListener('mouseleave', scheduleClose);
+            }});
+        }});
     </script>
 </body></html>"""
     

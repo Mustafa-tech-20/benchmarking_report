@@ -720,12 +720,11 @@ def _fetch_binary_feature_comparison(car_names: List[str], comparison_data: Dict
     """
     Build the feature comparison table efficiently:
       1. Serve features that map to existing scraped keys directly (free, instant).
-      2. Collect remaining features → re-batch into groups of 10 → parallel Gemini calls.
-    This avoids re-fetching data we already have.
+      2. Single Gemini call for up to 10 essential features not in scraped data.
+      3. All remaining features default to False — every feature always shown.
     """
     import os
     import json_repair
-    from concurrent.futures import ThreadPoolExecutor, as_completed
 
     def _is_na(val):
         if val is None:
@@ -757,15 +756,28 @@ def _fetch_binary_feature_comparison(car_names: List[str], comparison_data: Dict
                 "description": batch["description"],
             })
 
-    print(f"  Feature comparison: {len(resolved)} from scraped data, "
-          f"{len(missing_features)} need Gemini search")
+    print(f"  Feature comparison: {len(resolved)} from scraped data")
 
     # ------------------------------------------------------------------
-    # Step 2: re-batch missing features into groups of 10 → parallel Gemini
+    # Step 2: single Gemini call for 10 essential features not in scraped data
     # ------------------------------------------------------------------
+    _ESSENTIAL_FEATURES = [
+        "Front Airbags", "Side Airbags", "Curtain Airbags",
+        "ABS", "Traction Control",
+        "360 Degree Camera", "Wireless CarPlay",
+        "Panoramic Sunroof",
+        "4WD / AWD",
+        "Automatic Emergency Braking",
+    ]
+
     gemini_resolved: Dict[str, Dict] = {}
 
-    if missing_features:
+    essential_to_fetch = [
+        f for f in missing_features
+        if f["name"] in _ESSENTIAL_FEATURES and f["name"] not in resolved
+    ]
+
+    if essential_to_fetch:
         try:
             from google import genai
             from google.genai import types
@@ -777,84 +789,65 @@ def _fetch_binary_feature_comparison(car_names: List[str], comparison_data: Dict
             car2 = car_names[1] if len(car_names) > 1 else "Competitor"
             cars_str = " vs ".join(car_names)
 
-            # Split missing into batches of 10
-            gemini_batches = [
-                missing_features[i:i + 10]
-                for i in range(0, len(missing_features), 10)
-            ]
-
-            def _call_batch(feats: List[Dict]) -> List[Dict]:
-                feat_list = "\n".join(f"- {f['name']}" for f in feats)
-                prompt = f"""For {cars_str}, look up each feature and return whether each car has it.
+            feat_list = "\n".join(f"- {f['name']}" for f in essential_to_fetch)
+            prompt = f"""For {cars_str}, look up each feature and return whether each car has it.
 
 Features:
 {feat_list}
 
 Rules:
 - true/false for yes/no features
-- integer for counts (e.g. Total Airbags → 6)
-- short text max 20 chars for type/size (e.g. Seat Material → "Leather")
+- integer for counts (e.g. Front Airbags → 2)
 - false if the car does not have the feature
 
 Return ONLY valid JSON:
 {{
   "features": [
-    {{"name": "Feature Name", "{car1}": true, "{car2}": false}},
-    {{"name": "Speaker Count", "{car1}": 8, "{car2}": 6}}
+    {{"name": "Feature Name", "{car1}": true, "{car2}": false}}
   ]
 }}"""
-                try:
-                    tools = [types.Tool(google_search=types.GoogleSearch())]
-                    config = types.GenerateContentConfig(
-                        tools=tools, temperature=0.1, max_output_tokens=1024
-                    )
-                    response = client.models.generate_content(
-                        model="gemini-2.5-flash", contents=prompt, config=config
-                    )
-                    if response and response.text:
-                        text = response.text.strip()
-                        if "```json" in text:
-                            text = text.split("```json")[1].split("```")[0]
-                        elif "```" in text:
-                            text = text.split("```")[1].split("```")[0]
-                        text = text.strip()
-                        if "{" in text and "}" in text:
-                            text = text[text.index("{"):text.rindex("}") + 1]
-                        result = json_repair.loads(text)
-                        return result.get("features", [])
-                except Exception as e:
-                    print(f"  Gemini batch error: {e}")
-                return []
 
-            # Fire all Gemini batches in parallel
-            with ThreadPoolExecutor(max_workers=len(gemini_batches)) as executor:
-                futures = {executor.submit(_call_batch, b): b for b in gemini_batches}
-                for future in as_completed(futures):
-                    for feat_obj in future.result():
-                        name = feat_obj.get("name", "")
-                        if name:
-                            gemini_resolved[name] = {
-                                cn: feat_obj.get(cn) for cn in car_names
-                            }
+            tools = [types.Tool(google_search=types.GoogleSearch())]
+            config = types.GenerateContentConfig(
+                tools=tools, temperature=0.1, max_output_tokens=512
+            )
+            response = client.models.generate_content(
+                model="gemini-2.5-flash", contents=prompt, config=config
+            )
+            if response and response.text:
+                text = response.text.strip()
+                if "```json" in text:
+                    text = text.split("```json")[1].split("```")[0]
+                elif "```" in text:
+                    text = text.split("```")[1].split("```")[0]
+                text = text.strip()
+                if "{" in text and "}" in text:
+                    text = text[text.index("{"):text.rindex("}") + 1]
+                result = json_repair.loads(text)
+                for feat_obj in result.get("features", []):
+                    name = feat_obj.get("name", "")
+                    if name:
+                        gemini_resolved[name] = {cn: feat_obj.get(cn) for cn in car_names}
 
-            print(f"  Gemini returned {len(gemini_resolved)} features "
-                  f"via {len(gemini_batches)} parallel calls")
+            print(f"  Gemini returned {len(gemini_resolved)} essential features in 1 call")
 
         except Exception as e:
             print(f"  Gemini feature fetch error: {e}")
 
     # ------------------------------------------------------------------
     # Step 3: assemble into ordered category structure from _FEATURE_BATCHES
+    # Always include every feature — default to False if no data available
     # ------------------------------------------------------------------
     cat_map: Dict[str, List] = {}
     for batch in _FEATURE_BATCHES:
         desc_feats = []
         for feat_name in batch["features"]:
             vals = resolved.get(feat_name) or gemini_resolved.get(feat_name)
-            if vals:
-                feat_obj = {"name": feat_name}
-                feat_obj.update(vals)
-                desc_feats.append(feat_obj)
+            if not vals:
+                vals = {cn: False for cn in car_names}
+            feat_obj = {"name": feat_name}
+            feat_obj.update(vals)
+            desc_feats.append(feat_obj)
         if desc_feats:
             cat_map.setdefault(batch["category"], []).append(
                 {"description": batch["description"], "features": desc_feats}
@@ -2868,9 +2861,59 @@ def generate_venn_diagram_section(
             n1 = window[0]
             n2 = window[1]
 
+            # Truncate car names for SVG display
+            n1_svg = (n1[:20] + "…") if len(n1) > 20 else n1
+            n2_svg = (n2[:20] + "…") if len(n2) > 20 else n2
+
+            def svg_tspans(items, x, anchor, color, y_start=108, max_items=8):
+                shown = items[:max_items]
+                result = ""
+                for i, item in enumerate(shown):
+                    label = (item[:34] + "…") if len(item) > 34 else item
+                    if i == 0:
+                        result += f'<tspan x="{x}" y="{y_start}" fill="{color}" text-anchor="{anchor}" font-size="11.5">• {label}</tspan>'
+                    else:
+                        result += f'<tspan x="{x}" dy="17" fill="{color}" text-anchor="{anchor}" font-size="11.5">• {label}</tspan>'
+                if len(items) > max_items:
+                    result += f'<tspan x="{x}" dy="17" fill="{color}" text-anchor="{anchor}" font-size="11" font-style="italic">+{len(items) - max_items} more — see full list below</tspan>'
+                return result
+
+            left_tspans   = svg_tspans(u1,     42,  "start",  c1)
+            center_tspans = svg_tspans(common,  450, "middle", "#4B5563")
+            right_tspans  = svg_tspans(u2,      858, "end",    c2)
+
             return f"""
-<div class="venn-text-layout">
-    <div class="venn-region venn-left-region" style="border-color:{c1}; background: {a1};">
+<div class="venn-svg-outer">
+  <svg viewBox="0 0 900 390" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block; border-radius:10px 10px 0 0;">
+    <!-- Left circle (Car 1) -->
+    <ellipse cx="278" cy="210" rx="258" ry="168" fill="rgba(204,0,0,0.11)" stroke="{c1}" stroke-width="2.5" stroke-opacity="0.75"/>
+    <!-- Right circle (Car 2) -->
+    <ellipse cx="622" cy="210" rx="258" ry="168" fill="rgba(26,26,26,0.07)" stroke="{c2}" stroke-width="2.5" stroke-opacity="0.75"/>
+
+    <!-- Car name labels -->
+    <text x="145" y="30" text-anchor="middle" fill="{c1}" font-size="15" font-weight="700">{n1_svg}</text>
+    <text x="755" y="30" text-anchor="middle" fill="{c2}" font-size="15" font-weight="700">{n2_svg}</text>
+    <text x="450"  y="30" text-anchor="middle" fill="#374151" font-size="13.5" font-weight="600">Common</text>
+
+    <!-- Count badge circles -->
+    <circle cx="145" cy="65" r="26" fill="{c1}" opacity="0.92"/>
+    <circle cx="450" cy="65" r="26" fill="#374151" opacity="0.92"/>
+    <circle cx="755" cy="65" r="26" fill="{c2}" opacity="0.92"/>
+
+    <!-- Count numbers inside badges -->
+    <text x="145" y="72" text-anchor="middle" fill="white" font-size="17" font-weight="800">{len(u1)}</text>
+    <text x="450" y="72" text-anchor="middle" fill="white" font-size="17" font-weight="800">{len(common)}</text>
+    <text x="755" y="72" text-anchor="middle" fill="white" font-size="17" font-weight="800">{len(u2)}</text>
+
+    <!-- Feature items as text inside each circle region -->
+    <text>{left_tspans}</text>
+    <text>{center_tspans}</text>
+    <text>{right_tspans}</text>
+  </svg>
+</div>
+
+<div class="venn-text-layout" style="border-radius:0 0 10px 10px; margin-top:0; border-top: none;">
+    <div class="venn-region venn-left-region" style="border-color:{c1}; background: {a1}; border-radius:0 0 0 10px;">
         <div class="venn-region-title" style="color:{c1}; border-bottom: 2px solid {c1};">
             Only in {n1} <span class="venn-count-badge" style="background:{c1};">{len(u1)}</span>
         </div>
@@ -2882,7 +2925,7 @@ def generate_venn_diagram_section(
         </div>
         {region_items_html(common, '#374151', 'rgba(55,65,81,0.08)')}
     </div>
-    <div class="venn-region venn-right-region" style="border-color:{c2}; background: {a2};">
+    <div class="venn-region venn-right-region" style="border-color:{c2}; background: {a2}; border-radius:0 0 10px 0;">
         <div class="venn-region-title" style="color:{c2}; border-bottom: 2px solid {c2};">
             Only in {n2} <span class="venn-count-badge" style="background:{c2};">{len(u2)}</span>
         </div>
@@ -2891,11 +2934,71 @@ def generate_venn_diagram_section(
 </div>"""
 
         elif w_size == 3:
-            # 3-car: show unique for each + common
+            c0, c1_3, c2_3 = COLORS[0], COLORS[1], COLORS[2]
+            ca, cb, cc = window[0], window[1], window[2]
+            u_a  = regions.get(f"unique_{ca}", [])
+            u_b  = regions.get(f"unique_{cb}", [])
+            u_c  = regions.get(f"unique_{cc}", [])
+            p_ab = regions.get(f"pair_{ca}_{cb}", [])
+            p_ac = regions.get(f"pair_{ca}_{cc}", [])
+            p_bc = regions.get(f"pair_{cb}_{cc}", [])
+
+            na_s = (ca[:16] + "…") if len(ca) > 16 else ca
+            nb_s = (cb[:16] + "…") if len(cb) > 16 else cb
+            nc_s = (cc[:16] + "…") if len(cc) > 16 else cc
+
+            # 3-circle SVG Venn (triangle arrangement: top / bottom-left / bottom-right)
+            svg3 = f"""
+<div class="venn-svg-outer">
+  <svg viewBox="0 0 900 470" width="100%" preserveAspectRatio="xMidYMid meet" style="display:block; border-radius:10px 10px 0 0;">
+    <!-- Circle A — top (Car 1) -->
+    <circle cx="450" cy="178" r="168" fill="rgba(204,0,0,0.10)" stroke="{c0}" stroke-width="2.5" stroke-opacity="0.8"/>
+    <!-- Circle B — bottom-left (Car 2) -->
+    <circle cx="308" cy="302" r="168" fill="rgba(26,26,26,0.07)" stroke="{c1_3}" stroke-width="2.5" stroke-opacity="0.8"/>
+    <!-- Circle C — bottom-right (Car 3) -->
+    <circle cx="592" cy="302" r="168" fill="rgba(0,102,204,0.07)" stroke="{c2_3}" stroke-width="2.5" stroke-opacity="0.8"/>
+
+    <!-- Car name labels (outside circles at top) -->
+    <text x="450" y="22"  text-anchor="middle" fill="{c0}"   font-size="13.5" font-weight="700">{na_s}</text>
+    <text x="130" y="22"  text-anchor="middle" fill="{c1_3}" font-size="13.5" font-weight="700">{nb_s}</text>
+    <text x="770" y="22"  text-anchor="middle" fill="{c2_3}" font-size="13.5" font-weight="700">{nc_s}</text>
+
+    <!-- Unique-region count badges -->
+    <circle cx="450" cy="108" r="24" fill="{c0}"   opacity="0.92"/>
+    <text x="450" cy="108" y="114" text-anchor="middle" fill="white" font-size="14" font-weight="800">{len(u_a)}</text>
+    <text x="450" y="128"  text-anchor="middle" fill="{c0}"   font-size="9.5">only</text>
+
+    <circle cx="172" cy="330" r="24" fill="{c1_3}" opacity="0.92"/>
+    <text x="172" y="336" text-anchor="middle" fill="white" font-size="14" font-weight="800">{len(u_b)}</text>
+    <text x="172" y="350" text-anchor="middle" fill="{c1_3}" font-size="9.5">only</text>
+
+    <circle cx="728" cy="330" r="24" fill="{c2_3}" opacity="0.92"/>
+    <text x="728" y="336" text-anchor="middle" fill="white" font-size="14" font-weight="800">{len(u_c)}</text>
+    <text x="728" y="350" text-anchor="middle" fill="{c2_3}" font-size="9.5">only</text>
+
+    <!-- Pair-intersection count badges -->
+    <circle cx="358" cy="225" r="21" fill="#6b7280" opacity="0.9"/>
+    <text x="358" y="231" text-anchor="middle" fill="white" font-size="12" font-weight="700">{len(p_ab)}</text>
+    <text x="358" y="246" text-anchor="middle" fill="#6b7280" font-size="8.5">{na_s[:7]}∩{nb_s[:7]}</text>
+
+    <circle cx="542" cy="225" r="21" fill="#6b7280" opacity="0.9"/>
+    <text x="542" y="231" text-anchor="middle" fill="white" font-size="12" font-weight="700">{len(p_ac)}</text>
+    <text x="542" y="246" text-anchor="middle" fill="#6b7280" font-size="8.5">{na_s[:7]}∩{nc_s[:7]}</text>
+
+    <circle cx="450" cy="358" r="21" fill="#6b7280" opacity="0.9"/>
+    <text x="450" y="364" text-anchor="middle" fill="white" font-size="12" font-weight="700">{len(p_bc)}</text>
+    <text x="450" y="379" text-anchor="middle" fill="#6b7280" font-size="8.5">{nb_s[:7]}∩{nc_s[:7]}</text>
+
+    <!-- Common to all 3 — centre badge -->
+    <circle cx="450" cy="272" r="26" fill="#374151" opacity="0.93"/>
+    <text x="450" y="278" text-anchor="middle" fill="white" font-size="15" font-weight="800">{len(common)}</text>
+    <text x="450" y="293" text-anchor="middle" fill="#374151" font-size="9">all 3</text>
+  </svg>
+</div>"""
+
+            # Full text grid (7 regions) below SVG
             parts = []
-            for i, car in enumerate(window):
-                col = COLORS[i % len(COLORS)]
-                alp = ALPHA[i % len(ALPHA)]
+            for i, (car, col, alp) in enumerate(zip(window, COLORS, ALPHA)):
                 u = regions.get(f"unique_{car}", [])
                 parts.append(f"""
     <div class="venn-region venn-multi-region" style="border-color:{col}; background:{alp};">
@@ -2904,7 +3007,6 @@ def generate_venn_diagram_section(
         </div>
         {region_items_html(u, col, alp)}
     </div>""")
-            # Pair regions
             for i in range(w_size):
                 for j in range(i + 1, w_size):
                     p = regions.get(f"pair_{window[i]}_{window[j]}", [])
@@ -2916,7 +3018,6 @@ def generate_venn_diagram_section(
         </div>
         {region_items_html(p, '#6b7280', 'rgba(107,114,128,0.1)')}
     </div>""")
-            # Common all
             parts.append(f"""
     <div class="venn-region venn-multi-region" style="border-color:#374151; background:rgba(55,65,81,0.1);">
         <div class="venn-region-title" style="color:#374151; border-bottom:2px solid #374151;">
@@ -2925,7 +3026,7 @@ def generate_venn_diagram_section(
         {region_items_html(common, '#374151', 'rgba(55,65,81,0.1)')}
     </div>""")
 
-            return f'<div class="venn-text-layout venn-multi-layout">{"".join(parts)}</div>'
+            return svg3 + f'<div class="venn-text-layout venn-multi-layout" style="border-radius:0 0 10px 10px; border-top:none;">{"".join(parts)}</div>'
 
         return ""
 
@@ -2995,6 +3096,16 @@ def generate_venn_diagram_section(
         .venn-canvas-wrap {{
             padding: 24px;
             background: white;
+        }}
+
+        /* SVG Venn circle visual */
+        .venn-svg-outer {{
+            background: #fafafa;
+            border: 1px solid #e5e7eb;
+            border-bottom: none;
+            border-radius: 10px 10px 0 0;
+            padding: 16px 8px 0 8px;
+            overflow: hidden;
         }}
 
         /* Text-based Venn layout */
@@ -3655,13 +3766,30 @@ def generate_vehicle_highlights_section(comparison_data: Dict[str, Any]) -> str:
         def row(icon, label, value):
             if not value:
                 return ""
-            # truncate long values for display
-            display = value if len(value) <= 90 else value[:87] + "…"
+            TRUNC = 90
+            if len(value) <= TRUNC:
+                val_html = f'<span class="vh-stat-value">{value}</span>'
+            else:
+                uid = abs(hash(car_name + label)) % 9999999
+                short = value[:TRUNC]
+                rest  = value[TRUNC:]
+                val_html = (
+                    f'<span class="vh-stat-value">'
+                    f'{short}'
+                    f'<span class="vh-val-rest" id="vh-rest-{uid}" style="display:none;">{rest}</span>'
+                    f'<button class="vh-read-more" '
+                    f'onclick="var r=document.getElementById(\'vh-rest-{uid}\');'
+                    f'var show=r.style.display===\'none\';'
+                    f'r.style.display=show?\'inline\':\'none\';'
+                    f'this.textContent=show?\' read less\':\'… read more\';">'
+                    f'… read more</button>'
+                    f'</span>'
+                )
             return f'''
             <div class="vh-stat-row">
                 <span class="vh-stat-icon">{icon}</span>
                 <span class="vh-stat-label">{label}</span>
-                <span class="vh-stat-value">{display}</span>
+                {val_html}
             </div>'''
 
         def group(title, rows_html):
@@ -3866,6 +3994,29 @@ def generate_vehicle_highlights_section(comparison_data: Dict[str, Any]) -> str:
             color: #212529;
             line-height: 1.5;
             flex: 1;
+        }}
+
+        .vh-read-more {{
+            background: none;
+            border: none;
+            padding: 0;
+            margin: 0;
+            font-size: 11px;
+            font-weight: 600;
+            color: #dd032b;
+            cursor: pointer;
+            text-decoration: underline;
+            line-height: inherit;
+            vertical-align: baseline;
+        }}
+
+        .vh-read-more:hover {{
+            color: #a80020;
+        }}
+
+        @media print {{
+            .vh-val-rest {{ display: inline !important; }}
+            .vh-read-more {{ display: none !important; }}
         }}
 
         @media (max-width: 768px) {{
