@@ -84,26 +84,59 @@ def generate_hero_section(comparison_data: Dict[str, Any]) -> str:
     </div>
     '''
 
-    # PAGE 2+: Hero image pages for each car
-    hero_pages = ""
-    for i, (name, img_url) in enumerate(zip(car_names, hero_images)):
-        if img_url:
-            page_num = i + 2  # Page 2, 3, etc.
-            hero_pages += f'''
-            <div class="hero-image-page">
-                <div class="hero-page-header">
-                    <h1 class="hero-page-title">FEATURE COMPARISION | <span class="highlight">BENCHMARKING</span></h1>
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Mahindra_logo.svg/1920px-Mahindra_logo.svg.png?_=20231128143513" alt="Mahindra" class="hero-page-logo">
-                </div>
-                <div class="hero-image-container">
-                    <img src="{img_url}" alt="{name}" class="hero-full-image" onerror="this.style.display='none'">
-                </div>
-                <div class="hero-page-footer">
-                </div>
-            </div>
-            '''
+    # PAGE 2: Single side-by-side comparison page
+    left_name = car_names[0]
+    left_img = hero_images[0] if hero_images else ""
+    right_cars = list(zip(car_names[1:], hero_images[1:]))
 
-    return cover_page + hero_pages
+    left_img_tag = (
+        f'<img src="{left_img}" alt="{left_name}" class="hero-comparison-img" onerror="this.style.display=\'none\'">'
+        if left_img else '<div class="hero-comparison-placeholder"></div>'
+    )
+
+    right_panels_html = ""
+    for rname, rimg in right_cars:
+        img_tag = (
+            f'<img src="{rimg}" alt="{rname}" class="hero-comparison-img" onerror="this.style.display=\'none\'">'
+            if rimg else '<div class="hero-comparison-placeholder"></div>'
+        )
+        right_panels_html += f'''
+        <div class="hero-comparison-car">
+            <div class="hero-comparison-image-wrap">
+                {img_tag}
+            </div>
+            <div class="hero-comparison-label">{rname}</div>
+        </div>
+        '''
+
+    if not right_panels_html:
+        right_panels_html = '<div class="hero-comparison-placeholder"></div>'
+
+    comparison_page = f'''
+    <div class="hero-image-page" id="hero-comparison">
+        <div class="hero-page-header">
+            <h1 class="hero-page-title">VEHICLE COMPARISON | <span class="highlight">BENCHMARKING</span></h1>
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Mahindra_logo.svg/1920px-Mahindra_logo.svg.png?_=20231128143513" alt="Mahindra" class="hero-page-logo">
+        </div>
+        <div class="hero-comparison-container">
+            <div class="hero-comparison-side hero-comparison-left-side">
+                <div class="hero-comparison-image-wrap">
+                    {left_img_tag}
+                </div>
+                <div class="hero-comparison-label">{left_name}</div>
+            </div>
+            <div class="hero-vs-divider">
+                <div class="hero-vs-badge">VS</div>
+            </div>
+            <div class="hero-comparison-side hero-comparison-right-side">
+                {right_panels_html}
+            </div>
+        </div>
+        <div class="hero-page-footer"></div>
+    </div>
+    '''
+
+    return cover_page + comparison_page
 
 
 def generate_technical_spec_section(comparison_data: Dict[str, Any], page_start: int = 3) -> str:
@@ -1456,7 +1489,7 @@ def get_image_section_styles() -> str:
     }
 
     /* ========================================
-       HERO IMAGE PAGE STYLES
+       HERO COMPARISON PAGE STYLES
        ======================================== */
     .hero-image-page {
         width: 100%;
@@ -1475,12 +1508,11 @@ def get_image_section_styles() -> str:
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 30px 50px;
-        border-bottom: none;
+        padding: 24px 50px;
     }
 
     .hero-page-title {
-        font-size: 24px;
+        font-size: 22px;
         font-weight: 400;
         color: #333;
         margin: 0;
@@ -1498,36 +1530,115 @@ def get_image_section_styles() -> str:
         filter: brightness(0);
     }
 
-    .hero-image-container {
+    .hero-comparison-container {
         flex: 1;
+        display: flex;
+        align-items: stretch;
+        overflow: hidden;
+        min-height: 0;
+    }
+
+    .hero-comparison-side {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        min-width: 0;
+    }
+
+    .hero-comparison-image-wrap {
+        flex: 1;
+        overflow: hidden;
+        position: relative;
+        min-height: 0;
+    }
+
+    .hero-comparison-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    .hero-comparison-label {
+        padding: 14px 20px;
+        text-align: center;
+        font-size: 16px;
+        font-weight: 700;
+        color: #1a1a1a;
+        background: #f0f0f0;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        flex-shrink: 0;
+    }
+
+    .hero-comparison-left-side .hero-comparison-label {
+        background: #1a1a1a;
+        color: #ffffff;
+    }
+
+    .hero-comparison-right-side {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        min-width: 0;
+    }
+
+    .hero-comparison-car {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        min-height: 0;
+    }
+
+    .hero-vs-divider {
+        width: 56px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #1a1a1a;
+        flex-shrink: 0;
+        z-index: 5;
+    }
+
+    .hero-vs-badge {
+        width: 44px;
+        height: 44px;
+        background: #cc0000;
+        color: white;
+        border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 20px 50px;
-        overflow: hidden;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 1px;
     }
 
-    .hero-full-image {
-        max-width: 100%;
-        max-height: 100%;
-        width: auto;
-        height: auto;
-        object-fit: contain;
+    .hero-comparison-placeholder {
+        width: 100%;
+        height: 100%;
+        background: #e8e8e8;
     }
 
     .hero-page-footer {
         display: flex;
         justify-content: flex-end;
         align-items: center;
-        padding: 20px 50px 30px;
+        padding: 16px 50px 24px;
         border-top: 4px solid #1a1a1a;
         margin: 0 50px;
+        flex-shrink: 0;
     }
 
-    .hero-page-number {
-        font-size: 14px;
-        font-weight: 500;
-        color: #666;
+    @media print {
+        .hero-image-page {
+            height: 100vh;
+            page-break-after: always;
+        }
     }
 
     /* Image Gallery Section Styles */
@@ -1770,9 +1881,10 @@ def get_image_section_styles() -> str:
             min-height: 100vh !important;
         }
 
-        .hero-full-image {
-            max-width: 90% !important;
-            max-height: 70vh !important;
+        .hero-comparison-img {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover !important;
         }
 
         .image-gallery {
@@ -2105,8 +2217,8 @@ def get_image_section_styles() -> str:
             font-size: 16px;
         }
 
-        .hero-image-container {
-            padding: 20px 30px;
+        .hero-vs-divider {
+            width: 44px;
         }
 
         .hero-page-footer {

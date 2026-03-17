@@ -51,27 +51,55 @@ def generate_hero_section(comparison_data: Dict[str, Any]) -> str:
     else:
         title = " | ".join([name.upper() for name in car_names[:3]])
 
-    # Generate image grid
-    image_html = ""
-    for i, (name, img_url) in enumerate(zip(car_names, hero_images)):
-        if img_url:
-            image_html += f'''
-            <div class="hero-car-card">
-                <img src="{img_url}" alt="{name}" onerror="this.style.display='none'">
-                <div class="hero-car-name">{name}</div>
+    # Build 1:1 comparison layout
+    left_name = car_names[0]
+    left_img = hero_images[0] if hero_images else ""
+    right_cars = list(zip(car_names[1:], hero_images[1:]))
+
+    left_img_tag = (
+        f'<img src="{left_img}" alt="{left_name}" class="hero-comparison-img" onerror="this.style.display=\'none\'">'
+        if left_img else '<div class="hero-comparison-placeholder"></div>'
+    )
+
+    right_panels_html = ""
+    for rname, rimg in right_cars:
+        img_tag = (
+            f'<img src="{rimg}" alt="{rname}" class="hero-comparison-img" onerror="this.style.display=\'none\'">'
+            if rimg else '<div class="hero-comparison-placeholder"></div>'
+        )
+        right_panels_html += f'''
+        <div class="hero-comparison-car">
+            <div class="hero-comparison-image-wrap">
+                {img_tag}
             </div>
-            '''
+            <div class="hero-comparison-label">{rname}</div>
+        </div>
+        '''
+
+    if not right_panels_html:
+        right_panels_html = '<div class="hero-comparison-placeholder"></div>'
 
     html = f'''
-    <div class="hero-section">
+    <div class="hero-section" id="hero-section">
         <div class="hero-content">
             <h1 class="hero-title">{title}</h1>
             <p class="hero-subtitle">2025 COMPREHENSIVE BENCHMARKING REPORT</p>
             <div class="hero-divider"></div>
             <p class="hero-description">SPEC & FEATURES COMPARISON</p>
         </div>
-        <div class="hero-images-grid">
-            {image_html}
+        <div class="hero-comparison-container">
+            <div class="hero-comparison-side hero-comparison-left-side">
+                <div class="hero-comparison-image-wrap">
+                    {left_img_tag}
+                </div>
+                <div class="hero-comparison-label">{left_name}</div>
+            </div>
+            <div class="hero-vs-divider">
+                <div class="hero-vs-badge">VS</div>
+            </div>
+            <div class="hero-comparison-side hero-comparison-right-side">
+                {right_panels_html}
+            </div>
         </div>
     </div>
     '''
@@ -195,23 +223,24 @@ def get_image_section_styles() -> str:
         position: relative;
         z-index: 2;
         text-align: center;
-        margin-bottom: 40px;
+        margin-bottom: 30px;
+        flex-shrink: 0;
     }
 
     .hero-title {
-        font-size: 42px;
+        font-size: 36px;
         font-weight: 800;
         color: white;
-        margin: 0 0 15px 0;
+        margin: 0 0 12px 0;
         letter-spacing: 2px;
         text-transform: uppercase;
     }
 
     .hero-subtitle {
-        font-size: 16px;
+        font-size: 14px;
         color: #dd032b;
         font-weight: 600;
-        margin: 0 0 20px 0;
+        margin: 0 0 16px 0;
         letter-spacing: 3px;
     }
 
@@ -219,52 +248,113 @@ def get_image_section_styles() -> str:
         width: 80px;
         height: 3px;
         background: #dd032b;
-        margin: 0 auto 20px auto;
+        margin: 0 auto 16px auto;
     }
 
     .hero-description {
-        font-size: 14px;
+        font-size: 13px;
         color: rgba(255, 255, 255, 0.8);
         margin: 0;
         letter-spacing: 2px;
     }
 
-    .hero-images-grid {
+    /* 1:1 Comparison Layout */
+    .hero-comparison-container {
         position: relative;
         z-index: 2;
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 30px;
-        max-width: 1200px;
-        margin: 0 auto;
-    }
-
-    .hero-car-card {
-        background: white;
-        border-radius: 16px;
-        overflow: hidden;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-        transition: transform 0.3s ease;
-    }
-
-    .hero-car-card:hover {
-        transform: translateY(-5px);
-    }
-
-    .hero-car-card img {
+        display: flex;
+        align-items: stretch;
         width: 100%;
-        height: 220px;
+        min-height: 360px;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+    }
+
+    .hero-comparison-side {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        min-width: 0;
+    }
+
+    .hero-comparison-image-wrap {
+        flex: 1;
+        overflow: hidden;
+        min-height: 280px;
+    }
+
+    .hero-comparison-img {
+        width: 100%;
+        height: 100%;
         object-fit: cover;
         display: block;
     }
 
-    .hero-car-name {
-        padding: 20px;
+    .hero-comparison-label {
+        padding: 14px 20px;
         text-align: center;
-        font-size: 18px;
+        font-size: 15px;
         font-weight: 700;
-        color: #2E3B4E;
-        background: white;
+        color: #1a1a1a;
+        background: #f0f0f0;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        flex-shrink: 0;
+    }
+
+    .hero-comparison-left-side .hero-comparison-label {
+        background: #1a1a1a;
+        color: #ffffff;
+    }
+
+    .hero-comparison-right-side {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        min-width: 0;
+    }
+
+    .hero-comparison-car {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        min-height: 0;
+    }
+
+    .hero-vs-divider {
+        width: 50px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #1a1a1a;
+        flex-shrink: 0;
+        z-index: 5;
+    }
+
+    .hero-vs-badge {
+        width: 40px;
+        height: 40px;
+        background: #dd032b;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 1px;
+    }
+
+    .hero-comparison-placeholder {
+        width: 100%;
+        height: 100%;
+        min-height: 280px;
+        background: rgba(255, 255, 255, 0.1);
     }
 
     /* Image Gallery Section Styles */
@@ -328,18 +418,16 @@ def get_image_section_styles() -> str:
             break-after: page;
         }
 
-        .hero-car-card {
+        .hero-comparison-container {
             page-break-inside: avoid;
             break-inside: avoid;
         }
 
-        .hero-car-card img {
+        .hero-comparison-img {
             width: 100% !important;
-            height: auto !important;
-            max-height: 200px !important;
-            object-fit: contain !important;
+            height: 100% !important;
+            object-fit: cover !important;
             display: block;
-            margin: 0 auto;
         }
 
         .image-gallery {
@@ -408,9 +496,15 @@ def get_image_section_styles() -> str:
             font-size: 12px;
         }
 
-        .hero-images-grid {
-            grid-template-columns: 1fr;
-            gap: 20px;
+        .hero-comparison-container {
+            flex-direction: column;
+            min-height: auto;
+        }
+
+        .hero-vs-divider {
+            width: 100%;
+            height: 40px;
+            flex-direction: row;
         }
 
         .image-gallery {
