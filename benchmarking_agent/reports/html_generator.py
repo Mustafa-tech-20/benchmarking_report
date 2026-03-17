@@ -11,6 +11,8 @@ from benchmarking_agent.reports.image_sections import (
     generate_feature_list_section,
     generate_drivetrain_comparison_section,
     generate_summary_comparison_section,
+    generate_variant_walk_section,
+    generate_price_ladder_section,
     get_image_section_styles
 )
 
@@ -2387,6 +2389,8 @@ def create_comparison_chart_html(
                 <a href="#technology-section">Technology</a>
                 <a href="#safety-section">Safety</a>
                 <a href="#drivetrain-section">Drivetrain</a>
+                <a href="#variant-walk-section">Variant Walk</a>
+                <a href="#price-ladder-section">Price Ladder</a>
                 <a href="#summary-section">Summary</a>
                 <a href="#" id="citations-toggle" onclick="toggleCitations(event)">Citations</a>
             </nav>
@@ -2397,12 +2401,14 @@ def create_comparison_chart_html(
     {generate_technical_spec_section(comparison_data)}
     {generate_feature_list_section(comparison_data)}
     <div class="container">
-        {generate_image_gallery_section("Exterior Highlights", comparison_data, "exterior", "exterior-section")}
-        {generate_image_gallery_section("Interior Highlights", comparison_data, "interior", "interior-section")}
-        {generate_image_gallery_section("Technology Highlights", comparison_data, "technology", "technology-section")}
-        {generate_image_gallery_section("Comfort Highlights", comparison_data, "comfort", "comfort-section")}
-        {generate_image_gallery_section("Safety Highlights", comparison_data, "safety", "safety-section")}
+        {generate_image_gallery_section("Exterior Highlights", comparison_data, "exterior", "exterior-section", with_ai_notes=True)}
+        {generate_image_gallery_section("Interior Highlights", comparison_data, "interior", "interior-section", with_ai_notes=True)}
+        {generate_image_gallery_section("Technology Highlights", comparison_data, "technology", "technology-section", with_ai_notes=True)}
+        {generate_image_gallery_section("Comfort Highlights", comparison_data, "comfort", "comfort-section", with_ai_notes=True)}
+        {generate_image_gallery_section("Safety Highlights", comparison_data, "safety", "safety-section", with_ai_notes=True)}
         {generate_drivetrain_comparison_section(comparison_data)}
+        {generate_variant_walk_section(comparison_data)}
+        {generate_price_ladder_section(comparison_data)}
         {generate_summary_comparison_section(summary_data, cars, 20) if summary_data else ''}
     </div>
     <div class="content" id="citations-section" style="display: none;"><div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><line x1="10" y1="9" x2="8" y2="9"></line></svg></div><h2>Data Source Citations</h2></div><div class="citations-grid">{citations_html}</div></div>

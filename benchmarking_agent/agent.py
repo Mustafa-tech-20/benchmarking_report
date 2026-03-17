@@ -437,6 +437,23 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
         #         "citation_text": "Code car - sales data not applicable",
         #     }
 
+        # Extract variant walk data
+        if not car_data.get('is_code_car'):
+            print(f"[{car}] Extracting variant walk data...")
+            try:
+                from product_planning_agent.extraction.variant_walk import extract_variant_walk
+                variant_data = extract_variant_walk(car)
+                if variant_data and variant_data.get('variants'):
+                    car_data['variant_walk'] = variant_data
+                    print(f"[{car}] ✓ Extracted {len(variant_data.get('variants', {}))} variants")
+                else:
+                    car_data['variant_walk'] = None
+            except Exception as vw_err:
+                print(f"[{car}] Variant walk error: {vw_err}")
+                car_data['variant_walk'] = None
+        else:
+            car_data['variant_walk'] = None
+
         # Count actually found specs (exclude all empty/not-found variations)
         empty_values = ("Not Available", "N/A", "Not found", "not found", None, "", "—", "-", "None")
         populated = sum(

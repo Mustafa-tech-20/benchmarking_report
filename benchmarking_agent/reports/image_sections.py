@@ -3,8 +3,84 @@ Image Section Generation for Enhanced Reports
 Generates PDF-style image galleries for car comparison reports
 """
 
-from typing import Dict, Any, List
+import json
+from typing import Dict, Any, List, Optional
 from datetime import datetime
+
+
+def _generate_ai_notes_for_gallery(
+    images_list: List[Dict[str, Any]],
+    category: str,
+    comparison_data: Dict[str, Any],
+) -> List[str]:
+    """
+    Use Gemini to generate short analytical notes for each gallery image.
+    Returns a list of note strings matching the order of images_list.
+    Falls back to empty strings on any error.
+    """
+    try:
+        from vertexai.generative_models import GenerativeModel
+
+        # Build compact car specs context (exclude images/citations to keep prompt small)
+        SKIP_KEYS = {"images", "source_urls", "gcs_folder", "scraping_method",
+                     "timestamp", "chart_gcs_uri", "chart_signed_url", "summary_data"}
+        car_specs: Dict[str, Dict] = {}
+        for car_name, car_data in comparison_data.items():
+            if isinstance(car_data, dict) and "error" not in car_data:
+                car_specs[car_name] = {
+                    k: str(v)[:120]
+                    for k, v in car_data.items()
+                    if k not in SKIP_KEYS and v and v not in ["Not Available", "N/A", "-", ""]
+                    and not k.endswith("_citation")
+                }
+
+        image_list_text = "\n".join(
+            f"{i+1}. Car: {img['car_name']} | Feature: {img['feature']}"
+            for i, img in enumerate(images_list)
+        )
+
+        prompt = f"""You are an automotive analyst writing image captions for a competitive benchmarking report.
+
+Category: {category.title()}
+Cars being compared: {', '.join(car_specs.keys())}
+
+Car specifications summary:
+{json.dumps(car_specs, indent=2)[:3000]}
+
+Images to caption:
+{image_list_text}
+
+Write ONE short analytical note per image (max 18 words each).
+- Be specific to the car and the feature shown
+- Highlight what it means from a product or competitive standpoint
+- Use crisp, professional language (no fluff)
+
+Return ONLY a JSON object like:
+{{"notes": ["note for image 1", "note for image 2", ...]}}
+
+The array must have exactly {len(images_list)} entries."""
+
+        model = GenerativeModel("gemini-2.5-flash")
+        response = model.generate_content(prompt)
+        text = response.text.strip()
+
+        # Strip markdown code fences if present
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+        text = text.strip()
+
+        data = json.loads(text)
+        notes = data.get("notes", [])
+
+        # Pad or trim to match images count
+        while len(notes) < len(images_list):
+            notes.append("")
+        return notes[:len(images_list)]
+
+    except Exception:
+        return [""] * len(images_list)
 
 
 def generate_hero_section(comparison_data: Dict[str, Any]) -> str:
@@ -1322,7 +1398,8 @@ def generate_image_gallery_section(
     title: str,
     comparison_data: Dict[str, Any],
     image_category: str,
-    section_id: str = ""
+    section_id: str = "",
+    with_ai_notes: bool = False,
 ) -> str:
     """
     Generate an image gallery section for a specific category.
@@ -1332,6 +1409,7 @@ def generate_image_gallery_section(
         comparison_data: Dict mapping car names to their scraped data
         image_category: Category key in images dict ("exterior", "interior", etc.)
         section_id: Optional HTML id for the section
+        with_ai_notes: If True, generate AI analytical notes below each image
 
     Returns:
         HTML string for image gallery section
@@ -1370,15 +1448,25 @@ def generate_image_gallery_section(
     if not all_images:
         return ""  # Don't show section if no images
 
+    display_images = all_images[:12]  # Max 12 images per section
+
+    # Generate AI notes if requested
+    ai_notes: List[str] = []
+    if with_ai_notes:
+        ai_notes = _generate_ai_notes_for_gallery(display_images, image_category, comparison_data)
+
     # Generate image grid
     images_html = ""
-    for img_data in all_images[:12]:  # Max 12 images per section
+    for idx, img_data in enumerate(display_images):
+        note = ai_notes[idx] if ai_notes and idx < len(ai_notes) else ""
+        note_html = f'<div class="gallery-ai-note">{note}</div>' if note else ""
         images_html += f'''
         <div class="gallery-item">
             <img src="{img_data['url']}" alt="{img_data['alt']}"
                  onerror="this.parentElement.style.display='none'">
             <div class="gallery-feature">{img_data['feature']}</div>
             <div class="gallery-car-name">{img_data['car_name']}</div>
+            {note_html}
         </div>
         '''
 
@@ -1685,12 +1773,35 @@ def get_image_section_styles() -> str:
     }
 
     .gallery-car-name {
-        padding: 0 15px 12px 15px;
+        padding: 0 15px 8px 15px;
         text-align: center;
         font-size: 11px;
         font-weight: 500;
         color: #6c757d;
         background: #f8f9fa;
+    }
+
+    .gallery-ai-note {
+        padding: 8px 14px 12px 14px;
+        font-size: 11.5px;
+        font-weight: 400;
+        color: #3a3a3a;
+        background: #ffffff;
+        line-height: 1.5;
+        border-top: 1px solid #e9ecef;
+        font-style: italic;
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+    }
+
+    .gallery-ai-note::before {
+        content: "✦";
+        font-size: 9px;
+        color: #cc0000;
+        flex-shrink: 0;
+        margin-top: 2px;
+        font-style: normal;
     }
 
     /* ========================================
@@ -1939,6 +2050,13 @@ def get_image_section_styles() -> str:
             text-align: center;
             font-size: 10px !important;
             padding: 6px 8px !important;
+        }
+
+        .gallery-ai-note {
+            font-size: 10px !important;
+            padding: 6px 10px 8px 10px !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
         }
 
         .spec-page,
@@ -2502,3 +2620,484 @@ def get_image_section_styles() -> str:
         }
     }
     '''
+
+
+# ============================================================================
+# VARIANT WALK SECTION
+# ============================================================================
+
+def generate_variant_walk_section(comparison_data: Dict[str, Any]) -> str:
+    """
+    Generate variant walk section showing features across different variants.
+    Adapted from product_planning_agent for the benchmarking report.
+    """
+    if not comparison_data:
+        return ""
+
+    # Check if any car actually has variant_walk data
+    has_any = any(
+        isinstance(d, dict) and "error" not in d and d.get("variant_walk")
+        for d in comparison_data.values()
+    )
+    if not has_any:
+        return ""
+
+    html = """
+    <div class="content bm-variant-walk-section" id="variant-walk-section">
+        <div class="section-header">
+            <div class="icon-wrapper">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                </svg>
+            </div>
+            <h2>Variant Walk</h2>
+        </div>
+    """
+
+    for car_name, car_data in comparison_data.items():
+        if not isinstance(car_data, dict) or "error" in car_data:
+            continue
+        variant_walk = car_data.get("variant_walk") or {}
+        variants = variant_walk.get("variants") or {} if isinstance(variant_walk, dict) else {}
+
+        if not variants:
+            continue
+
+        variant_names = [v.get("name", k) for k, v in variants.items()]
+        num_cols = len(variant_names)
+
+        html += f"""
+        <h3 class="bm-vw-car-title">{car_name}</h3>
+        <div class="bm-vw-table-wrap">
+            <table class="bm-vw-table">
+                <thead><tr>
+        """
+        for vname in variant_names:
+            html += f'<th>{vname}</th>'
+        html += "</tr></thead><tbody><tr>"
+
+        is_first = True
+        variant_keys = list(variants.keys())
+        for idx, (vkey, vdata) in enumerate(variants.items()):
+            vdata = vdata or {}
+            features = vdata.get("features") or []
+            features_added = vdata.get("features_added") or []
+            features_deleted = vdata.get("features_deleted") or []
+
+            html += "<td>"
+            if is_first:
+                html += '<div class="bm-vw-section-label">Standard Features:</div>'
+                is_first = False
+            else:
+                prev_name = variants[variant_keys[idx - 1]].get("name", variant_keys[idx - 1])
+                html += f'<div class="bm-vw-section-label">In addition to {prev_name}:</div>'
+
+            items = features_added if features_added else features[:10]
+            if items:
+                html += '<ul class="bm-vw-features">'
+                for feat in items:
+                    html += f'<li class="bm-vw-added">{feat}</li>'
+                html += "</ul>"
+
+            if features_deleted:
+                html += '<div class="bm-vw-deleted-label">Removed / Replaced:</div>'
+                html += '<ul class="bm-vw-features">'
+                for feat in features_deleted:
+                    html += f'<li class="bm-vw-deleted">{feat}</li>'
+                html += "</ul>"
+
+            html += "</td>"
+
+        html += "</tr></tbody></table></div>"
+
+    html += """
+        <div class="bm-vw-legend">
+            <strong>Note:</strong> Variant walk shows progressive feature additions across trim levels.
+            <span class="bm-vw-legend-added">Green</span> = features added,
+            <span class="bm-vw-legend-deleted">Red</span> = features removed or replaced.
+        </div>
+    </div>
+
+    <style>
+        .bm-variant-walk-section { margin-bottom: 40px; }
+
+        .bm-vw-car-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin: 30px 0 12px 0;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #cc0000;
+        }
+
+        .bm-vw-table-wrap { overflow-x: auto; margin-bottom: 24px; }
+
+        .bm-vw-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 700px;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .bm-vw-table th {
+            background: #1a1a1a;
+            color: white;
+            padding: 14px 12px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 700;
+            border: 1px solid #333;
+            letter-spacing: 0.5px;
+        }
+
+        .bm-vw-table td {
+            padding: 14px 12px;
+            border: 1px solid #e5e7eb;
+            vertical-align: top;
+            font-size: 12.5px;
+            line-height: 1.7;
+            background: #fff;
+        }
+
+        .bm-vw-section-label {
+            font-weight: 700;
+            font-size: 11px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+
+        .bm-vw-deleted-label {
+            font-weight: 600;
+            font-size: 11px;
+            color: #cc0000;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 10px 0 4px 0;
+        }
+
+        .bm-vw-features { list-style: none; padding: 0; margin: 0; }
+
+        .bm-vw-added {
+            padding: 3px 0 3px 16px;
+            position: relative;
+            color: #059669;
+            font-weight: 500;
+        }
+        .bm-vw-added::before { content: "+ "; position: absolute; left: 0; font-weight: 700; }
+
+        .bm-vw-deleted {
+            padding: 3px 0 3px 16px;
+            position: relative;
+            color: #cc0000;
+            font-weight: 500;
+        }
+        .bm-vw-deleted::before { content: "− "; position: absolute; left: 0; font-weight: 700; }
+
+        .bm-vw-legend {
+            margin-top: 12px;
+            padding: 12px 16px;
+            background: #f9fafb;
+            border-radius: 6px;
+            font-size: 12px;
+            border-left: 4px solid #cc0000;
+        }
+        .bm-vw-legend-added { color: #059669; font-weight: 600; }
+        .bm-vw-legend-deleted { color: #cc0000; font-weight: 600; }
+
+        @media print {
+            .bm-vw-table-wrap { overflow-x: visible; }
+            .bm-vw-table { page-break-inside: auto; }
+            .bm-vw-table tr { page-break-inside: avoid; }
+        }
+    </style>
+    """
+
+    return html
+
+
+# ============================================================================
+# PRICE LADDER SECTION — 1:1 SIDE-BY-SIDE PER MODE
+# ============================================================================
+
+def generate_price_ladder_section(comparison_data: Dict[str, Any]) -> str:
+    """
+    Generate price ladder section with 1:1 side-by-side comparison per
+    fuel type × transmission mode. Each car gets equal width; cars with
+    no data for a given mode are omitted from that panel.
+    """
+    import re
+
+    if not comparison_data:
+        return ""
+
+    # Collect car names and their price ladders
+    cars: List[Dict[str, Any]] = []
+    for car_name, car_data in comparison_data.items():
+        if not isinstance(car_data, dict) or "error" in car_data:
+            continue
+        vw = car_data.get("variant_walk") or {}
+        pl = vw.get("price_ladder", {}) if isinstance(vw, dict) else {}
+        if pl:
+            cars.append({"name": car_name, "price_ladder": pl})
+
+    if not cars:
+        return ""
+
+    def extract_price_value(price_str: str) -> float:
+        if not price_str or price_str in ("Not Available", "N/A", ""):
+            return 0.0
+        s = price_str.replace("₹", "").replace("lakh", "").replace(",", "").strip()
+        m = re.search(r"(\d+\.?\d*)", s)
+        return float(m.group(1)) if m else 0.0
+
+    def build_ladder_column(car_name: str, variants: Dict[str, str]) -> str:
+        """Build one car's ladder column HTML."""
+        sorted_variants = sorted(variants.items(), key=lambda x: extract_price_value(x[1]))
+        has_data = any(
+            p and p not in ("Not Available", "N/A", "")
+            for _, p in sorted_variants
+        )
+        if not has_data:
+            return ""
+
+        col_html = f'<div class="pl-car-col"><div class="pl-car-col-name">{car_name}</div>'
+        col_html += '<div class="pl-ladder-line">'
+        for variant_name, price in sorted_variants:
+            if price and price not in ("Not Available", "N/A", ""):
+                clean = price.replace("₹", "").strip()
+                col_html += f"""
+                <div class="pl-ladder-point">
+                    <div class="pl-ladder-dot"></div>
+                    <div class="pl-ladder-label">
+                        <span class="pl-variant-name">{variant_name}</span>
+                        <span class="pl-price">{clean}</span>
+                    </div>
+                </div>"""
+        col_html += "</div></div>"
+        return col_html
+
+    # Determine all modes to render: fuel × transmission
+    FUEL_TYPES = [("petrol", "PETROL"), ("diesel", "DIESEL")]
+    TRANS_TYPES = [("MT", "MANUAL"), ("AT", "AUTOMATIC")]
+
+    panels_html = ""
+
+    for fuel_key, fuel_label in FUEL_TYPES:
+        for trans_key, trans_label in TRANS_TYPES:
+            # Build columns only for cars that have data for this combination
+            columns_html = ""
+            visible_count = 0
+            for car in cars:
+                fuel_data = car["price_ladder"].get(fuel_key) or {}
+                trans_data = fuel_data.get(trans_key) or {}
+                col = build_ladder_column(car["name"], trans_data)
+                if col:
+                    columns_html += col
+                    visible_count += 1
+
+            if visible_count == 0:
+                continue
+
+            # VS badges between columns
+            parts = columns_html.split('</div><div class="pl-car-col">')
+            if len(parts) > 1:
+                columns_html = '</div><div class="pl-vs-badge">VS</div><div class="pl-car-col">'.join(parts)
+
+            panels_html += f"""
+            <div class="pl-panel">
+                <div class="pl-panel-header">
+                    <span class="pl-fuel-badge pl-fuel-{fuel_key}">{fuel_label}</span>
+                    <span class="pl-trans-label">{trans_label} TRANSMISSION</span>
+                </div>
+                <div class="pl-cars-row pl-cars-{visible_count}">
+                    {columns_html}
+                </div>
+            </div>"""
+
+    if not panels_html:
+        return ""
+
+    html = f"""
+    <div class="content bm-price-ladder-section" id="price-ladder-section">
+        <div class="section-header">
+            <div class="icon-wrapper">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="1" x2="12" y2="23"/>
+                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                </svg>
+            </div>
+            <h2>Price Ladder</h2>
+        </div>
+        <div class="pl-panels-container">
+            {panels_html}
+        </div>
+        <div class="pl-note">
+            <strong>Note:</strong> Prices are ex-showroom and may vary by location.
+            Each panel shows the price ladder for a specific fuel &amp; transmission combination,
+            with all compared cars displayed side by side for direct comparison.
+        </div>
+    </div>
+
+    <style>
+        .bm-price-ladder-section {{ margin-bottom: 40px; }}
+
+        .pl-panels-container {{
+            display: flex;
+            flex-direction: column;
+            gap: 28px;
+            margin-top: 20px;
+        }}
+
+        .pl-panel {{
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            overflow: hidden;
+            border: 1px solid #e5e7eb;
+        }}
+
+        .pl-panel-header {{
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 16px 24px;
+            background: #1a1a1a;
+        }}
+
+        .pl-fuel-badge {{
+            padding: 4px 14px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 1px;
+        }}
+        .pl-fuel-petrol {{ background: #f59e0b; color: #1a1a1a; }}
+        .pl-fuel-diesel  {{ background: #3b82f6; color: white; }}
+
+        .pl-trans-label {{
+            font-size: 14px;
+            font-weight: 700;
+            color: white;
+            letter-spacing: 1.5px;
+        }}
+
+        .pl-cars-row {{
+            display: flex;
+            align-items: stretch;
+            min-height: 260px;
+        }}
+
+        .pl-car-col {{
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 24px 20px 20px;
+            border-right: 1px solid #f0f0f0;
+            min-width: 0;
+        }}
+        .pl-car-col:last-child {{ border-right: none; }}
+
+        .pl-car-col-name {{
+            font-size: 13px;
+            font-weight: 700;
+            color: #1a1a1a;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 18px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #cc0000;
+            text-align: center;
+        }}
+
+        .pl-ladder-line {{
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            position: relative;
+            padding-left: 16px;
+        }}
+
+        .pl-ladder-line::before {{
+            content: "";
+            position: absolute;
+            left: 4px;
+            top: 8px;
+            bottom: 8px;
+            width: 2px;
+            background: #d1d5db;
+        }}
+
+        .pl-ladder-point {{
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 8px 0;
+            position: relative;
+        }}
+
+        .pl-ladder-dot {{
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #cc0000;
+            flex-shrink: 0;
+            margin-top: 3px;
+            position: absolute;
+            left: -20px;
+            z-index: 2;
+        }}
+
+        .pl-ladder-label {{
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+        }}
+
+        .pl-variant-name {{
+            font-size: 12px;
+            font-weight: 600;
+            color: #1f2937;
+        }}
+
+        .pl-price {{
+            font-size: 13px;
+            font-weight: 700;
+            color: #cc0000;
+        }}
+
+        .pl-vs-badge {{
+            width: 44px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 800;
+            color: white;
+            background: #1a1a1a;
+            letter-spacing: 1px;
+        }}
+
+        .pl-note {{
+            margin-top: 16px;
+            padding: 12px 16px;
+            background: #f9fafb;
+            border-radius: 6px;
+            font-size: 12px;
+            border-left: 4px solid #cc0000;
+            color: #4b5563;
+        }}
+
+        @media print {{
+            .pl-panel {{ page-break-inside: avoid; break-inside: avoid; }}
+            .pl-panels-container {{ gap: 20px; }}
+        }}
+    </style>
+    """
+
+    return html
