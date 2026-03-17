@@ -652,7 +652,7 @@ function App() {
                   </div>
                   <div className="card-content">
                     <div className="card-title">Market Comparison</div>
-                    <div className="card-description">Enter 2–10 marketed car names to compare</div>
+                    <div className="card-description">Enter at least 2 marketed car names to compare</div>
                   </div>
                 </button>
                 <button className="query-card" onClick={() => setInput('CODE:PROTO1, Hyundai Creta')}>
