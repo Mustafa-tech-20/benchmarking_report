@@ -322,6 +322,111 @@ def generate_technical_spec_section(comparison_data: Dict[str, Any], page_start:
     # First car is the reference (Mahindra car)
     reference_car = car_names[0] if car_names else ""
 
+    # KPI Inference hints - interpretation guidance for each spec
+    KPI_INFERENCES = {
+        # Powertrain
+        "engine_displacement": "Higher = More power potential",
+        "torque": "Higher = Better acceleration & towing",
+        "mileage": "Higher = Better fuel economy",
+        "acceleration": "Lower = Faster acceleration",
+        "performance_feel": "Subjective driving impression",
+        "driveability": "Ease of daily driving",
+        "response": "Quicker = Better throttle response",
+        "city_performance": "Low-end torque & maneuverability",
+        "highway_performance": "Stability & cruising ability",
+        "off_road": "Higher clearance & capability = Better",
+        "crawl": "4WD low-range capability",
+        # Transmission
+        "manual_transmission_performance": "Shift quality & clutch feel",
+        "automatic_transmission_performance": "Shift smoothness & response",
+        "pedal_operation": "Lighter clutch = Better city use",
+        "gear_shift": "Precise & short throw = Better",
+        "gear_selection": "Accurate slotting = Better",
+        "pedal_travel": "Shorter = More responsive",
+        # Dimensions
+        "wheelbase": "Longer = More cabin space & stability",
+        "ground_clearance": "Higher = Better off-road capability",
+        "boot_space": "Higher = More cargo capacity",
+        "turning_radius": "Lower = Better maneuverability",
+        "seating_capacity": "More = Higher passenger capacity",
+        # Safety
+        "airbags": "More = Better occupant protection",
+        "airbag_types_breakdown": "More coverage = Safer",
+        "ncap_rating": "Higher stars = Safer",
+        "impact": "Higher scores = Better crash protection",
+        "adas": "More features = Better active safety",
+        "vehicle_safety_features": "More = Comprehensive safety",
+        "brakes": "Disc all-round = Better stopping",
+        "braking": "Shorter distance = Better",
+        "brake_performance": "Progressive & strong = Better",
+        "epb": "Auto-hold adds convenience",
+        "stability": "Better = Safer at high speeds",
+        "parking_sensors": "More sensors = Better coverage",
+        "parking_camera": "360° view = Best visibility",
+        # Steering & Handling
+        "steering": "Weighted & responsive = Better feel",
+        "sensitivity": "Well-calibrated = Better control",
+        "telescopic_steering": "Tilt + telescopic = Best adjustability",
+        "manoeuvring": "Easier = Better urban usability",
+        "corner_stability": "Less body roll = Better",
+        "straight_ahead_stability": "More planted = Safer highways",
+        # Ride Quality
+        "ride": "Plush & composed = Better comfort",
+        "ride_quality": "Absorbs bumps well = Better",
+        "stiff_on_pot_holes": "Less harshness = Better comfort",
+        "bumps": "Better absorption = More comfort",
+        "shocks": "Well-damped = Better ride",
+        "jerks": "Smoother = Better refinement",
+        "shakes": "Less vibration = Better quality",
+        "shudder": "None = Better powertrain refinement",
+        "pulsation": "None = Better brake condition",
+        "grabby": "Progressive bite = Better control",
+        "spongy": "Firm pedal = Better feedback",
+        # NVH
+        "nvh": "Lower = More refined cabin",
+        "powertrain_nvh": "Quieter = Better insulation",
+        "wind_nvh": "Lower = Better aerodynamics",
+        "road_nvh": "Lower = Better sound deadening",
+        "wind_noise": "Lower = Better cabin comfort",
+        "tire_noise": "Quieter = Better refinement",
+        "turbo_noise": "Minimal = Better insulation",
+        "blower_noise": "Quieter = Better HVAC",
+        "rattle": "None = Better build quality",
+        # Wheels & Tyres
+        "tyre_size": "Wider = Better grip",
+        "wheel_size": "Larger = Better looks & handling",
+        "alloy_wheel": "Diamond cut = Premium appearance",
+        # Exterior
+        "led": "LED/Matrix = Better visibility",
+        "drl": "Signature LED = Better aesthetics",
+        "tail_lamp": "Full LED = Modern look",
+        "sunroof": "Panoramic = More light & space",
+        "orvm": "Auto-fold + indicators = Better",
+        # Interior & Comfort
+        "interior": "Premium materials = Better quality",
+        "climate_control": "Dual-zone = Better comfort",
+        "seat_material": "Leather = Premium feel",
+        "seat_cushion": "Well-padded = Better comfort",
+        "seat_features_detailed": "More adjustment = Better ergonomics",
+        "ventilated_seats": "Cooling = Better hot weather comfort",
+        "armrest": "Padded & adjustable = Better",
+        "visibility": "360° clear = Safer driving",
+        "ingress": "Easier entry = Better accessibility",
+        "egress": "Easier exit = Better convenience",
+        # Technology
+        "infotainment_screen": "Larger & responsive = Better",
+        "resolution": "Higher = Sharper display",
+        "touch_response": "Faster = Better usability",
+        "digital_display": "Larger cluster = More info",
+        "apple_carplay": "Wireless = More convenient",
+        "audio_system": "Branded & more speakers = Better",
+        "cruise_control": "Adaptive = Better highway driving",
+        # Market
+        "price_range": "Lower = Better value",
+        "monthly_sales": "Higher = More market acceptance",
+        "user_rating": "Higher = Better customer satisfaction",
+    }
+
     # Keys to exclude — metadata, citations, image blobs
     METADATA_KEYS = {
         'car_name', 'method', 'source_urls', 'images', 'gcs_folder',
@@ -510,8 +615,14 @@ def generate_technical_spec_section(comparison_data: Dict[str, Any], page_start:
             cat_display = category if not category_printed else ""
             category_printed = True
 
+            # Get KPI inference hint for this spec
+            inference_hint = KPI_INFERENCES.get(key, "")
+            param_html = f'{label}'
+            if inference_hint:
+                param_html += f'<span class="kpi-hint">{inference_hint}</span>'
+
             ref_val = values[0] if values else "-"
-            rows_html += f'<tr><td class="cat-cell">{cat_display}</td><td class="param-cell">{label}</td>'
+            rows_html += f'<tr><td class="cat-cell">{cat_display}</td><td class="param-cell">{param_html}</td>'
             for i, value in enumerate(values):
                 if i == 0:
                     # Reference car — always white/neutral
@@ -2425,6 +2536,16 @@ def get_image_section_styles() -> str:
         text-align: left;
         color: #333;
         width: 150px;
+    }
+
+    .kpi-hint {
+        display: block;
+        font-size: 10px;
+        font-weight: 400;
+        color: #6c757d;
+        font-style: italic;
+        margin-top: 2px;
+        line-height: 1.3;
     }
 
     .feature-table td.feature-cell {
