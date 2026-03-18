@@ -1619,7 +1619,8 @@ def generate_image_gallery_section(
     with_ai_notes: bool = False,
 ) -> str:
     """
-    Generate an image gallery section for a specific category.
+    Generate an image gallery section with 1:1 comparison layout.
+    Groups same-feature images from all cars in horizontal rows for easy comparison.
 
     Args:
         title: Section title (e.g., "Exterior Highlights")
@@ -1629,68 +1630,126 @@ def generate_image_gallery_section(
         with_ai_notes: If True, generate AI analytical notes below each image
 
     Returns:
-        HTML string for image gallery section
+        HTML string for image gallery section with comparison layout
     """
-    # Collect all images from all cars for this category
-    all_images = []
+    # Get car names in consistent order
+    car_names = [name for name, data in comparison_data.items()
+                 if isinstance(data, dict) and "error" not in data]
 
-    for car_name, car_data in comparison_data.items():
-        if isinstance(car_data, dict) and "error" not in car_data:
-            images = car_data.get("images") or {}
-            category_images = images.get(image_category, [])
+    if not car_names:
+        return ""
 
-            # Handle multiple formats: list, tuple, or string
-            for img_item in category_images:
-                img_url = None
-                feature_caption = image_category.title()
+    num_cars = len(car_names)
 
-                if isinstance(img_item, (list, tuple)) and len(img_item) >= 1:
-                    # Format: [url, caption] or (url, caption)
-                    img_url = img_item[0]
-                    if len(img_item) >= 2:
-                        feature_caption = img_item[1]
-                elif isinstance(img_item, str):
-                    # Fallback for simple URL format
-                    img_url = img_item
+    # Collect images per car with their features
+    car_images: Dict[str, List[Dict]] = {name: [] for name in car_names}
 
-                # Add all valid image URLs
-                if img_url and isinstance(img_url, str):
-                    all_images.append({
-                        "url": img_url,
-                        "feature": feature_caption,  # e.g., "Headlights"
-                        "car_name": car_name,        # e.g., "Mahindra Thar"
-                        "alt": f"{car_name} {feature_caption}"
-                    })
+    for car_name in car_names:
+        car_data = comparison_data.get(car_name, {})
+        images = car_data.get("images") or {}
+        category_images = images.get(image_category, [])
 
-    if not all_images:
-        return ""  # Don't show section if no images
+        for idx, img_item in enumerate(category_images):
+            img_url = None
+            feature_caption = f"{image_category.title()} {idx + 1}"
 
-    display_images = all_images[:12]  # Max 12 images per section
+            if isinstance(img_item, (list, tuple)) and len(img_item) >= 1:
+                img_url = img_item[0]
+                if len(img_item) >= 2:
+                    feature_caption = img_item[1]
+            elif isinstance(img_item, str):
+                img_url = img_item
+
+            if img_url and isinstance(img_url, str):
+                car_images[car_name].append({
+                    "url": img_url,
+                    "feature": feature_caption,
+                    "index": idx
+                })
+
+    # Find max images per car to create comparison rows
+    max_images = max(len(imgs) for imgs in car_images.values()) if car_images else 0
+
+    if max_images == 0:
+        return ""
+
+    # Limit to 6 comparison rows max
+    max_images = min(max_images, 6)
 
     # Generate AI notes if requested
-    ai_notes: List[str] = []
-    if with_ai_notes:
-        ai_notes = _generate_ai_notes_for_gallery(display_images, image_category, comparison_data)
+    all_display_images = []
+    for row_idx in range(max_images):
+        for car_name in car_names:
+            imgs = car_images.get(car_name, [])
+            if row_idx < len(imgs):
+                all_display_images.append({
+                    "url": imgs[row_idx]["url"],
+                    "feature": imgs[row_idx]["feature"],
+                    "car_name": car_name,
+                    "alt": f"{car_name} {imgs[row_idx]['feature']}"
+                })
 
-    # Generate image grid
-    images_html = ""
-    for idx, img_data in enumerate(display_images):
-        note = ai_notes[idx] if ai_notes and idx < len(ai_notes) else ""
-        note_html = f'<div class="gallery-ai-note">{note}</div>' if note else ""
-        images_html += f'''
-        <div class="gallery-item">
-            <img src="{img_data['url']}" alt="{img_data['alt']}"
-                 onerror="this.parentElement.style.display='none'">
-            <div class="gallery-feature">{img_data['feature']}</div>
-            <div class="gallery-car-name">{img_data['car_name']}</div>
-            {note_html}
+    ai_notes: List[str] = []
+    if with_ai_notes and all_display_images:
+        ai_notes = _generate_ai_notes_for_gallery(all_display_images, image_category, comparison_data)
+
+    # Build comparison rows HTML
+    rows_html = ""
+    note_idx = 0
+
+    for row_idx in range(max_images):
+        # Get feature name from first car that has this image
+        feature_name = f"{image_category.title()} {row_idx + 1}"
+        for car_name in car_names:
+            imgs = car_images.get(car_name, [])
+            if row_idx < len(imgs):
+                feature_name = imgs[row_idx]["feature"]
+                break
+
+        # Build cells for each car in this row
+        cells_html = ""
+        for car_name in car_names:
+            imgs = car_images.get(car_name, [])
+            if row_idx < len(imgs):
+                img_data = imgs[row_idx]
+                note = ai_notes[note_idx] if ai_notes and note_idx < len(ai_notes) else ""
+                note_html = f'<div class="comparison-ai-note">{note}</div>' if note else ""
+                note_idx += 1
+
+                cells_html += f'''
+                <div class="comparison-cell">
+                    <div class="comparison-car-label">{car_name}</div>
+                    <div class="comparison-image-wrapper">
+                        <img src="{img_data['url']}" alt="{car_name} {img_data['feature']}"
+                             onerror="this.parentElement.innerHTML='<div class=\\'no-image\\'>No Image</div>'">
+                    </div>
+                    {note_html}
+                </div>
+                '''
+            else:
+                # No image for this car at this position
+                cells_html += f'''
+                <div class="comparison-cell no-image-cell">
+                    <div class="comparison-car-label">{car_name}</div>
+                    <div class="comparison-image-wrapper">
+                        <div class="no-image">No Image Available</div>
+                    </div>
+                </div>
+                '''
+
+        rows_html += f'''
+        <div class="comparison-row">
+            <div class="comparison-feature-label">{feature_name}</div>
+            <div class="comparison-cells" style="--num-cars: {num_cars};">
+                {cells_html}
+            </div>
         </div>
         '''
 
     id_attr = f'id="{section_id}"' if section_id else ""
 
     html = f'''
-    <div class="content image-gallery-section" {id_attr}>
+    <div class="content image-gallery-section comparison-gallery" {id_attr}>
         <div class="section-header">
             <div class="icon-wrapper">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
@@ -1700,9 +1759,12 @@ def generate_image_gallery_section(
                 </svg>
             </div>
             <h2>{title}</h2>
+            <div class="comparison-legend">
+                {"".join(f'<span class="legend-car">{name}</span>' for name in car_names)}
+            </div>
         </div>
-        <div class="image-gallery">
-            {images_html}
+        <div class="comparison-gallery-grid">
+            {rows_html}
         </div>
     </div>
     '''
@@ -2019,6 +2081,224 @@ def get_image_section_styles() -> str:
         flex-shrink: 0;
         margin-top: 2px;
         font-style: normal;
+    }
+
+    /* ========================================
+       1:1 COMPARISON GALLERY STYLES
+       ======================================== */
+    .comparison-gallery {
+        margin-top: 40px;
+    }
+
+    .comparison-gallery .section-header {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+
+    .comparison-legend {
+        display: flex;
+        gap: 15px;
+        margin-left: auto;
+    }
+
+    .legend-car {
+        padding: 6px 14px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        font-size: 12px;
+        font-weight: 600;
+        border-radius: 20px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .legend-car:nth-child(2) {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .legend-car:nth-child(3) {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+
+    .legend-car:nth-child(4) {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+
+    .legend-car:nth-child(5) {
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    }
+
+    .comparison-gallery-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 30px;
+        padding: 25px 0;
+    }
+
+    .comparison-row {
+        background: white;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        border: 1px solid #e9ecef;
+    }
+
+    .comparison-feature-label {
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        color: white;
+        padding: 14px 25px;
+        font-size: 15px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        text-align: center;
+        border-bottom: 3px solid #cc0000;
+    }
+
+    .comparison-cells {
+        display: grid;
+        grid-template-columns: repeat(var(--num-cars, 2), 1fr);
+        gap: 0;
+    }
+
+    .comparison-cell {
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid #e9ecef;
+        background: #fafbfc;
+    }
+
+    .comparison-cell:last-child {
+        border-right: none;
+    }
+
+    .comparison-car-label {
+        padding: 12px 15px;
+        text-align: center;
+        font-size: 13px;
+        font-weight: 700;
+        color: #1c2a39;
+        background: #f0f2f5;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .comparison-cell:nth-child(1) .comparison-car-label {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .comparison-cell:nth-child(2) .comparison-car-label {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+    }
+
+    .comparison-cell:nth-child(3) .comparison-car-label {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        color: white;
+    }
+
+    .comparison-cell:nth-child(4) .comparison-car-label {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        color: white;
+    }
+
+    .comparison-cell:nth-child(5) .comparison-car-label {
+        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        color: white;
+    }
+
+    .comparison-image-wrapper {
+        flex: 1;
+        min-height: 220px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 15px;
+        background: white;
+    }
+
+    .comparison-image-wrapper img {
+        max-width: 100%;
+        max-height: 200px;
+        object-fit: contain;
+        border-radius: 8px;
+        transition: transform 0.3s ease;
+    }
+
+    .comparison-image-wrapper img:hover {
+        transform: scale(1.05);
+    }
+
+    .comparison-cell.no-image-cell .comparison-image-wrapper {
+        background: #f8f9fa;
+    }
+
+    .no-image {
+        color: #adb5bd;
+        font-size: 13px;
+        font-style: italic;
+        text-align: center;
+        padding: 40px 20px;
+    }
+
+    .comparison-ai-note {
+        padding: 12px 15px;
+        font-size: 12px;
+        font-weight: 400;
+        color: #495057;
+        background: #f8f9fa;
+        line-height: 1.5;
+        border-top: 1px solid #e9ecef;
+        font-style: italic;
+    }
+
+    .comparison-ai-note::before {
+        content: "→ ";
+        color: #cc0000;
+        font-weight: 600;
+        font-style: normal;
+    }
+
+    /* Responsive adjustments for comparison gallery */
+    @media (max-width: 768px) {
+        .comparison-cells {
+            grid-template-columns: 1fr;
+        }
+
+        .comparison-cell {
+            border-right: none;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .comparison-cell:last-child {
+            border-bottom: none;
+        }
+
+        .comparison-image-wrapper {
+            min-height: 180px;
+        }
+
+        .comparison-legend {
+            margin-left: 0;
+            width: 100%;
+            justify-content: center;
+            margin-top: 10px;
+        }
+    }
+
+    @media print {
+        .comparison-row {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        .comparison-image-wrapper img:hover {
+            transform: none;
+        }
     }
 
     /* ========================================

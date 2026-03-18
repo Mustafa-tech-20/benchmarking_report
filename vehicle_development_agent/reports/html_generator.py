@@ -383,6 +383,30 @@ def _generate_citations_html(comparison_data: Dict[str, Any]) -> str:
 
 
 
+def _strip_html_tags(text: str) -> str:
+    """Remove all HTML tags from text, including malformed ones like '< strong >' or ':strong>'."""
+    if not text:
+        return text
+    # Remove malformed patterns like ':strong>' or ':positive>' (colon followed by tag name and >)
+    text = re.sub(r':\s*\w+\s*>', '', text)
+    # Remove malformed HTML tags with spaces (e.g., < strong >, </ strong >)
+    text = re.sub(r'<\s*/?\s*\w+\s*/?>', '', text)
+    # Remove proper HTML tags (e.g., <strong>, </strong>, <span class="...">)
+    text = re.sub(r'<[^>]+>', '', text)
+    # Remove standalone closing patterns like 'strong>' without <
+    text = re.sub(r'\b(strong|span|div|p|em|b|i)>', '', text, flags=re.IGNORECASE)
+    # Remove HTML entities
+    text = re.sub(r'&lt;|&gt;|&amp;|&nbsp;|&quot;', ' ', text)
+    # Remove any remaining angle brackets
+    text = re.sub(r'[<>]', '', text)
+    # Clean up multiple spaces and pipes
+    text = re.sub(r'\s*\|\s*\|+\s*', ' | ', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    # Remove leading/trailing pipes
+    text = text.strip(' |')
+    return text
+
+
 def _apply_sentiment_highlighting(text: str) -> str:
     """Apply green/red highlighting to positive/negative sentiment words/phrases."""
     if not text:
@@ -395,7 +419,11 @@ def _apply_sentiment_highlighting(text: str) -> str:
         "well-tuned", "well tuned", "best-in-class", "best in class", "class-leading",
         "low noise", "quiet", "well-damped", "well damped", "positive", "high",
         "capable", "strong", "firm", "direct", "natural feel", "engaging",
-        "quick", "linear", "progressive", "well-weighted", "well weighted"
+        "quick", "linear", "progressive", "well-weighted", "well weighted",
+        "premium", "plush", "spacious", "ample", "sufficient", "adequate",
+        "accurate", "sharp", "crisp", "clear", "bright", "vibrant", "swift",
+        "nimble", "agile", "tight", "composed", "balanced", "well-insulated",
+        "mighty", "pliant", "absorbent", "soaks up", "dismisses"
     ]
 
     negative_keywords = [
@@ -404,16 +432,20 @@ def _apply_sentiment_highlighting(text: str) -> str:
         "sluggish", "lethargic", "abrupt", "grabby", "spongy", "floaty",
         "bouncy", "body roll", "understeer", "oversteer", "intrusive", "loud",
         "rough", "not available", "not found", "disappointing", "mediocre",
-        "average", "issues", "problem", "concern", "limited", "lag"
+        "average", "issues", "problem", "concern", "limited", "lag",
+        "cramped", "tight", "narrow", "small", "insufficient", "inadequate",
+        "dull", "dim", "slow", "delayed", "unresponsive", "mushy", "soft",
+        "wallowy", "unsettled", "jittery", "nervous", "twitchy", "difficult",
+        "tricky", "cumbersome", "awkward", "clunky", "cheap", "plasticky"
     ]
 
     result = text
     for word in positive_keywords:
-        pattern = re.compile(re.escape(word), re.IGNORECASE)
+        pattern = re.compile(r'\b' + re.escape(word) + r'\b', re.IGNORECASE)
         result = pattern.sub(f'<span class="sentiment-positive">{word}</span>', result)
 
     for word in negative_keywords:
-        pattern = re.compile(re.escape(word), re.IGNORECASE)
+        pattern = re.compile(r'\b' + re.escape(word) + r'\b', re.IGNORECASE)
         result = pattern.sub(f'<span class="sentiment-negative">{word}</span>', result)
 
     return result
@@ -427,23 +459,52 @@ def _generate_consolidated_review_html(comparison_data: Dict[str, Any]) -> str:
 
     car_names = list(comparison_data.keys())
 
-    # Comprehensive FI (Field Intelligence) attribute categories - all 26+ attributes
+    # Comprehensive FI (Field Intelligence) attribute categories - ALL extracted attributes
     review_categories = [
+        # Driving Dynamics & Ride
         ("Ride & Handling", ["ride", "ride_quality", "bumps", "stiff_on_pot_holes", "shocks", "stability", "straight_ahead_stability", "corner_stability"]),
-        ("Steering", ["steering", "telescopic_steering", "turning_radius", "sensitivity"]),
+        ("Steering", ["steering", "telescopic_steering", "turning_radius", "sensitivity", "manoeuvring"]),
         ("Braking", ["braking", "brakes", "brake_performance", "grabby", "spongy", "epb", "pulsation"]),
-        ("Performance & Drivability", ["performance", "driveability", "performance_feel", "acceleration", "torque", "response", "city_performance", "highway_performance"]),
-        ("4x4 / Off-Road Operation", ["off_road", "manoeuvring", "crawl"]),
+        ("Performance & Drivability", ["performance_feel", "driveability", "acceleration", "torque", "response", "city_performance", "highway_performance"]),
+        ("4x4 / Off-Road Operation", ["off_road", "crawl", "ground_clearance", "hill_descent_control", "traction_control"]),
         ("NVH (Noise/Vibration/Harshness)", ["nvh", "powertrain_nvh", "road_nvh", "wind_nvh", "wind_noise", "tire_noise", "blower_noise", "rattle", "turbo_noise"]),
-        ("GSQ (Gear Shift Quality)", ["gear_shift", "gear_selection", "manual_transmission_performance", "automatic_transmission_performance", "transmission"]),
-        ("Suspension & Chassis", ["chasis", "shakes", "shudder", "jerks", "bumps"]),
+        ("GSQ (Gear Shift Quality)", ["gear_shift", "gear_selection", "manual_transmission_performance", "automatic_transmission_performance"]),
+        ("Suspension & Chassis", ["chasis", "shakes", "shudder", "jerks"]),
         ("Pedal & Control Feel", ["pedal_operation", "pedal_travel"]),
-        ("Safety & Impact", ["vehicle_safety_features", "impact", "seats_restraint", "seat_cushion", "headrest"]),
-        ("Interior Quality", ["interior", "soft_trims", "armrest", "seat", "irvm"]),
-        ("Infotainment", ["infotainment_screen", "resolution", "touch_response", "audio_system", "button", "apple_carplay", "digital_display"]),
-        ("Exterior Features", ["sunroof", "lighting", "led", "drl", "tail_lamp", "orvm", "window", "door_effort"]),
-        ("Comfort & Convenience", ["climate_control", "visibility", "wiper_control", "parking"]),
-        ("Space & Dimensions", ["boot_space", "wheelbase", "egress", "ingress"]),
+
+        # Safety & ADAS
+        ("Safety Systems", ["vehicle_safety_features", "airbags", "airbag_types_breakdown", "ncap_rating", "impact", "abs"]),
+        ("ADAS Features", ["adas", "adaptive_cruise_control", "lane_keep_assist", "lane_departure_warning", "blind_spot_monitor", "automatic_emergency_braking", "360_camera"]),
+        ("Seat Restraints & Belts", ["seats_restraint", "seatbelt_features"]),
+
+        # Interior & Comfort
+        ("Seat Comfort", ["seats", "seat_cushion", "seat_material", "seat_features_detailed", "rear_seat_features", "ventilated_seats", "heated_seats", "headrest"]),
+        ("Interior Quality", ["interior", "soft_trims", "armrest", "irvm", "ambient_lighting"]),
+        ("Climate & Visibility", ["climate_control", "visibility", "egress", "ingress"]),
+
+        # Infotainment & Technology
+        ("Infotainment System", ["infotainment_screen", "resolution", "touch_response", "audio_system", "button"]),
+        ("Connectivity", ["apple_carplay", "wireless_carplay", "built_in_navigation", "wireless_charging", "heads_up_display"]),
+        ("Digital Display", ["digital_display"]),
+
+        # Exterior
+        ("Exterior Lighting", ["led", "drl", "tail_lamp", "auto_headlamps"]),
+        ("Sunroof & Roof", ["sunroof", "panoramic_sunroof"]),
+        ("Mirrors & Windows", ["orvm", "window", "wiper_control"]),
+        ("Wheels & Tyres", ["alloy_wheel", "tyre_size", "wheel_size"]),
+        ("Exterior Features", ["door_effort", "keyless_entry"]),
+
+        # Parking & Assistance
+        ("Parking & Assistance", ["parking", "parking_camera", "parking_sensors", "cruise_control"]),
+
+        # Dimensions & Capacity
+        ("Space & Dimensions", ["boot_space", "wheelbase", "seating_capacity"]),
+
+        # Powertrain
+        ("Powertrain Specs", ["fuel_type", "engine_displacement", "mileage"]),
+
+        # Pricing & Value
+        ("Pricing & Value", ["price_range", "user_rating", "monthly_sales"]),
     ]
 
     def get_combined_review(car_data: Dict, spec_fields: list) -> str:
@@ -451,7 +512,8 @@ def _generate_consolidated_review_html(comparison_data: Dict[str, Any]) -> str:
         for field in spec_fields:
             value = car_data.get(field, "")
             if value and value not in ["Not Available", "Not found", "N/A", "Error", ""]:
-                clean_value = str(value).strip()
+                # Strip any malformed HTML tags from the data
+                clean_value = _strip_html_tags(str(value).strip())
                 if clean_value and len(clean_value) > 3:
                     field_name = field.replace("_", " ").title()
                     parts.append(f"<strong>{field_name}:</strong> {clean_value}")
@@ -474,9 +536,34 @@ def _generate_consolidated_review_html(comparison_data: Dict[str, Any]) -> str:
 
     review_html = f"""
     <style>
-        .sentiment-positive {{ color: #1a7a1a; font-weight: 600; background: #e8f5e9; padding: 1px 3px; border-radius: 2px; }}
-        .sentiment-negative {{ color: #c0392b; font-weight: 600; background: #fdecea; padding: 1px 3px; border-radius: 2px; }}
-        .review-table-container {{ overflow-x: auto; border-radius: 10px; border: 1px solid #e9ecef; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }}
+        .sentiment-positive {{
+            color: #0d6b0d;
+            font-weight: 700;
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            padding: 2px 6px;
+            border-radius: 3px;
+            border: 1px solid #28a745;
+        }}
+        .sentiment-negative {{
+            color: #a71d2a;
+            font-weight: 700;
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+            padding: 2px 6px;
+            border-radius: 3px;
+            border: 1px solid #dc3545;
+        }}
+        .review-table-container {{
+            overflow-x: auto;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }}
+        .review-table td {{
+            line-height: 1.6;
+        }}
+        .review-table td strong {{
+            color: #1c2a39;
+        }}
     </style>
     <div class="review-table-container animate-on-scroll">
         <table class="review-table">
@@ -1203,9 +1290,26 @@ def create_comparison_chart_html(
         .site-header {{ display: flex; justify-content: space-between; align-items: center; padding: 16px 40px; background: #fff; border-bottom: 1px solid #e9ecef; width: 100%; position: sticky; top: 0; z-index: 1000; }}
         .logo {{ height: 22px; width: auto; }}
         .header-actions {{ display: flex; align-items: center; gap: 30px; }}
-        .main-nav {{ display: flex; gap: 25px; }}
-        .main-nav a {{ text-decoration: none; color: #212529; font-size: 14px; font-weight: 500; transition: color 0.2s ease-in-out; }}
-        .main-nav a:hover {{ color: #dd032b; }}
+        .main-nav {{ display: flex; gap: 20px; align-items: center; }}
+        .main-nav > a, .main-nav > .nav-dropdown > .nav-dropdown-toggle {{
+            text-decoration: none; color: #212529; font-size: 13px; font-weight: 500;
+            transition: all 0.2s ease; padding: 8px 12px; border-radius: 6px;
+        }}
+        .main-nav > a:hover, .main-nav > .nav-dropdown > .nav-dropdown-toggle:hover {{ color: #dd032b; background: #f5f5f5; }}
+        .nav-sep {{ width: 1px; height: 20px; background: #dee2e6; margin: 0 5px; }}
+        .nav-dropdown {{ position: relative; }}
+        .nav-dropdown-toggle {{ cursor: pointer; display: flex; align-items: center; gap: 4px; background: none; border: none; font-family: inherit; }}
+        .nav-dropdown-toggle::after {{ content: "▾"; font-size: 10px; opacity: 0.6; }}
+        .nav-dropdown-menu {{
+            display: none; position: absolute; top: 100%; left: 0; background: white;
+            border: 1px solid #e9ecef; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            min-width: 160px; padding: 8px 0; z-index: 1001; margin-top: 4px;
+        }}
+        .nav-dropdown-menu a {{
+            display: block; padding: 10px 16px; color: #333; text-decoration: none;
+            font-size: 13px; font-weight: 500; transition: all 0.15s ease;
+        }}
+        .nav-dropdown-menu a:hover {{ background: #fef2f2; color: #dd032b; }}
         .main-group-header td {{
             font-size: 22px;
             font-weight: 700;
@@ -2992,14 +3096,31 @@ def create_comparison_chart_html(
             <nav class="main-nav">
                 <a href="#tech-spec-section">Tech Specs</a>
                 <a href="#feature-list-section">Features</a>
-                <a href="#exterior-section">Exterior</a>
-                <a href="#interior-section">Interior</a>
+                <div class="nav-sep"></div>
+                <div class="nav-dropdown">
+                    <button class="nav-dropdown-toggle">Gallery</button>
+                    <div class="nav-dropdown-menu">
+                        <a href="#exterior-section">Exterior</a>
+                        <a href="#interior-section">Interior</a>
+                        <a href="#technology-section">Technology</a>
+                        <a href="#comfort-section">Comfort</a>
+                        <a href="#safety-section">Safety</a>
+                    </div>
+                </div>
+                <div class="nav-sep"></div>
                 <a href="#drivetrain-section">Drivetrain</a>
                 <a href="#summary-section">Summary</a>
                 <a href="#spider-charts-section">Radar Analysis</a>
-                <a href="#consolidated-review-section">FI Reviews</a>
-                <a href="#detailed-reviews-section">Pro Reviews</a>
-                <a href="#dynamics-section">Dynamics</a>
+                <div class="nav-sep"></div>
+                <div class="nav-dropdown">
+                    <button class="nav-dropdown-toggle">Reviews</button>
+                    <div class="nav-dropdown-menu">
+                        <a href="#consolidated-review-section">FI Reviews</a>
+                        <a href="#detailed-reviews-section">Pro Reviews</a>
+                        <a href="#dynamics-section">Dynamics</a>
+                    </div>
+                </div>
+                <div class="nav-sep"></div>
                 <a href="#ai-analysis-section">AI Analysis</a>
                 <a href="#" id="citations-toggle" onclick="toggleCitations(event)">Citations</a>
             </nav>
@@ -3035,7 +3156,7 @@ def create_comparison_chart_html(
             <div class="spider-chart-section animate-on-scroll"
                  style="background:white;padding:30px;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.05);border:1px solid #e9ecef;">
                 <p style="font-size:13px;color:#6c757d;margin-bottom:20px;">
-                    Subjective ratings derived from aggregated user opinions on Team-BHP, CarWale, YouTube reviews, and Reddit r/IndiaCars.
+                    Subjective ratings derived from aggregated user opinions on Team-BHP, CarWale, YouTube reviews, and social media discussions.
                     Ratings are on a scale of <strong>1–10</strong> per attribute.
                 </p>
                 {dynamics_spider_html}
@@ -3078,8 +3199,31 @@ def create_comparison_chart_html(
         function clearFilter() {{ const input = document.getElementById('specFilter'); input.value = ''; filterSpecs(); input.focus(); }}
         function printReport() {{ window.print(); }}
         function toggleExpand(button) {{ const content = button.previousElementSibling; content.classList.toggle('expanded'); button.textContent = content.classList.contains('expanded') ? 'Read less' : 'Read more'; }}
-        function toggleCitations(event) {{ event.preventDefault(); const citationsSection = document.getElementById('citations-section'); const mainContent = document.querySelectorAll('.content:not(#citations-section), .cover-page, .hero-image-page, .spec-page, .feature-page, .drivetrain-page, .summary-comparison-page, .container'); const toggleButton = document.getElementById('citations-toggle'); const navLinks = document.querySelectorAll('.main-nav a:not(#citations-toggle)'); if (citationsSection.style.display === 'none') {{ citationsSection.style.display = 'block'; citationsSection.style.position = 'relative'; mainContent.forEach(section => {{ section.style.display = 'none'; }}); navLinks.forEach(link => {{ link.style.display = 'none'; }}); toggleButton.textContent = 'Go Back'; }} else {{ citationsSection.style.display = 'none'; mainContent.forEach(section => {{ if (section.classList.contains('container')) {{ section.style.display = 'block'; }} else if (section.classList.contains('content')) {{ section.style.display = 'block'; }} else {{ section.style.display = 'flex'; }} }}); navLinks.forEach(link => {{ link.style.display = 'block'; }}); toggleButton.textContent = 'Citations'; }} window.scrollTo({{ top: 0, behavior: 'smooth' }}); }}
-        document.addEventListener('DOMContentLoaded', () => {{ const observer = new IntersectionObserver((entries) => {{ entries.forEach(entry => {{ if (entry.isIntersecting) {{ entry.target.classList.add('is-visible'); observer.unobserve(entry.target); }} }}); }}, {{ threshold: 0.1 }}); document.querySelectorAll('.animate-on-scroll').forEach(el => observer.observe(el)); }});
+        function toggleCitations(event) {{ event.preventDefault(); const citationsSection = document.getElementById('citations-section'); const mainContent = document.querySelectorAll('.content:not(#citations-section), .cover-page, .hero-image-page, .spec-page, .feature-page, .drivetrain-page, .summary-comparison-page, .spider-charts-page, .container'); const toggleButton = document.getElementById('citations-toggle'); const navLinks = document.querySelectorAll('.main-nav a:not(#citations-toggle)'); const navDropdowns = document.querySelectorAll('.nav-dropdown'); const navSeps = document.querySelectorAll('.nav-sep'); if (citationsSection.style.display === 'none') {{ citationsSection.style.display = 'block'; citationsSection.style.position = 'relative'; mainContent.forEach(section => {{ section.style.display = 'none'; }}); navLinks.forEach(link => {{ link.style.display = 'none'; }}); navDropdowns.forEach(dropdown => {{ dropdown.style.display = 'none'; }}); navSeps.forEach(sep => {{ sep.style.display = 'none'; }}); toggleButton.textContent = 'Go Back'; }} else {{ citationsSection.style.display = 'none'; mainContent.forEach(section => {{ if (section.classList.contains('container')) {{ section.style.display = 'block'; }} else if (section.classList.contains('content')) {{ section.style.display = 'block'; }} else {{ section.style.display = 'flex'; }} }}); navLinks.forEach(link => {{ link.style.display = 'block'; }}); navDropdowns.forEach(dropdown => {{ dropdown.style.display = 'block'; }}); navSeps.forEach(sep => {{ sep.style.display = 'block'; }}); toggleButton.textContent = 'Citations'; }} window.scrollTo({{ top: 0, behavior: 'smooth' }}); }}
+        document.addEventListener('DOMContentLoaded', () => {{
+            // Animate on scroll observer
+            const observer = new IntersectionObserver((entries) => {{
+                entries.forEach(entry => {{
+                    if (entry.isIntersecting) {{
+                        entry.target.classList.add('is-visible');
+                        observer.unobserve(entry.target);
+                    }}
+                }});
+            }}, {{ threshold: 0.1 }});
+            document.querySelectorAll('.animate-on-scroll').forEach(el => observer.observe(el));
+
+            // Dropdown: close only after 200ms delay so mouse can move from button → menu
+            document.querySelectorAll('.nav-dropdown').forEach(function(dd) {{
+                var closeTimer = null;
+                function openMenu()  {{ clearTimeout(closeTimer); dd.querySelector('.nav-dropdown-menu').style.display = 'block'; }}
+                function scheduleClose() {{ closeTimer = setTimeout(function() {{ dd.querySelector('.nav-dropdown-menu').style.display = 'none'; }}, 200); }}
+
+                dd.addEventListener('mouseenter', openMenu);
+                dd.addEventListener('mouseleave', scheduleClose);
+                dd.querySelector('.nav-dropdown-menu').addEventListener('mouseenter', function() {{ clearTimeout(closeTimer); }});
+                dd.querySelector('.nav-dropdown-menu').addEventListener('mouseleave', scheduleClose);
+            }});
+        }});
     </script>
 </body></html>"""
     

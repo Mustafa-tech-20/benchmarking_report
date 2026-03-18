@@ -3272,55 +3272,57 @@ def generate_spider_chart_section(
         <style>
             .spider-charts-page {{
                 page-break-before: always;
-                padding: 40px;
+                padding: 50px 60px;
                 min-height: 100vh;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white;
+                background: #ffffff;
+                color: #1c2a39;
             }}
 
             .spider-charts-header {{
                 text-align: center;
                 margin-bottom: 40px;
-                padding-bottom: 20px;
-                border-bottom: 3px solid rgba(255,255,255,0.3);
+                padding-bottom: 25px;
+                border-bottom: 3px solid #cc0000;
             }}
 
             .spider-charts-title {{
-                font-size: 32px;
-                font-weight: 800;
+                font-size: 28px;
+                font-weight: 700;
                 margin: 0 0 15px 0;
                 text-transform: uppercase;
                 letter-spacing: 1px;
+                color: #1c2a39;
             }}
 
             .spider-charts-title .highlight {{
-                color: #ffd700;
-                text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+                color: #cc0000;
             }}
 
             .spider-charts-logo {{
-                height: 40px;
-                filter: brightness(0) invert(1);
+                height: 35px;
+                filter: brightness(0);
             }}
 
             .spider-charts-grid {{
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
-                gap: 40px;
-                margin-bottom: 40px;
+                grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+                gap: 30px;
+                margin-bottom: 30px;
             }}
 
             .spider-chart-container {{
-                background: white;
-                border-radius: 15px;
-                padding: 30px;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-                transition: transform 0.3s ease;
+                background: #ffffff;
+                border-radius: 12px;
+                padding: 25px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+                border: 1px solid #e9ecef;
+                transition: transform 0.3s ease, box-shadow 0.3s ease;
             }}
 
             .spider-chart-container:hover {{
-                transform: translateY(-5px);
-                box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+                transform: translateY(-3px);
+                box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+                border-color: #cc0000;
             }}
 
             .spider-chart-container canvas {{
@@ -3330,31 +3332,32 @@ def generate_spider_chart_section(
 
             .spider-charts-footer {{
                 text-align: center;
-                padding: 20px;
-                background: rgba(255,255,255,0.1);
-                border-radius: 10px;
-                margin-top: 30px;
+                padding: 15px 20px;
+                background: #f8f9fa;
+                border-radius: 8px;
+                margin-top: 25px;
+                border: 1px solid #e9ecef;
             }}
 
             .spider-note {{
                 margin: 0;
-                font-size: 14px;
+                font-size: 13px;
                 font-style: italic;
-                opacity: 0.9;
+                color: #6c757d;
             }}
 
             @media print {{
                 .spider-charts-page {{
-                    background: white !important;
-                    color: black !important;
+                    padding: 30px;
                 }}
 
-                .spider-charts-title {{
-                    color: #333 !important;
+                .spider-chart-container {{
+                    box-shadow: none;
+                    border: 1px solid #dee2e6;
                 }}
 
-                .spider-charts-title .highlight {{
-                    color: #cc0000 !important;
+                .spider-chart-container:hover {{
+                    transform: none;
                 }}
             }}
         </style>
