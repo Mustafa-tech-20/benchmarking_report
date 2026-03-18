@@ -714,21 +714,38 @@ def exponential_backoff_retry(max_retries: int = MAX_RETRIES, base_delay: float 
     return decorator
 
 
-def call_gemini_simple(prompt: str) -> str:
+def call_gemini_simple(prompt: str, timeout: int = 40) -> str:
     """
-    Simple Gemini call with retry and automatic model fallback.
+    Simple Gemini call with retry, timeout, and automatic model fallback.
     Switches from Flash to Pro after repeated rate limits.
+
+    Args:
+        prompt: The prompt to send to Gemini
+        timeout: Maximum seconds to wait for API response (default 60s)
     """
     global _gemini_model, _rate_limit_count
 
+    def _make_api_call():
+        """Inner function for API call - can be timed out."""
+        model = GenerativeModel(_gemini_model)
+        return model.generate_content(
+            prompt,
+            generation_config=GenerationConfig(temperature=0.1)
+        )
+
     for attempt in range(MAX_RETRIES):
         try:
-            # Use current model (Flash or Pro based on rate limit history)
-            model = GenerativeModel(_gemini_model)
-            response = model.generate_content(
-                prompt,
-                generation_config=GenerationConfig(temperature=0.1)
-            )
+            # Use ThreadPoolExecutor to enforce timeout on API call
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(_make_api_call)
+                try:
+                    response = future.result(timeout=timeout)
+                except concurrent.futures.TimeoutError:
+                    print(f"      API call timeout after {timeout}s, attempt {attempt + 1}/{MAX_RETRIES}")
+                    if attempt < MAX_RETRIES - 1:
+                        time.sleep(BASE_DELAY)
+                        continue
+                    return ""
 
             if hasattr(response, 'text') and response.text:
                 return response.text.strip()
@@ -1480,27 +1497,33 @@ Return ONLY this JSON (no markdown):
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_PARALLEL_BATCHES) as executor:
         future_to_batch = {executor.submit(_call_batch, batch): batch for batch in spec_batches}
-        for future in concurrent.futures.as_completed(future_to_batch, timeout=BATCH_TIMEOUT * len(spec_batches)):
-            batch = future_to_batch[future]
-            try:
-                result = future.result(timeout=BATCH_TIMEOUT)
-                found_count = 0
-                for spec_name in batch:
-                    spec_data = result.get(spec_name, {})
-                    value = spec_data.get("value", "Not found") if isinstance(spec_data, dict) else str(spec_data or "Not found")
-                    if value and value not in ["Not found", "Not Available", "", "N/A"]:
-                        with lock:
-                            specs[spec_name] = value
-                            citations[spec_name] = {
-                                "source_url": cardekho_url,
-                                "citation_text": "Extracted from CarDekho via Gemini",
-                            }
-                        found_count += 1
-                print(f"  Batch ({batch[0]}…): {found_count}/{len(batch)} found")
-            except concurrent.futures.TimeoutError:
-                print(f"  Batch ({batch[0]}…): TIMEOUT after {BATCH_TIMEOUT}s - skipping")
-            except Exception as e:
-                print(f"  Batch ({batch[0]}…): Error - {e}")
+
+        # Process completed futures without global timeout to prevent hangs
+        try:
+            for future in concurrent.futures.as_completed(future_to_batch):
+                batch = future_to_batch[future]
+                try:
+                    result = future.result(timeout=BATCH_TIMEOUT)
+                    found_count = 0
+                    for spec_name in batch:
+                        spec_data = result.get(spec_name, {})
+                        value = spec_data.get("value", "Not found") if isinstance(spec_data, dict) else str(spec_data or "Not found")
+                        if value and value not in ["Not found", "Not Available", "", "N/A"]:
+                            with lock:
+                                specs[spec_name] = value
+                                citations[spec_name] = {
+                                    "source_url": cardekho_url,
+                                    "citation_text": "Extracted from CarDekho via Gemini",
+                                }
+                            found_count += 1
+                    print(f"  Batch ({batch[0]}…): {found_count}/{len(batch)} found")
+                except concurrent.futures.TimeoutError:
+                    print(f"  Batch ({batch[0]}…): TIMEOUT after {BATCH_TIMEOUT}s - skipping")
+                except Exception as e:
+                    print(f"  Batch ({batch[0]}…): Error - {e}")
+        except KeyboardInterrupt:
+            print(f"\n  Phase 2 interrupted by user")
+            executor.shutdown(wait=False)
 
     print(f"\n  Phase 2 Complete: Recovered {len(specs)}/{len(missing_specs)} specs")
     return {"specs": specs, "citations": citations}

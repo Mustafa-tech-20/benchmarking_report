@@ -11,6 +11,7 @@ from vehicle_development_agent.reports.image_sections import (
     generate_feature_list_section,
     generate_drivetrain_comparison_section,
     generate_summary_comparison_section,
+    generate_spider_chart_section,
     get_image_section_styles
 )
 
@@ -2995,6 +2996,7 @@ def create_comparison_chart_html(
                 <a href="#interior-section">Interior</a>
                 <a href="#drivetrain-section">Drivetrain</a>
                 <a href="#summary-section">Summary</a>
+                <a href="#spider-charts-section">Radar Analysis</a>
                 <a href="#consolidated-review-section">FI Reviews</a>
                 <a href="#detailed-reviews-section">Pro Reviews</a>
                 <a href="#dynamics-section">Dynamics</a>
@@ -3015,6 +3017,7 @@ def create_comparison_chart_html(
         {generate_image_gallery_section("Safety Highlights", comparison_data, "safety", "safety-section")}
         {generate_drivetrain_comparison_section(comparison_data)}
         {generate_summary_comparison_section(summary_data, cars, 20) if summary_data else ''}
+        {generate_spider_chart_section(comparison_data, summary_data)}
         <div class="content">
             <div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l10 5v3L12 5 2 10V7l10-5zM2 10v3l10 5 10-5v-3l-10 5-10-5z"/></svg></div><h2 id="consolidated-review-section">Consolidated Review Summary</h2></div>
             <div class="consolidated-review-section animate-on-scroll">{consolidated_review_html}</div>

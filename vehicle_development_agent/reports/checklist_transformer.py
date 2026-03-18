@@ -6,6 +6,13 @@ import re
 from typing import Dict, Any, Union
 
 
+def _xfeat(car_data: Dict[str, Any], feat_name: str):
+    """Read a feature fetched by _fetch_binary_feature_comparison (stored as xfeat_ keys)."""
+    key = "xfeat_" + feat_name.lower().replace(" ", "_").replace("/", "_").replace(
+        "-", "_").replace("(", "").replace(")", "").replace(".", "").replace("&", "_")
+    return car_data.get(key)
+
+
 def extract_number(text: str) -> Union[int, None]:
     """Extract first number from text. Returns None if not found."""
     if not text or text in ["Not Available", "N/A", "Not found", ""]:
@@ -270,7 +277,84 @@ def transform_to_checklist(car_data: Dict[str, Any]) -> Dict[str, Any]:
             "boot_space": car_data.get("boot_space", "N/A"),
             "fuel_type": car_data.get("fuel_type", "N/A"),
             "engine_displacement": car_data.get("engine_displacement", "N/A"),
-        }
+        },
+
+        # Boot & Trunk
+        "boot_trunk": {
+            "trunk_metal_anchor_points":    _xfeat(car_data, "Trunk Metal Anchor Points"),
+            "trunk_storage_box":            _xfeat(car_data, "Trunk Storage Box"),
+            "trunk_subwoofer":              _xfeat(car_data, "Trunk Subwoofer"),
+            "dashcam_provision":            _xfeat(car_data, "Dashcam Provision"),
+            "cup_holder_tail_door":         _xfeat(car_data, "Cup Holder at Tail Door"),
+            "hooks_tail_door":              _xfeat(car_data, "Hooks at Tail Door"),
+            "warning_triangle_tail_door":   _xfeat(car_data, "Warning Triangle at Tail Door"),
+            "door_magnetic_strap":          _xfeat(car_data, "Door Magnetic Strap"),
+        },
+
+        # Floor Console
+        "floor_console": {
+            "armrest_sliding":              _xfeat(car_data, "Armrest Sliding"),
+            "armrest_soft":                 _xfeat(car_data, "Armrest Soft"),
+            "armrest_storage":              _xfeat(car_data, "Armrest Storage"),
+            "wireless_charging_front_row":  _xfeat(car_data, "Wireless Charging Front Row"),
+            "wireless_charging_count":      _xfeat(car_data, "No of Wireless Charging Pads"),
+            "front_cup_holders":            _xfeat(car_data, "Front Cup Holders"),
+            "rear_cup_holders":             _xfeat(car_data, "Rear Cup Holders"),
+        },
+
+        # Door & Trim
+        "door_trim": {
+            "front_door_scuff_material":    _xfeat(car_data, "Front Door Scuff Material"),
+            "rear_door_scuff_material":     _xfeat(car_data, "Rear Door Scuff Material"),
+        },
+
+        # Steering & Voice
+        "steering_voice": {
+            "voice_recognition_steering":   _xfeat(car_data, "Voice Recognition Steering Wheel"),
+            "voice_assistant_type":         _xfeat(car_data, "Voice Assistant Type"),
+            "multi_language_voice":         _xfeat(car_data, "Multi-language Voice Commands"),
+            "amazon_alexa":                 _xfeat(car_data, "Amazon Alexa Voice Assistant"),
+            "active_noise_reduction":       _xfeat(car_data, "Active Noise Reduction"),
+            "intelligent_voice_control":    _xfeat(car_data, "Intelligent Voice Control"),
+            "intelligent_dodge":            _xfeat(car_data, "Intelligent Dodge"),
+            "intelligent_parking_assist":   _xfeat(car_data, "Intelligent Parking Assist"),
+        },
+
+        # Seats Extended
+        "seats_extended": {
+            "codriver_seat_adjustment":     _xfeat(car_data, "Co-Driver Seat Adjustment"),
+            "power_seat_controls_location": _xfeat(car_data, "Power Seat Controls Location"),
+            "programmable_memory_seat":     _xfeat(car_data, "Programmable Memory Seat"),
+            "seatbelt_warning":             _xfeat(car_data, "Seatbelt Warning"),
+            "seatbelt_tongue_holder_2nd":   _xfeat(car_data, "Seatbelt Tongue Holder 2nd Row"),
+            "crash_sensor":                 _xfeat(car_data, "Crash Sensor"),
+        },
+
+        # Technology Extended
+        "technology_extended": {
+            "infotainment_touch":           _xfeat(car_data, "Infotainment Touch"),
+            "display_language":             _xfeat(car_data, "Display Language"),
+            "phone_sync_audio":             _xfeat(car_data, "Phone Sync Audio"),
+            "bluetooth_hands_free":         _xfeat(car_data, "Bluetooth Hands Free"),
+            "am_fm_radio":                  _xfeat(car_data, "AM/FM Radio"),
+            "digital_radio_dab":            _xfeat(car_data, "Digital Radio DAB"),
+            "wireless_smartphone_integration": _xfeat(car_data, "Wireless Smartphone Integration"),
+        },
+
+        # Branded Audio
+        "branded_audio": {
+            "audio_brand":                  _xfeat(car_data, "Audio Brand"),
+            "dolby_atmos":                  _xfeat(car_data, "Dolby Atmos"),
+            "speed_sensing_volume":         _xfeat(car_data, "Speed Sensing Volume"),
+        },
+
+        # Others
+        "others": {
+            "transparent_car_bottom_camera": _xfeat(car_data, "Transparent Car Bottom Camera"),
+            "car_picnic_table":             _xfeat(car_data, "Car Picnic Table"),
+            "safety_belt_holder_2nd_row":   _xfeat(car_data, "Safety Belt Holder 2nd Row"),
+            "front_rear_parking_sensor":    _xfeat(car_data, "Front Rear Parking Sensor Radar"),
+        },
     }
 
     # Parse granular features from new specs

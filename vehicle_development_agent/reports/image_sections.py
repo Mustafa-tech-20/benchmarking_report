@@ -3,10 +3,171 @@ Image Section Generation for Enhanced Reports
 Generates PDF-style image galleries for car comparison reports
 """
 
-from typing import Dict, Any, List
+import json
+from typing import Dict, Any, List, Optional
 from datetime import datetime
 
-from vehicle_development_agent.config import GEMINI_LITE_MODEL
+
+def _generate_ai_notes_for_gallery(
+    images_list: List[Dict[str, Any]],
+    category: str,
+    comparison_data: Dict[str, Any],
+) -> List[str]:
+    """
+    Generate spec-based notes for each gallery image using actual scraped data.
+    Creates 1-2 line notes elaborating on the specific spec data for each car.
+    """
+    try:
+        import vertexai
+        from vertexai.generative_models import GenerativeModel
+        from vehicle_development_agent.config import GEMINI_LITE_MODEL, GEMINI_LITE_LOCATION, PROJECT_ID
+
+        # Return empty if no images
+        if not images_list:
+            print(f"  No images for {category} - skipping AI notes")
+            return []
+
+        print(f"  Generating spec-based AI notes for {len(images_list)} {category} images...")
+
+        # Initialize vertexai with lite model location (us-central1)
+        vertexai.init(project=PROJECT_ID, location=GEMINI_LITE_LOCATION)
+
+        # Map feature names to relevant spec fields
+        FEATURE_SPEC_MAP = {
+            # Exterior features
+            "headlight": ["led", "headlamp", "lighting", "projector"],
+            "drl": ["drl", "daytime_running", "led"],
+            "tail": ["tail_lamp", "rear_light", "led"],
+            "wheel": ["alloy_wheel", "wheel_size", "tyre_size"],
+            "exterior": ["led", "drl", "alloy_wheel", "sunroof"],
+            "front": ["led", "grille", "bumper"],
+            "rear": ["tail_lamp", "boot_space"],
+            "side": ["alloy_wheel", "wheel_size", "door"],
+
+            # Interior features
+            "steering": ["steering", "telescopic_steering", "cruise_control"],
+            "seat": ["seat_material", "ventilated_seats", "seat_features_detailed", "seating_capacity"],
+            "infotainment": ["infotainment_screen", "resolution", "apple_carplay", "digital_display"],
+            "cluster": ["digital_display", "instrument_cluster"],
+            "console": ["armrest", "button", "gear_shift"],
+            "interior": ["seat_material", "climate_control", "soft_trims"],
+
+            # Technology features
+            "touchscreen": ["infotainment_screen", "resolution", "touch_response"],
+            "display": ["digital_display", "resolution", "infotainment_screen"],
+            "screen": ["infotainment_screen", "resolution"],
+            "technology": ["infotainment_screen", "digital_display", "apple_carplay", "audio_system"],
+
+            # Comfort features
+            "sunroof": ["sunroof", "panoramic"],
+            "ac": ["climate_control", "rear_ac_vents"],
+            "armrest": ["armrest", "center_armrest"],
+            "comfort": ["climate_control", "ventilated_seats", "armrest"],
+
+            # Safety features
+            "airbag": ["airbags", "airbag_types_breakdown", "safety_features"],
+            "safety": ["airbags", "ncap_rating", "adas", "vehicle_safety_features"],
+        }
+
+        # Build per-image entries with relevant specs
+        image_entries = []
+        for i, img in enumerate(images_list):
+            car_name = img['car_name']
+            feature_name = img['feature'].lower()
+
+            # Get car data
+            car_data = comparison_data.get(car_name, {})
+            if not isinstance(car_data, dict) or "error" in car_data:
+                car_data = {}
+
+            # Find relevant specs for this feature
+            relevant_specs = {}
+            for keyword, spec_fields in FEATURE_SPEC_MAP.items():
+                if keyword in feature_name:
+                    for field in spec_fields:
+                        if field in car_data:
+                            val = car_data[field]
+                            if val and val not in ["Not Available", "N/A", "-", ""]:
+                                relevant_specs[field] = str(val)[:150]
+
+            # If no specific mapping found, include category-based specs
+            if not relevant_specs:
+                category_lower = category.lower()
+                for keyword, spec_fields in FEATURE_SPEC_MAP.items():
+                    if keyword in category_lower:
+                        for field in spec_fields:
+                            if field in car_data:
+                                val = car_data[field]
+                                if val and val not in ["Not Available", "N/A", "-", ""]:
+                                    relevant_specs[field] = str(val)[:150]
+
+            # Format specs for prompt
+            specs_text = "; ".join(f"{k}: {v}" for k, v in relevant_specs.items()) if relevant_specs else "No specific data available"
+
+            image_entries.append(
+                f"{i+1}. Car: {car_name} | Feature: {img['feature']}\n"
+                f"   Scraped specs: {specs_text}"
+            )
+
+        image_list_text = "\n\n".join(image_entries)
+
+        prompt = f"""You are writing 1-2 line notes for a car benchmarking report.
+
+For each image below, write a factual note based ONLY on the scraped spec data provided.
+
+RULES:
+1. Use ONLY the "Scraped specs" data - don't make up information
+2. Keep it to 1-2 lines (max 15 words)
+3. Be specific and highlight key numbers/features
+4. If no specs available, write a generic placeholder
+5. Professional, factual tone
+
+Examples of good notes:
+- "Features LED projector headlamps with DRL signature lighting"
+- "10.25-inch touchscreen with wireless Apple CarPlay and Android Auto"
+- "Dual-tone leatherette seats with ventilation and lumbar support"
+- "6 airbags including side and curtain for comprehensive protection"
+
+Images to caption:
+{image_list_text}
+
+Return ONLY a JSON object:
+{{"notes": ["note 1", "note 2", ...]}}
+
+Array must have exactly {len(images_list)} entries."""
+
+        model = GenerativeModel(GEMINI_LITE_MODEL)
+        response = model.generate_content(prompt)
+        text = response.text.strip()
+
+        # Strip markdown code fences if present
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+        text = text.strip()
+
+        data = json.loads(text)
+        notes = data.get("notes", [])
+
+        # Pad or trim to match images count
+        while len(notes) < len(images_list):
+            notes.append("")
+
+        print(f"  ✓ Generated {len(notes)} spec-based AI notes for {category}")
+        return notes[:len(images_list)]
+
+    except Exception as e:
+        print(f"  ✗ AI notes generation failed for {category}: {e}")
+        print(f"  Using fallback notes instead...")
+        # Fallback: use spec data directly
+        fallback_notes = []
+        for img in images_list:
+            car_name = img.get('car_name', 'Car')
+            feature = img.get('feature', 'Feature')
+            note = f"{car_name} {feature.lower()}"
+            fallback_notes.append(note)
+        return fallback_notes
 
 
 def generate_hero_section(comparison_data: Dict[str, Any]) -> str:
@@ -86,26 +247,59 @@ def generate_hero_section(comparison_data: Dict[str, Any]) -> str:
     </div>
     '''
 
-    # PAGE 2+: Hero image pages for each car
-    hero_pages = ""
-    for i, (name, img_url) in enumerate(zip(car_names, hero_images)):
-        if img_url:
-            page_num = i + 2  # Page 2, 3, etc.
-            hero_pages += f'''
-            <div class="hero-image-page">
-                <div class="hero-page-header">
-                    <h1 class="hero-page-title">FEATURE COMPARISION | <span class="highlight">BENCHMARKING</span></h1>
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Mahindra_logo.svg/1920px-Mahindra_logo.svg.png?_=20231128143513" alt="Mahindra" class="hero-page-logo">
-                </div>
-                <div class="hero-image-container">
-                    <img src="{img_url}" alt="{name}" class="hero-full-image" onerror="this.style.display='none'">
-                </div>
-                <div class="hero-page-footer">
-                </div>
-            </div>
-            '''
+    # PAGE 2: Single side-by-side comparison page
+    left_name = car_names[0]
+    left_img = hero_images[0] if hero_images else ""
+    right_cars = list(zip(car_names[1:], hero_images[1:]))
 
-    return cover_page + hero_pages
+    left_img_tag = (
+        f'<img src="{left_img}" alt="{left_name}" class="hero-comparison-img" onerror="this.style.display=\'none\'">'
+        if left_img else '<div class="hero-comparison-placeholder"></div>'
+    )
+
+    right_panels_html = ""
+    for rname, rimg in right_cars:
+        img_tag = (
+            f'<img src="{rimg}" alt="{rname}" class="hero-comparison-img" onerror="this.style.display=\'none\'">'
+            if rimg else '<div class="hero-comparison-placeholder"></div>'
+        )
+        right_panels_html += f'''
+        <div class="hero-comparison-car">
+            <div class="hero-comparison-image-wrap">
+                {img_tag}
+            </div>
+            <div class="hero-comparison-label">{rname}</div>
+        </div>
+        '''
+
+    if not right_panels_html:
+        right_panels_html = '<div class="hero-comparison-placeholder"></div>'
+
+    comparison_page = f'''
+    <div class="hero-image-page" id="hero-comparison">
+        <div class="hero-page-header">
+            <h1 class="hero-page-title">VEHICLE COMPARISON | <span class="highlight">BENCHMARKING</span></h1>
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Mahindra_logo.svg/1920px-Mahindra_logo.svg.png?_=20231128143513" alt="Mahindra" class="hero-page-logo">
+        </div>
+        <div class="hero-comparison-container">
+            <div class="hero-comparison-side hero-comparison-left-side">
+                <div class="hero-comparison-image-wrap">
+                    {left_img_tag}
+                </div>
+                <div class="hero-comparison-label">{left_name}</div>
+            </div>
+            <div class="hero-vs-divider">
+                <div class="hero-vs-badge">VS</div>
+            </div>
+            <div class="hero-comparison-side hero-comparison-right-side">
+                {right_panels_html}
+            </div>
+        </div>
+        <div class="hero-page-footer"></div>
+    </div>
+    '''
+
+    return cover_page + comparison_page
 
 
 def generate_technical_spec_section(comparison_data: Dict[str, Any], page_start: int = 3) -> str:
@@ -303,7 +497,10 @@ def generate_technical_spec_section(comparison_data: Dict[str, Any], page_start:
             for car_name in car_names:
                 car_data = comparison_data.get(car_name, {})
                 value = car_data.get(key, "-")
-                if value in EMPTY_VALUES:
+                # Guard against dict/list values (e.g. from PDF extraction)
+                if isinstance(value, (dict, list)):
+                    value = "-"
+                elif value in EMPTY_VALUES:
                     value = "-"
                 values.append(value)
 
@@ -398,6 +595,12 @@ _FEATURE_TYPES: Dict[str, str] = {
     "Total USB Ports":          "count",
     "Tow Capacity (kg)":        "count",
     "NCAP Safety Rating":       "count",
+    # new count features
+    "Front Cup Holders":                "count",
+    "Rear Cup Holders":                 "count",
+    "No of Wireless Charging Pads":     "count",
+    "Cup Holder at Tail Door":          "count",
+    "Hooks at Tail Door":               "count",
     # spec features — show meaningful text
     "Seat Material":            "spec",
     "Fuel Type":                "spec",
@@ -409,6 +612,15 @@ _FEATURE_TYPES: Dict[str, str] = {
     "Audio System":             "spec",
     "Drive Modes":              "spec",
     "Terrain Modes":            "spec",
+    # new spec features
+    "Front Door Scuff Material":        "spec",
+    "Rear Door Scuff Material":         "spec",
+    "Voice Assistant Type":             "spec",
+    "Co-Driver Seat Adjustment":        "spec",
+    "Power Seat Controls Location":     "spec",
+    "Seatbelt Warning":                 "spec",
+    "Display Language":                 "spec",
+    "Audio Brand":                      "spec",
     # everything else defaults to "binary"
 }
 
@@ -468,6 +680,39 @@ _SCRAPED_KEY_MAP = {
     "Wheelbase (mm)":               "wheelbase",
     "Boot Space (litres)":          "boot_space",
     "Chassis Type":                 "chasis",
+    # New features with accurate scraped data overlap
+    "Crash Sensor":                 "vehicle_safety_features",
+    "Seatbelt Tongue Holder 2nd Row": "seatbelt_features",
+    "Infotainment Touch":           "infotainment_screen",
+    "Audio Brand":                  "audio_system",
+
+    # NEW: 18 additional mappings for 70% checklist coverage
+    # ADAS Features (6)
+    "Adaptive Cruise Control":      "adaptive_cruise_control",
+    "Lane Keep Assist":             "lane_keep_assist",
+    "Blind Spot Monitor":           "blind_spot_monitor",
+    "Automatic Emergency Braking":  "automatic_emergency_braking",
+    "360 Degree Camera":            "360_camera",
+    "Lane Departure Warning":       "lane_departure_warning",
+
+    # Active Safety (3)
+    "Traction Control":             "traction_control",
+    "Hill Descent Control":         "hill_descent_control",
+    "ABS":                          "abs",
+
+    # Technology & Connectivity (4)
+    "Wireless CarPlay":             "wireless_carplay",
+    "Wireless Android Auto":        "wireless_carplay",  # Same as wireless CarPlay
+    "Heads-Up Display":             "heads_up_display",
+    "Wireless Charging":            "wireless_charging",
+    "Built-in Navigation":          "built_in_navigation",
+
+    # Comfort & Premium Features (5)
+    "Panoramic Sunroof":            "panoramic_sunroof",
+    "Heated Front Seats":           "heated_seats",
+    "Keyless Entry":                "keyless_entry",
+    "Ambient Lighting":             "ambient_lighting",
+    "Auto Headlamps":               "auto_headlamps",
 }
 
 # Pre-defined feature batches — ~10 features each, all run in parallel
@@ -554,6 +799,52 @@ _FEATURE_BATCHES = [
                      "Rear Cup Holders", "Total USB Ports", "12V Power Outlet",
                      "Tow Capacity (kg)"]
     },
+    # ── New categories from reference spec sheets ──────────────────────────
+    {
+        "category": "Boot & Trunk", "description": "Storage & Boot Utilities",
+        "features": ["Trunk Metal Anchor Points", "Trunk Storage Box",
+                     "Trunk Subwoofer", "Dashcam Provision",
+                     "Cup Holder at Tail Door", "Hooks at Tail Door",
+                     "Warning Triangle at Tail Door", "Door Magnetic Strap"]
+    },
+    {
+        "category": "Floor Console", "description": "Armrest & Charging",
+        "features": ["Armrest Sliding", "Armrest Soft", "Armrest Storage",
+                     "Wireless Charging Front Row", "No of Wireless Charging Pads"]
+    },
+    {
+        "category": "Door & Trim", "description": "Door Panel Details",
+        "features": ["Front Door Scuff Material", "Rear Door Scuff Material"]
+    },
+    {
+        "category": "Steering & Voice", "description": "Controls & Voice Assistance",
+        "features": ["Voice Recognition Steering Wheel", "Voice Assistant Type",
+                     "Multi-language Voice Commands", "Amazon Alexa Voice Assistant",
+                     "Active Noise Reduction", "Intelligent Voice Control",
+                     "Intelligent Dodge", "Intelligent Parking Assist"]
+    },
+    {
+        "category": "Seats Extended", "description": "Power & Memory",
+        "features": ["Co-Driver Seat Adjustment", "Power Seat Controls Location",
+                     "Programmable Memory Seat", "Seatbelt Warning",
+                     "Seatbelt Tongue Holder 2nd Row", "Crash Sensor"]
+    },
+    {
+        "category": "Technology Extended", "description": "Connectivity & Media",
+        "features": ["Infotainment Touch", "Display Language",
+                     "Phone Sync Audio", "Bluetooth Hands Free",
+                     "AM/FM Radio", "Digital Radio DAB",
+                     "Wireless Smartphone Integration"]
+    },
+    {
+        "category": "Branded Audio", "description": "Sound System Details",
+        "features": ["Audio Brand", "Dolby Atmos", "Speed Sensing Volume"]
+    },
+    {
+        "category": "Others", "description": "Unique Features",
+        "features": ["Transparent Car Bottom Camera", "Car Picnic Table",
+                     "Safety Belt Holder 2nd Row", "Front Rear Parking Sensor Radar"]
+    },
 ]
 
 
@@ -601,12 +892,11 @@ def _fetch_binary_feature_comparison(car_names: List[str], comparison_data: Dict
     """
     Build the feature comparison table efficiently:
       1. Serve features that map to existing scraped keys directly (free, instant).
-      2. Collect remaining features → re-batch into groups of 10 → parallel Gemini calls.
-    This avoids re-fetching data we already have.
+      2. Single Gemini call for up to 10 essential features not in scraped data.
+      3. All remaining features default to False — every feature always shown.
     """
     import os
     import json_repair
-    from concurrent.futures import ThreadPoolExecutor, as_completed
 
     def _is_na(val):
         if val is None:
@@ -638,104 +928,137 @@ def _fetch_binary_feature_comparison(car_names: List[str], comparison_data: Dict
                 "description": batch["description"],
             })
 
-    print(f"  Feature comparison: {len(resolved)} from scraped data, "
-          f"{len(missing_features)} need Gemini search")
+    print(f"  Feature comparison: {len(resolved)} from scraped data, {len(missing_features)} need search")
 
     # ------------------------------------------------------------------
-    # Step 2: re-batch missing features into groups of 10 → parallel Gemini
+    # Step 2: Custom Search API (1 query per feature) + batch Gemini extraction
+    #         (10 features per Gemini call, all batches in parallel)
     # ------------------------------------------------------------------
+    import threading
+    import concurrent.futures
+
     gemini_resolved: Dict[str, Dict] = {}
 
     if missing_features:
         try:
-            from google import genai
-            from google.genai import types
+            from vehicle_development_agent.core.scraper import (
+                google_custom_search, SEARCH_ENGINE_ID,
+                call_gemini_simple, GEMINI_WORKERS,
+            )
 
-            PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT")
-            client = genai.Client(vertexai=True, project=PROJECT_ID, location="global")
-
+            cars_str = " vs ".join(car_names)
             car1 = car_names[0]
             car2 = car_names[1] if len(car_names) > 1 else "Competitor"
-            cars_str = " vs ".join(car_names)
 
-            # Split missing into batches of 10
-            gemini_batches = [
-                missing_features[i:i + 10]
-                for i in range(0, len(missing_features), 10)
+            # ── 2a: one Custom Search query per missing feature ────────────
+            print(f"  Running {len(missing_features)} custom search queries...")
+            search_results_map: Dict[str, list] = {}
+
+            def _search_feature(feat_info):
+                feat_name = feat_info["name"]
+                query = f"{cars_str} {feat_name}"
+                try:
+                    return feat_name, google_custom_search(query, SEARCH_ENGINE_ID, num_results=3)
+                except Exception:
+                    return feat_name, []
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=15) as ex:
+                for fname, results in ex.map(_search_feature, missing_features):
+                    search_results_map[fname] = results
+
+            # ── 2b: batch Gemini extraction, 10 features per call, parallel ─
+            BATCH_SIZE = 10
+            feat_batches = [
+                missing_features[i:i + BATCH_SIZE]
+                for i in range(0, len(missing_features), BATCH_SIZE)
             ]
+            print(f"  {len(feat_batches)} Gemini extraction batches firing in parallel...")
 
-            def _call_batch(feats: List[Dict]) -> List[Dict]:
-                feat_list = "\n".join(f"- {f['name']}" for f in feats)
-                prompt = f"""For {cars_str}, look up each feature and return whether each car has it.
+            _lock = threading.Lock()
 
-Features:
-{feat_list}
+            def _extract_batch(batch):
+                sections = []
+                json_lines = []
+                for feat_info in batch:
+                    feat_name = feat_info["name"]
+                    results = search_results_map.get(feat_name, [])
+                    section = f"--- FEATURE: {feat_name} ---\n"
+                    for i, r in enumerate(results[:3], 1):
+                        section += f"[{i}] {r.get('domain', '')}: {r.get('snippet', '')}\n"
+                    if not results:
+                        section += "(no search results — use training knowledge)\n"
+                    sections.append(section)
+                    json_lines.append(
+                        f'    {{"name": "{feat_name}", "{car1}": <value>, "{car2}": <value>}}'
+                    )
 
+                prompt = f"""For {cars_str}, determine each feature's value from the snippets below.
+
+{"".join(sections)}
 Rules:
-- true/false for yes/no features
-- integer for counts (e.g. Total Airbags → 6)
-- short text max 20 chars for type/size (e.g. Seat Material → "Leather")
-- false if the car does not have the feature
+- true / false for yes/no features
+- integer for counts (e.g. 2 for cup holders)
+- short text ≤20 chars for material/type/brand (e.g. "Leatherette")
+- false if feature is absent
 
-Return ONLY valid JSON:
+Return ONLY valid JSON (no markdown):
 {{
   "features": [
-    {{"name": "Feature Name", "{car1}": true, "{car2}": false}},
-    {{"name": "Speaker Count", "{car1}": 8, "{car2}": 6}}
+{chr(10).join(json_lines)}
   ]
 }}"""
                 try:
-                    tools = [types.Tool(google_search=types.GoogleSearch())]
-                    config = types.GenerateContentConfig(
-                        tools=tools, temperature=0.1, max_output_tokens=1024
-                    )
-                    response = client.models.generate_content(
-                        model=GEMINI_LITE_MODEL, contents=prompt, config=config
-                    )
-                    if response and response.text:
-                        text = response.text.strip()
-                        if "```json" in text:
-                            text = text.split("```json")[1].split("```")[0]
-                        elif "```" in text:
-                            text = text.split("```")[1].split("```")[0]
-                        text = text.strip()
-                        if "{" in text and "}" in text:
-                            text = text[text.index("{"):text.rindex("}") + 1]
-                        result = json_repair.loads(text)
-                        return result.get("features", [])
+                    text = call_gemini_simple(prompt).strip()
+                    if "```json" in text:
+                        text = text.split("```json")[1].split("```")[0]
+                    elif "```" in text:
+                        text = text.split("```")[1].split("```")[0]
+                    text = text.strip()
+                    if "{" in text and "}" in text:
+                        text = text[text.index("{"):text.rindex("}") + 1]
+                    result = json_repair.loads(text)
+                    return result.get("features", [])
                 except Exception as e:
-                    print(f"  Gemini batch error: {e}")
-                return []
+                    print(f"  Extraction batch error: {e}")
+                    return []
 
-            # Fire all Gemini batches in parallel
-            with ThreadPoolExecutor(max_workers=len(gemini_batches)) as executor:
-                futures = {executor.submit(_call_batch, b): b for b in gemini_batches}
-                for future in as_completed(futures):
+            with concurrent.futures.ThreadPoolExecutor(max_workers=len(feat_batches)) as ex:
+                future_to_batch = {ex.submit(_extract_batch, b): b for b in feat_batches}
+                for future in concurrent.futures.as_completed(future_to_batch):
                     for feat_obj in future.result():
                         name = feat_obj.get("name", "")
                         if name:
-                            gemini_resolved[name] = {
-                                cn: feat_obj.get(cn) for cn in car_names
-                            }
+                            with _lock:
+                                gemini_resolved[name] = {cn: feat_obj.get(cn) for cn in car_names}
 
-            print(f"  Gemini returned {len(gemini_resolved)} features "
-                  f"via {len(gemini_batches)} parallel calls")
+            print(f"  Fetched {len(gemini_resolved)} features via search + {len(feat_batches)} Gemini calls")
 
         except Exception as e:
-            print(f"  Gemini feature fetch error: {e}")
+            print(f"  Feature search/extraction error: {e}")
+
+    # Write resolved feature values back into comparison_data so checklist_transformer can use them
+    _extra_prefix = "xfeat_"
+    for feat_name, car_vals in {**resolved, **gemini_resolved}.items():
+        key = _extra_prefix + feat_name.lower().replace(" ", "_").replace("/", "_").replace(
+            "-", "_").replace("(", "").replace(")", "").replace(".", "").replace("&", "_")
+        for cn, val in car_vals.items():
+            if cn in comparison_data:
+                comparison_data[cn][key] = val
 
     # ------------------------------------------------------------------
     # Step 3: assemble into ordered category structure from _FEATURE_BATCHES
+    # Always include every feature — default to False if no data available
     # ------------------------------------------------------------------
     cat_map: Dict[str, List] = {}
     for batch in _FEATURE_BATCHES:
         desc_feats = []
         for feat_name in batch["features"]:
             vals = resolved.get(feat_name) or gemini_resolved.get(feat_name)
-            if vals:
-                feat_obj = {"name": feat_name}
-                feat_obj.update(vals)
-                desc_feats.append(feat_obj)
+            if not vals:
+                vals = {cn: False for cn in car_names}
+            feat_obj = {"name": feat_name}
+            feat_obj.update(vals)
+            desc_feats.append(feat_obj)
         if desc_feats:
             cat_map.setdefault(batch["category"], []).append(
                 {"description": batch["description"], "features": desc_feats}
@@ -1292,7 +1615,8 @@ def generate_image_gallery_section(
     title: str,
     comparison_data: Dict[str, Any],
     image_category: str,
-    section_id: str = ""
+    section_id: str = "",
+    with_ai_notes: bool = False,
 ) -> str:
     """
     Generate an image gallery section for a specific category.
@@ -1302,6 +1626,7 @@ def generate_image_gallery_section(
         comparison_data: Dict mapping car names to their scraped data
         image_category: Category key in images dict ("exterior", "interior", etc.)
         section_id: Optional HTML id for the section
+        with_ai_notes: If True, generate AI analytical notes below each image
 
     Returns:
         HTML string for image gallery section
@@ -1340,15 +1665,25 @@ def generate_image_gallery_section(
     if not all_images:
         return ""  # Don't show section if no images
 
+    display_images = all_images[:12]  # Max 12 images per section
+
+    # Generate AI notes if requested
+    ai_notes: List[str] = []
+    if with_ai_notes:
+        ai_notes = _generate_ai_notes_for_gallery(display_images, image_category, comparison_data)
+
     # Generate image grid
     images_html = ""
-    for img_data in all_images[:12]:  # Max 12 images per section
+    for idx, img_data in enumerate(display_images):
+        note = ai_notes[idx] if ai_notes and idx < len(ai_notes) else ""
+        note_html = f'<div class="gallery-ai-note">{note}</div>' if note else ""
         images_html += f'''
         <div class="gallery-item">
             <img src="{img_data['url']}" alt="{img_data['alt']}"
                  onerror="this.parentElement.style.display='none'">
             <div class="gallery-feature">{img_data['feature']}</div>
             <div class="gallery-car-name">{img_data['car_name']}</div>
+            {note_html}
         </div>
         '''
 
@@ -1459,7 +1794,7 @@ def get_image_section_styles() -> str:
     }
 
     /* ========================================
-       HERO IMAGE PAGE STYLES
+       HERO COMPARISON PAGE STYLES
        ======================================== */
     .hero-image-page {
         width: 100%;
@@ -1478,12 +1813,11 @@ def get_image_section_styles() -> str:
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 30px 50px;
-        border-bottom: none;
+        padding: 24px 50px;
     }
 
     .hero-page-title {
-        font-size: 24px;
+        font-size: 22px;
         font-weight: 400;
         color: #333;
         margin: 0;
@@ -1501,36 +1835,115 @@ def get_image_section_styles() -> str:
         filter: brightness(0);
     }
 
-    .hero-image-container {
+    .hero-comparison-container {
         flex: 1;
+        display: flex;
+        align-items: stretch;
+        overflow: hidden;
+        min-height: 0;
+    }
+
+    .hero-comparison-side {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        min-width: 0;
+    }
+
+    .hero-comparison-image-wrap {
+        flex: 1;
+        overflow: hidden;
+        position: relative;
+        min-height: 0;
+    }
+
+    .hero-comparison-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    .hero-comparison-label {
+        padding: 14px 20px;
+        text-align: center;
+        font-size: 16px;
+        font-weight: 700;
+        color: #1a1a1a;
+        background: #f0f0f0;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        flex-shrink: 0;
+    }
+
+    .hero-comparison-left-side .hero-comparison-label {
+        background: #1a1a1a;
+        color: #ffffff;
+    }
+
+    .hero-comparison-right-side {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        min-width: 0;
+    }
+
+    .hero-comparison-car {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        min-height: 0;
+    }
+
+    .hero-vs-divider {
+        width: 56px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #1a1a1a;
+        flex-shrink: 0;
+        z-index: 5;
+    }
+
+    .hero-vs-badge {
+        width: 44px;
+        height: 44px;
+        background: #cc0000;
+        color: white;
+        border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 20px 50px;
-        overflow: hidden;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 1px;
     }
 
-    .hero-full-image {
-        max-width: 100%;
-        max-height: 100%;
-        width: auto;
-        height: auto;
-        object-fit: contain;
+    .hero-comparison-placeholder {
+        width: 100%;
+        height: 100%;
+        background: #e8e8e8;
     }
 
     .hero-page-footer {
         display: flex;
         justify-content: flex-end;
         align-items: center;
-        padding: 20px 50px 30px;
+        padding: 16px 50px 24px;
         border-top: 4px solid #1a1a1a;
         margin: 0 50px;
+        flex-shrink: 0;
     }
 
-    .hero-page-number {
-        font-size: 14px;
-        font-weight: 500;
-        color: #666;
+    @media print {
+        .hero-image-page {
+            height: 100vh;
+            page-break-after: always;
+        }
     }
 
     /* Image Gallery Section Styles */
@@ -1577,12 +1990,35 @@ def get_image_section_styles() -> str:
     }
 
     .gallery-car-name {
-        padding: 0 15px 12px 15px;
+        padding: 0 15px 8px 15px;
         text-align: center;
         font-size: 11px;
         font-weight: 500;
         color: #6c757d;
         background: #f8f9fa;
+    }
+
+    .gallery-ai-note {
+        padding: 8px 14px 12px 14px;
+        font-size: 11.5px;
+        font-weight: 400;
+        color: #3a3a3a;
+        background: #ffffff;
+        line-height: 1.5;
+        border-top: 1px solid #e9ecef;
+        font-style: italic;
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+    }
+
+    .gallery-ai-note::before {
+        content: "✦";
+        font-size: 9px;
+        color: #cc0000;
+        flex-shrink: 0;
+        margin-top: 2px;
+        font-style: normal;
     }
 
     /* ========================================
@@ -1773,9 +2209,10 @@ def get_image_section_styles() -> str:
             min-height: 100vh !important;
         }
 
-        .hero-full-image {
-            max-width: 90% !important;
-            max-height: 70vh !important;
+        .hero-comparison-img {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover !important;
         }
 
         .image-gallery {
@@ -1830,6 +2267,13 @@ def get_image_section_styles() -> str:
             text-align: center;
             font-size: 10px !important;
             padding: 6px 8px !important;
+        }
+
+        .gallery-ai-note {
+            font-size: 10px !important;
+            padding: 6px 10px 8px 10px !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
         }
 
         .spec-page,
@@ -2108,8 +2552,8 @@ def get_image_section_styles() -> str:
             font-size: 16px;
         }
 
-        .hero-image-container {
-            padding: 20px 30px;
+        .hero-vs-divider {
+            width: 44px;
         }
 
         .hero-page-footer {
@@ -2393,3 +2837,1766 @@ def get_image_section_styles() -> str:
         }
     }
     '''
+
+
+# ============================================================================
+# VENN DIAGRAM SECTION  (Chart.js venn plugin + sliding window)
+# ============================================================================
+
+def _derive_venn_from_summary(
+    summary_data: Dict[str, Any],
+    comparison_data: Dict[str, Any],
+) -> Dict[str, Any]:
+    """
+    Build Venn feature sets directly from summary_data which already has
+    features_not_in_car1 (car2-unique) and features_in_car1_only (car1-unique).
+    Makes a small Gemini call only to identify COMMON features shared by both cars.
+    Returns {"features": [...], "_car_names": [...], "car1_unique": [...], "car2_unique": [...], "common": [...]}
+    """
+    SKIP_KEYS = {
+        "images", "source_urls", "gcs_folder", "scraping_method", "timestamp",
+        "chart_gcs_uri", "chart_signed_url", "summary_data", "variant_walk",
+        "car_name", "method", "is_code_car",
+    }
+    EMPTY = {"Not Available", "N/A", "not available", "n/a", "-", "", "None", "Not found"}
+
+    car_names = [n for n, d in comparison_data.items()
+                 if isinstance(d, dict) and "error" not in d]
+    if len(car_names) < 2 or not summary_data:
+        return {}
+
+    car1, car2 = car_names[0], car_names[1]
+
+    # Flatten car1-unique features from features_in_car1_only
+    car1_unique: List[str] = []
+    for category, items in (summary_data.get("features_in_car1_only") or {}).items():
+        if isinstance(items, list):
+            for item in items:
+                s = str(item).strip()
+                if s:
+                    car1_unique.append(s)
+
+    # Flatten car2-unique features from features_not_in_car1
+    car2_unique: List[str] = []
+    for category, items in (summary_data.get("features_not_in_car1") or {}).items():
+        if isinstance(items, list):
+            for item in items:
+                s = str(item).strip()
+                if s:
+                    car2_unique.append(s)
+
+    # Build condensed spec data (for common-feature extraction)
+    condensed: Dict[str, dict] = {}
+    for car_name, car_data in comparison_data.items():
+        if not isinstance(car_data, dict) or "error" in car_data:
+            continue
+        condensed[car_name] = {
+            k: str(v)[:120]
+            for k, v in car_data.items()
+            if k not in SKIP_KEYS
+            and not k.endswith("_citation")
+            and v and str(v).strip() not in EMPTY
+        }
+
+    # Ask Gemini only for COMMON features (much smaller prompt)
+    common_features: List[str] = []
+    try:
+        from vertexai.generative_models import GenerativeModel
+        model = GenerativeModel("gemini-2.5-flash")
+
+        unique_combined = car1_unique + car2_unique  # already-known differences
+        prompt = f"""You are an automotive analyst. Two vehicles are being compared:
+- {car1} (Car 1)
+- {car2} (Car 2)
+
+We already know the DIFFERENCES:
+- Features unique to {car1}: {json.dumps(car1_unique[:20])}
+- Features unique to {car2}: {json.dumps(car2_unique[:20])}
+
+Shared specification data for both cars:
+{json.dumps(condensed, indent=2)[:3000]}
+
+Task: List 10-20 features/specifications that are COMMON to BOTH cars (present in both).
+Focus on: safety features, engine type, transmission options, body type, shared tech, similar comfort items.
+Each item should be a concise plain-English feature description.
+
+Return ONLY valid JSON:
+{{"common_features": ["Feature 1", "Feature 2", ...]}}"""
+
+        response = model.generate_content(prompt)
+        text = response.text.strip()
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+        text = text.strip()
+        data = json.loads(text)
+        common_features = data.get("common_features", [])
+    except Exception as e:
+        print(f"[Venn] Common features extraction failed: {e}")
+        common_features = []
+
+    # Build the unified features list in the original format
+    features: List[Dict] = []
+    for item in car1_unique:
+        features.append({"name": item, "present_in": [car1]})
+    for item in car2_unique:
+        features.append({"name": item, "present_in": [car2]})
+    for item in common_features:
+        features.append({"name": item, "present_in": [car1, car2]})
+
+    return {
+        "features": features,
+        "_car_names": car_names,
+        # Pre-computed sets for quick access
+        "car1_unique": car1_unique,
+        "car2_unique": car2_unique,
+        "common": common_features,
+    }
+
+
+def _compute_window_sets(features: List[Dict], window: List[str]) -> Dict[str, List[str]]:
+    """
+    Given a list of {name, present_in} features and a window of car names,
+    compute which features belong to each region:
+      unique_<car>        — only that car within window
+      pair_<A>_<B>        — shared by exactly A & B (for 3 or 4-car windows)
+      triple_<A>_<B>_<C>  — shared by exactly 3 cars (4-car windows only)
+      common              — all cars in window
+    """
+    window_set = set(window)
+    regions: Dict[str, List[str]] = {"common": []}
+    for car in window:
+        regions[f"unique_{car}"] = []
+    # pair regions for 3 and 4-car windows
+    if len(window) >= 3:
+        for i in range(len(window)):
+            for j in range(i + 1, len(window)):
+                regions[f"pair_{window[i]}_{window[j]}"] = []
+    # triple regions for 4-car window
+    if len(window) == 4:
+        for i in range(len(window)):
+            for j in range(i + 1, len(window)):
+                for k in range(j + 1, len(window)):
+                    regions[f"triple_{window[i]}_{window[j]}_{window[k]}"] = []
+
+    for feat in features:
+        present = set(feat.get("present_in", [])) & window_set
+        if not present:
+            continue
+        name = feat["name"]
+        if present == window_set:
+            regions["common"].append(name)
+        elif len(present) == 1:
+            [car] = present
+            regions[f"unique_{car}"].append(name)
+        elif len(present) == 2:
+            [c1, c2] = sorted(present, key=lambda x: window.index(x))
+            key = f"pair_{c1}_{c2}"
+            if key in regions:
+                regions[key].append(name)
+        elif len(present) == 3 and len(window) == 4:
+            [c1, c2, c3] = sorted(present, key=lambda x: window.index(x))
+            key = f"triple_{c1}_{c2}_{c3}"
+            if key in regions:
+                regions[key].append(name)
+    return regions
+
+
+def generate_spider_chart_section(
+    comparison_data: Dict[str, Any],
+    summary_data: Dict[str, Any] = None,
+) -> str:
+    """
+    Generate spider/radar charts showing top 5 specs for each spec group.
+    Creates multiple radar charts for different categories like Safety, Performance,
+    Comfort, Technology, and Dimensions.
+
+    Args:
+        comparison_data: Dict mapping car names to their scraped data
+        summary_data: Optional summary data (not used but kept for compatibility)
+
+    Returns:
+        HTML string with spider charts for all spec groups
+    """
+    car_names = [name for name, data in comparison_data.items()
+                 if isinstance(data, dict) and "error" not in data]
+
+    if len(car_names) < 2:
+        return ""
+
+    # Define spec groups with their specs (top 5 most important for each category)
+    SPEC_GROUPS = {
+        "Safety & Security": [
+            ("Airbags", "airbags", "count"),
+            ("NCAP Rating", "ncap_rating", "rating"),
+            ("ADAS Features", "adas", "bool"),
+            ("ABS with EBD", "brakes", "bool"),
+            ("Hill Hold Control", "vehicle_safety_features", "bool"),
+        ],
+        "Performance": [
+            ("Engine Power (bhp)", "power", "numeric"),
+            ("Torque (Nm)", "torque", "numeric"),
+            ("0-100 km/h (sec)", "acceleration", "numeric_inverted"),
+            ("Top Speed (km/h)", "top_speed", "numeric"),
+            ("Fuel Efficiency (kmpl)", "mileage", "numeric"),
+        ],
+        "Comfort & Convenience": [
+            ("Sunroof", "sunroof", "bool"),
+            ("Climate Control", "climate_control", "bool"),
+            ("Ventilated Seats", "ventilated_seats", "bool"),
+            ("Cruise Control", "cruise_control", "bool"),
+            ("Wireless Charging", "wireless_charging", "bool"),
+        ],
+        "Technology & Infotainment": [
+            ("Infotainment Screen", "infotainment_screen", "size"),
+            ("Digital Instrument Cluster", "digital_display", "bool"),
+            ("Apple CarPlay", "apple_carplay", "bool"),
+            ("Connected Car Features", "connected_car", "bool"),
+            ("Speaker Count", "audio_system", "count"),
+        ],
+        "Dimensions & Capacity": [
+            ("Wheelbase (mm)", "wheelbase", "numeric"),
+            ("Ground Clearance (mm)", "ground_clearance", "numeric"),
+            ("Boot Space (litres)", "boot_space", "numeric"),
+            ("Fuel Tank (litres)", "fuel_tank_capacity", "numeric"),
+            ("Seating Capacity", "seating_capacity", "count"),
+        ],
+    }
+
+    import re
+
+    def extract_number(text: str) -> float:
+        """Extract numeric value from text."""
+        if not text or text in ["Not Available", "N/A", "Not found", "", "-"]:
+            return 0.0
+        match = re.search(r'(\d+\.?\d*)', str(text))
+        return float(match.group(1)) if match else 0.0
+
+    def normalize_value(value: str, value_type: str, max_val: float = 100.0) -> float:
+        """Normalize value to 0-100 scale for radar chart."""
+        if not value or value in ["Not Available", "N/A", "Not found", "", "-"]:
+            return 0.0
+
+        if value_type == "bool":
+            # Check for positive indicators
+            val_lower = str(value).lower()
+            if any(x in val_lower for x in ["yes", "available", "present", "✓"]):
+                return 100.0
+            if len(val_lower) > 3 and val_lower not in ["not available", "n/a", "not found"]:
+                return 100.0
+            return 0.0
+
+        elif value_type == "count":
+            num = extract_number(value)
+            # Normalize counts (e.g., 0-10 airbags -> 0-100 scale)
+            return min((num / (max_val / 100.0)) * 100, 100.0)
+
+        elif value_type == "numeric":
+            num = extract_number(value)
+            return min((num / max_val) * 100, 100.0)
+
+        elif value_type == "numeric_inverted":
+            # For metrics where lower is better (e.g., 0-100 acceleration time)
+            num = extract_number(value)
+            if num == 0:
+                return 0.0
+            return max(0, 100 - (num / max_val) * 100)
+
+        elif value_type == "rating":
+            # NCAP rating (0-5 stars)
+            num = extract_number(value)
+            return (num / 5.0) * 100
+
+        elif value_type == "size":
+            # Screen size in inches
+            num = extract_number(value)
+            return min((num / 20.0) * 100, 100.0)  # Normalize to 20 inch max
+
+        return 0.0
+
+    # Build charts for each spec group
+    charts_html = ""
+    chart_id = 0
+
+    for group_name, specs in SPEC_GROUPS.items():
+        chart_id += 1
+
+        # Collect data for this group
+        labels = []
+        datasets = []
+
+        # Prepare labels (spec names)
+        for spec_name, _, _ in specs:
+            labels.append(spec_name.replace(" (bhp)", "").replace(" (Nm)", "").replace(" (mm)", "").replace(" (litres)", "").replace(" (sec)", "").replace(" (km/h)", "").replace(" (kmpl)", ""))
+
+        # Prepare datasets (one per car)
+        colors = [
+            ("rgba(220, 53, 69, 0.6)", "rgba(220, 53, 69, 1)"),    # Red
+            ("rgba(13, 110, 253, 0.6)", "rgba(13, 110, 253, 1)"),  # Blue
+            ("rgba(25, 135, 84, 0.6)", "rgba(25, 135, 84, 1)"),    # Green
+            ("rgba(255, 193, 7, 0.6)", "rgba(255, 193, 7, 1)"),    # Yellow
+        ]
+
+        for idx, car_name in enumerate(car_names):
+            car_data = comparison_data.get(car_name, {})
+            values = []
+
+            for spec_name, spec_key, value_type in specs:
+                raw_value = car_data.get(spec_key, "Not Available")
+
+                # Determine max value for normalization
+                max_val = 100.0
+                if spec_key == "airbags":
+                    max_val = 10.0
+                elif spec_key == "power":
+                    max_val = 200.0  # bhp
+                elif spec_key == "torque":
+                    max_val = 500.0  # Nm
+                elif spec_key == "acceleration":
+                    max_val = 20.0   # seconds
+                elif spec_key == "top_speed":
+                    max_val = 200.0  # km/h
+                elif spec_key == "mileage":
+                    max_val = 30.0   # kmpl
+                elif spec_key == "wheelbase":
+                    max_val = 3000.0  # mm
+                elif spec_key == "ground_clearance":
+                    max_val = 250.0   # mm
+                elif spec_key == "boot_space":
+                    max_val = 500.0   # litres
+                elif spec_key == "fuel_tank_capacity":
+                    max_val = 80.0    # litres
+                elif spec_key == "seating_capacity":
+                    max_val = 10.0
+                elif spec_key == "audio_system":
+                    max_val = 12.0    # speakers
+
+                normalized = normalize_value(raw_value, value_type, max_val)
+                values.append(normalized)
+
+            bg_color, border_color = colors[idx % len(colors)]
+
+            datasets.append({
+                "label": car_name,
+                "data": values,
+                "backgroundColor": bg_color,
+                "borderColor": border_color,
+                "borderWidth": 2,
+                "pointRadius": 4,
+                "pointBackgroundColor": border_color,
+            })
+
+        # Generate Chart.js config
+        import json
+
+        chart_config = {
+            "type": "radar",
+            "data": {
+                "labels": labels,
+                "datasets": datasets
+            },
+            "options": {
+                "responsive": True,
+                "maintainAspectRatio": True,
+                "plugins": {
+                    "legend": {
+                        "display": True,
+                        "position": "bottom",
+                        "labels": {
+                            "font": {"size": 14, "weight": "bold"},
+                            "padding": 15,
+                            "usePointStyle": True,
+                        }
+                    },
+                    "title": {
+                        "display": True,
+                        "text": group_name,
+                        "font": {"size": 20, "weight": "bold"},
+                        "padding": {"top": 10, "bottom": 20}
+                    }
+                },
+                "scales": {
+                    "r": {
+                        "min": 0,
+                        "max": 100,
+                        "beginAtZero": True,
+                        "ticks": {
+                            "stepSize": 20,
+                            "font": {"size": 12}
+                        },
+                        "pointLabels": {
+                            "font": {"size": 13, "weight": "600"},
+                            "color": "#333"
+                        },
+                        "grid": {
+                            "color": "rgba(0, 0, 0, 0.1)"
+                        },
+                        "angleLines": {
+                            "color": "rgba(0, 0, 0, 0.1)"
+                        }
+                    }
+                }
+            }
+        }
+
+        charts_html += f'''
+        <div class="spider-chart-container">
+            <canvas id="spiderChart{chart_id}"></canvas>
+            <script>
+                (function() {{
+                    const ctx = document.getElementById('spiderChart{chart_id}').getContext('2d');
+                    const config = {json.dumps(chart_config)};
+                    new Chart(ctx, config);
+                }})();
+            </script>
+        </div>
+        '''
+
+    # Build final HTML with all charts
+    html = f'''
+    <div class="spider-charts-page" id="spider-charts-section">
+        <div class="spider-charts-header">
+            <h1 class="spider-charts-title">SPECIFICATION COMPARISON | <span class="highlight">RADAR ANALYSIS</span></h1>
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Mahindra_logo.svg/1920px-Mahindra_logo.svg.png?_=20231128143513" alt="Mahindra" class="spider-charts-logo">
+        </div>
+
+        <div class="spider-charts-grid">
+            {charts_html}
+        </div>
+
+        <div class="spider-charts-footer">
+            <p class="spider-note">Each axis represents a normalized score (0-100) for the respective specification</p>
+        </div>
+
+        <style>
+            .spider-charts-page {{
+                page-break-before: always;
+                padding: 40px;
+                min-height: 100vh;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+            }}
+
+            .spider-charts-header {{
+                text-align: center;
+                margin-bottom: 40px;
+                padding-bottom: 20px;
+                border-bottom: 3px solid rgba(255,255,255,0.3);
+            }}
+
+            .spider-charts-title {{
+                font-size: 32px;
+                font-weight: 800;
+                margin: 0 0 15px 0;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            }}
+
+            .spider-charts-title .highlight {{
+                color: #ffd700;
+                text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            }}
+
+            .spider-charts-logo {{
+                height: 40px;
+                filter: brightness(0) invert(1);
+            }}
+
+            .spider-charts-grid {{
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+                gap: 40px;
+                margin-bottom: 40px;
+            }}
+
+            .spider-chart-container {{
+                background: white;
+                border-radius: 15px;
+                padding: 30px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                transition: transform 0.3s ease;
+            }}
+
+            .spider-chart-container:hover {{
+                transform: translateY(-5px);
+                box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+            }}
+
+            .spider-chart-container canvas {{
+                max-width: 100%;
+                height: auto !important;
+            }}
+
+            .spider-charts-footer {{
+                text-align: center;
+                padding: 20px;
+                background: rgba(255,255,255,0.1);
+                border-radius: 10px;
+                margin-top: 30px;
+            }}
+
+            .spider-note {{
+                margin: 0;
+                font-size: 14px;
+                font-style: italic;
+                opacity: 0.9;
+            }}
+
+            @media print {{
+                .spider-charts-page {{
+                    background: white !important;
+                    color: black !important;
+                }}
+
+                .spider-charts-title {{
+                    color: #333 !important;
+                }}
+
+                .spider-charts-title .highlight {{
+                    color: #cc0000 !important;
+                }}
+            }}
+        </style>
+    </div>
+    '''
+
+    return html
+
+
+def generate_venn_diagram_section(
+    comparison_data: Dict[str, Any],
+    summary_data: Dict[str, Any] = None,
+) -> str:
+    """
+    Render Venn diagram in the style of the reference image:
+    - Large semi-transparent pastel overlapping circles
+    - Short spec names placed directly inside each region (unique + intersections)
+    - Car names bold in each unique region, like the reference
+    - Detailed expandable list below
+    - 2 cars → 2-circle | 3 cars → 3-circle triangle | 4 cars → 2×2 grid
+    - 5+ cars → sliding windows of 4
+    """
+    if not summary_data:
+        return ""
+    venn_data = _derive_venn_from_summary(summary_data, comparison_data)
+    if not venn_data:
+        return ""
+
+    car_names: List[str] = venn_data.get("_car_names", [])
+    features: List[Dict] = venn_data.get("features", [])
+    if len(car_names) < 2 or not features:
+        return ""
+
+    import re as _re
+
+    n = len(car_names)
+
+    # Mahindra brand colors - red, blue, gray palette (no yellow)
+    FILLS   = [
+        "rgba(180,180,190,0.50)",   # soft gray
+        "rgba(220,100,100,0.50)",   # mahindra red/coral
+        "rgba(100,150,220,0.50)",   # mahindra blue
+        "rgba(160,160,170,0.50)",   # medium gray
+    ]
+    STROKES = ["#8888a0", "#cc0000", "#0066cc", "#888899"]
+    ALPHA   = [
+        "rgba(180,180,190,0.13)",
+        "rgba(220,100,100,0.13)",
+        "rgba(100,150,220,0.13)",
+        "rgba(160,160,170,0.13)",
+    ]
+
+    # Shorten a feature description to a concise spec name (2-3 words max)
+    def _short(desc: str, max_words: int = 3) -> str:
+        s = _re.sub(r'\s*\([^)]*\)', '', str(desc)).strip()
+        s = _re.sub(r'\s*—.*$', '', s).strip()
+        words = s.split()
+        return ' '.join(words[:max_words])
+
+    # Build sliding windows — up to 4 cars per diagram
+    if n <= 4:
+        windows = [car_names[:]]
+    else:
+        windows = [car_names[i:i+4] for i in range(n - 3)]
+
+    # ── helper: collapsible detail list below the SVG ────────────────────────
+    MAX_VISIBLE = 12
+
+    def region_items_html(items: List[str], color: str, bg: str) -> str:
+        if not items:
+            return '<p class="venn-empty-inline">None identified</p>'
+        shown  = items[:MAX_VISIBLE]
+        hidden = items[MAX_VISIBLE:]
+        lis = "".join(
+            f'<li class="venn-item-text" style="border-left:3px solid {color};">{item}</li>'
+            for item in shown
+        )
+        extra = ""
+        if hidden:
+            uid = abs(hash(str(items[:3])))
+            extra_lis = "".join(
+                f'<li class="venn-item-text" style="border-left:3px solid {color};">{item}</li>'
+                for item in hidden
+            )
+            extra  = f'<ul class="venn-item-list venn-hidden-items" id="vx{uid}" style="display:none;">{extra_lis}</ul>'
+            extra += (f'<button class="venn-show-more" '
+                      f'onclick="document.getElementById(\'vx{uid}\').style.display=\'block\';'
+                      f'this.style.display=\'none\';">+ {len(hidden)} more</button>')
+        return f'<ul class="venn-item-list">{lis}</ul>{extra}'
+
+    # ── foreignObject helper: places text block at a region centroid ─────────
+    # Shows car name (bold) in unique regions + short spec names
+    MAX_IN_CIRCLE = 5   # items shown inside SVG per region
+
+    def _fo(x: int, y: int, w: int, h: int,
+            title: str, title_color: str,
+            items: List[str], is_intersection: bool = False) -> str:
+        """Render a foreignObject text block centred at (x,y)."""
+        short_items = [_short(i) for i in items[:MAX_IN_CIRCLE]]
+        overflow    = len(items) - MAX_IN_CIRCLE
+        items_html  = ", ".join(short_items)
+        overflow_el = f'<div class="vr-more">+{overflow} more</div>' if overflow > 0 else ""
+        title_el    = (f'<div class="vr-title" style="color:{title_color};">{title}</div>'
+                       if title else "")
+        content_cls = "vr-inter" if is_intersection else "vr-unique"
+        return (
+            f'<foreignObject x="{x - w//2}" y="{y - h//2}" width="{w}" height="{h}">'
+            f'<div xmlns="http://www.w3.org/1999/xhtml" class="vr-box {content_cls}">'
+            f'{title_el}'
+            f'<div class="vr-items">{items_html}{overflow_el}</div>'
+            f'</div></foreignObject>'
+        )
+
+    # ── build each window diagram ─────────────────────────────────────────────
+    diagrams_html = ""
+
+    def _make_venn_svg(window: List[str], regions: Dict) -> str:
+        common = regions.get("common", [])
+        w = len(window)
+
+        # ── 2-car ──────────────────────────────────────────────────────────
+        if w == 2:
+            ca, cb   = window
+            sa, sb   = STROKES[0], STROKES[1]
+            aa, ab_  = ALPHA[0], ALPHA[1]
+            u_a = regions.get(f"unique_{ca}", [])
+            u_b = regions.get(f"unique_{cb}", [])
+
+            fo_a    = _fo(148, 210, 175, 200, ca, sa, u_a)
+            fo_com  = _fo(450, 210, 160, 200, "", "#444", common, True)
+            fo_b    = _fo(752, 210, 175, 200, cb, sb, u_b)
+
+            svg = f"""<svg viewBox="0 0 900 420" width="100%" preserveAspectRatio="xMidYMid meet"
+     style="font-family:Georgia,serif;">
+  <circle cx="305" cy="210" r="195" fill="{FILLS[0]}" stroke="{sa}" stroke-width="1.2"/>
+  <circle cx="595" cy="210" r="195" fill="{FILLS[1]}" stroke="{sb}" stroke-width="1.2"/>
+  {fo_a}{fo_com}{fo_b}
+</svg>"""
+            panels = _detail_panels(window, regions, STROKES, ALPHA, common)
+            return f'<div class="venn-svg-outer">{svg}</div>{panels}'
+
+        # ── 3-car (triangle) ───────────────────────────────────────────────
+        if w == 3:
+            ca, cb, cc = window
+            sa, sb, sc = STROKES[0], STROKES[1], STROKES[2]
+            u_a  = regions.get(f"unique_{ca}", [])
+            u_b  = regions.get(f"unique_{cb}", [])
+            u_c  = regions.get(f"unique_{cc}", [])
+            p_ab = regions.get(f"pair_{ca}_{cb}", [])
+            p_ac = regions.get(f"pair_{ca}_{cc}", [])
+            p_bc = regions.get(f"pair_{cb}_{cc}", [])
+
+            fo_a   = _fo(450,  75, 175, 155, ca, sa, u_a)
+            fo_b   = _fo(155, 440, 175, 130, cb, sb, u_b)
+            fo_c   = _fo(745, 440, 175, 130, cc, sc, u_c)
+            fo_ab  = _fo(346, 248, 130, 100, "", "#666", p_ab,  True)
+            fo_ac  = _fo(554, 248, 130, 100, "", "#666", p_ac,  True)
+            fo_bc  = _fo(450, 408, 130, 100, "", "#666", p_bc,  True)
+            fo_com = _fo(450, 308, 140, 100, "", "#333", common, True)
+
+            svg = f"""<svg viewBox="0 0 900 580" width="100%" preserveAspectRatio="xMidYMid meet"
+     style="font-family:Georgia,serif;">
+  <circle cx="450" cy="220" r="180" fill="{FILLS[0]}" stroke="{sa}" stroke-width="1.2"/>
+  <circle cx="305" cy="365" r="180" fill="{FILLS[1]}" stroke="{sb}" stroke-width="1.2"/>
+  <circle cx="595" cy="365" r="180" fill="{FILLS[2]}" stroke="{sc}" stroke-width="1.2"/>
+  {fo_a}{fo_b}{fo_c}{fo_ab}{fo_ac}{fo_bc}{fo_com}
+</svg>"""
+            panels = _detail_panels(window, regions, STROKES, ALPHA, common)
+            return f'<div class="venn-svg-outer">{svg}</div>{panels}'
+
+        # ── 4-car (2×2 grid, like reference image) ─────────────────────────
+        if w == 4:
+            ca, cb, cc, cd = window
+            sa, sb, sc, sd = STROKES[0], STROKES[1], STROKES[2], STROKES[3]
+            u_a  = regions.get(f"unique_{ca}", [])
+            u_b  = regions.get(f"unique_{cb}", [])
+            u_c  = regions.get(f"unique_{cc}", [])
+            u_d  = regions.get(f"unique_{cd}", [])
+            p_ab = regions.get(f"pair_{ca}_{cb}", [])
+            p_cd = regions.get(f"pair_{cc}_{cd}", [])
+            p_ac = regions.get(f"pair_{ca}_{cc}", [])
+            p_bd = regions.get(f"pair_{cb}_{cd}", [])
+            p_ad = regions.get(f"pair_{ca}_{cd}", [])
+            p_bc = regions.get(f"pair_{cb}_{cc}", [])
+
+            # Unique corner blocks — positioned in the outermost region of each circle
+            fo_a  = _fo(148, 180, 160, 145, ca, sa, u_a)
+            fo_b  = _fo(752, 180, 160, 145, cb, sb, u_b)
+            fo_c  = _fo(148, 560, 160, 145, cc, sc, u_c)
+            fo_d  = _fo(752, 560, 160, 145, cd, sd, u_d)
+            # Pair intersections
+            fo_ab = _fo(450, 180, 135,  95, "", "#555", p_ab, True)
+            fo_cd = _fo(450, 560, 135,  95, "", "#555", p_cd, True)
+            fo_ac = _fo(175, 370, 130,  95, "", "#555", p_ac, True)
+            fo_bd = _fo(725, 370, 130,  95, "", "#555", p_bd, True)
+            fo_ad = _fo(528, 290, 120,  85, "", "#777", p_ad, True)
+            fo_bc = _fo(372, 450, 120,  85, "", "#777", p_bc, True)
+            # Center — common to all 4
+            fo_com = _fo(450, 370, 145, 105, "", "#222", common, True)
+
+            svg = f"""<svg viewBox="0 0 900 740" width="100%" preserveAspectRatio="xMidYMid meet"
+     style="font-family:Georgia,serif;">
+  <circle cx="308" cy="280" r="200" fill="{FILLS[0]}" stroke="{sa}" stroke-width="1.2"/>
+  <circle cx="592" cy="280" r="200" fill="{FILLS[1]}" stroke="{sb}" stroke-width="1.2"/>
+  <circle cx="308" cy="460" r="200" fill="{FILLS[2]}" stroke="{sc}" stroke-width="1.2"/>
+  <circle cx="592" cy="460" r="200" fill="{FILLS[3]}" stroke="{sd}" stroke-width="1.2"/>
+  {fo_a}{fo_b}{fo_c}{fo_d}
+  {fo_ab}{fo_cd}{fo_ac}{fo_bd}{fo_ad}{fo_bc}
+  {fo_com}
+</svg>"""
+            panels = _detail_panels(window, regions, STROKES, ALPHA, common)
+            return f'<div class="venn-svg-outer">{svg}</div>{panels}'
+
+        return ""
+
+    def _detail_panels(window, regions, strokes, alpha, common) -> str:
+        """Collapsible detail grid shown below the SVG."""
+        parts = []
+        for car, col, alp in zip(window, strokes, alpha):
+            u = regions.get(f"unique_{car}", [])
+            parts.append(f'<div class="venn-region venn-multi-region" style="border-color:{col};background:{alp};">'
+                         f'<div class="venn-region-title" style="color:{col};border-bottom:2px solid {col};">'
+                         f'Only in {car} <span class="venn-count-badge" style="background:{col};">{len(u)}</span></div>'
+                         f'{region_items_html(u, col, alp)}</div>')
+        wn = len(window)
+        for i in range(wn):
+            for j in range(i+1, wn):
+                p = regions.get(f"pair_{window[i]}_{window[j]}", [])
+                if p:
+                    parts.append(f'<div class="venn-region venn-multi-region" style="border-color:#6b7280;background:rgba(107,114,128,0.1);">'
+                                 f'<div class="venn-region-title" style="color:#6b7280;border-bottom:2px solid #6b7280;">'
+                                 f'{window[i]} &amp; {window[j]} <span class="venn-count-badge" style="background:#6b7280;">{len(p)}</span></div>'
+                                 f'{region_items_html(p,"#6b7280","rgba(107,114,128,0.1)")}</div>')
+        lbl = f"All {wn}" if wn > 2 else "Both"
+        parts.append(f'<div class="venn-region venn-multi-region" style="border-color:#374151;background:rgba(55,65,81,0.1);">'
+                     f'<div class="venn-region-title" style="color:#374151;border-bottom:2px solid #374151;">'
+                     f'Common to {lbl} <span class="venn-count-badge" style="background:#374151;">{len(common)}</span></div>'
+                     f'{region_items_html(common,"#374151","rgba(55,65,81,0.1)")}</div>')
+        return f'<div class="venn-text-layout venn-multi-layout">{"".join(parts)}</div>'
+
+    for w_idx, window in enumerate(windows):
+        regions  = _compute_window_sets(features, window)
+        subtitle = f"Window {w_idx+1}: {' · '.join(window)}" if len(windows) > 1 else ""
+        diagrams_html += f"""
+    <div class="venn-block">
+        {"<div class='venn-window-label'>" + subtitle + "</div>" if subtitle else ""}
+        <div class="venn-canvas-wrap">
+            {_make_venn_svg(window, regions)}
+        </div>
+    </div>"""
+
+    html = f"""
+    <div class="content venn-section" id="venn-section">
+        <div class="section-header">
+            <div class="icon-wrapper">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/>
+                </svg>
+            </div>
+            <h2>Feature Venn Diagram{"s" if len(windows) > 1 else ""}</h2>
+        </div>
+        {diagrams_html}
+        <div class="venn-note">
+            <strong>Note:</strong> Unique &amp; common features derived from AI analysis of spec data.
+            {"Sliding window of 4 cars per diagram." if len(windows) > 1 else ""}
+        </div>
+    </div>
+
+    <style>
+        .venn-section {{ margin-bottom: 40px; }}
+
+        .venn-block {{
+            margin-bottom: 48px;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #fff;
+            box-shadow: 0 2px 14px rgba(0,0,0,0.07);
+        }}
+
+        .venn-window-label {{
+            padding: 10px 20px;
+            background: #1a1a1a;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }}
+
+        .venn-canvas-wrap {{
+            padding: 12px 12px 0 12px;
+            background: #fff;
+        }}
+
+        .venn-svg-outer {{
+            background: #fff;
+            overflow: visible;
+        }}
+
+        /* ── text blocks inside SVG regions ── */
+        .vr-box {{
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            height: 100%;
+            padding: 4px;
+            box-sizing: border-box;
+        }}
+        .vr-title {{
+            font-family: Georgia, serif;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+            line-height: 1.2;
+        }}
+        .vr-items {{
+            font-family: Georgia, serif;
+            font-size: 11px;
+            color: #2d2d2d;
+            line-height: 1.55;
+        }}
+        .vr-more {{
+            font-size: 9.5px;
+            color: #888;
+            font-style: italic;
+            margin-top: 2px;
+        }}
+        .vr-inter .vr-items {{ font-size: 10.5px; color: #333; }}
+
+        /* ── detail panels below diagram ── */
+        .venn-text-layout {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 0;
+            border: 1px solid #e5e7eb;
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+            overflow: hidden;
+            margin: 0 4px 14px 4px;
+        }}
+
+        .venn-region {{
+            padding: 0;
+            border-right: 1px solid #e5e7eb;
+            display: flex;
+            flex-direction: column;
+        }}
+        .venn-region:last-child {{ border-right: none; }}
+        .venn-multi-region {{ border-bottom: 1px solid #e5e7eb; }}
+
+        .venn-region-title {{
+            padding: 9px 11px;
+            font-size: 11.5px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+        }}
+
+        .venn-count-badge {{
+            color: #fff;
+            padding: 2px 7px;
+            border-radius: 10px;
+            font-size: 10.5px;
+            font-weight: 800;
+            flex-shrink: 0;
+        }}
+
+        .venn-item-list {{
+            list-style: none;
+            padding: 6px 9px;
+            margin: 0;
+            flex: 1;
+        }}
+
+        .venn-item-text {{
+            padding: 3px 7px 3px 9px;
+            font-size: 11px;
+            line-height: 1.5;
+            color: #1f2937;
+            margin-bottom: 2px;
+            border-radius: 0 3px 3px 0;
+        }}
+
+        .venn-empty-inline {{
+            font-size: 11px;
+            color: #9ca3af;
+            font-style: italic;
+            padding: 7px 9px;
+            margin: 0;
+        }}
+
+        .venn-hidden-items {{ padding: 0 9px; margin: 0; }}
+
+        .venn-show-more {{
+            background: none;
+            border: none;
+            color: #6b7280;
+            font-size: 10.5px;
+            cursor: pointer;
+            padding: 2px 9px 7px;
+            text-decoration: underline;
+            font-weight: 600;
+        }}
+        .venn-show-more:hover {{ color: #374151; }}
+
+        .venn-note {{
+            margin: 4px 0 0;
+            padding: 7px 13px;
+            background: #f9fafb;
+            border-radius: 6px;
+            font-size: 11px;
+            border-left: 4px solid #555;
+            color: #6b7280;
+        }}
+
+        @media (max-width: 768px) {{
+            .venn-text-layout {{ grid-template-columns: 1fr !important; }}
+            .venn-region {{ border-right: none !important; border-bottom: 1px solid #e5e7eb; }}
+        }}
+        @media print {{
+            .venn-block {{ page-break-inside: avoid; break-inside: avoid; }}
+            .venn-hidden-items {{ display: block !important; }}
+            .venn-show-more {{ display: none !important; }}
+        }}
+    </style>
+    """
+
+    return html
+
+
+# ============================================================================
+# VARIANT WALK SECTION
+# ============================================================================
+
+def generate_variant_walk_section(comparison_data: Dict[str, Any]) -> str:
+    """
+    Generate variant walk section showing features across different variants.
+    Adapted from product_planning_agent for the benchmarking report.
+    """
+    if not comparison_data:
+        return ""
+
+    # Check if any car actually has variant_walk data
+    has_any = any(
+        isinstance(d, dict) and "error" not in d and d.get("variant_walk")
+        for d in comparison_data.values()
+    )
+    if not has_any:
+        return ""
+
+    html = """
+    <div class="content bm-variant-walk-section" id="variant-walk-section">
+        <div class="section-header">
+            <div class="icon-wrapper">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                </svg>
+            </div>
+            <h2>Variant Walk</h2>
+        </div>
+    """
+
+    for car_name, car_data in comparison_data.items():
+        if not isinstance(car_data, dict) or "error" in car_data:
+            continue
+        variant_walk = car_data.get("variant_walk") or {}
+        variants = variant_walk.get("variants") or {} if isinstance(variant_walk, dict) else {}
+
+        if not variants:
+            continue
+
+        variant_names = [v.get("name", k) for k, v in variants.items()]
+        num_cols = len(variant_names)
+
+        html += f"""
+        <h3 class="bm-vw-car-title">{car_name}</h3>
+        <div class="bm-vw-table-wrap">
+            <table class="bm-vw-table">
+                <thead><tr>
+        """
+        for vname in variant_names:
+            html += f'<th>{vname}</th>'
+        html += "</tr></thead><tbody><tr>"
+
+        is_first = True
+        variant_keys = list(variants.keys())
+        for idx, (vkey, vdata) in enumerate(variants.items()):
+            vdata = vdata or {}
+            features = vdata.get("features") or []
+            features_added = vdata.get("features_added") or []
+            features_deleted = vdata.get("features_deleted") or []
+
+            html += "<td>"
+            if is_first:
+                html += '<div class="bm-vw-section-label">Standard Features:</div>'
+                is_first = False
+            else:
+                prev_name = variants[variant_keys[idx - 1]].get("name", variant_keys[idx - 1])
+                html += f'<div class="bm-vw-section-label">In addition to {prev_name}:</div>'
+
+            items = features_added if features_added else features[:10]
+            if items:
+                html += '<ul class="bm-vw-features">'
+                for feat in items:
+                    html += f'<li class="bm-vw-added">{feat}</li>'
+                html += "</ul>"
+
+            if features_deleted:
+                html += '<div class="bm-vw-deleted-label">Removed / Replaced:</div>'
+                html += '<ul class="bm-vw-features">'
+                for feat in features_deleted:
+                    html += f'<li class="bm-vw-deleted">{feat}</li>'
+                html += "</ul>"
+
+            html += "</td>"
+
+        html += "</tr></tbody></table></div>"
+
+    html += """
+        <div class="bm-vw-legend">
+            <strong>Note:</strong> Variant walk shows progressive feature additions across trim levels.
+            <span class="bm-vw-legend-added">Green</span> = features added,
+            <span class="bm-vw-legend-deleted">Red</span> = features removed or replaced.
+        </div>
+    </div>
+
+    <style>
+        .bm-variant-walk-section { margin-bottom: 40px; }
+
+        .bm-vw-car-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin: 30px 0 12px 0;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #cc0000;
+        }
+
+        .bm-vw-table-wrap { overflow-x: auto; margin-bottom: 24px; }
+
+        .bm-vw-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 700px;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .bm-vw-table th {
+            background: #1a1a1a;
+            color: white;
+            padding: 14px 12px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 700;
+            border: 1px solid #333;
+            letter-spacing: 0.5px;
+        }
+
+        .bm-vw-table td {
+            padding: 14px 12px;
+            border: 1px solid #e5e7eb;
+            vertical-align: top;
+            font-size: 12.5px;
+            line-height: 1.7;
+            background: #fff;
+        }
+
+        .bm-vw-section-label {
+            font-weight: 700;
+            font-size: 11px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+
+        .bm-vw-deleted-label {
+            font-weight: 600;
+            font-size: 11px;
+            color: #cc0000;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 10px 0 4px 0;
+        }
+
+        .bm-vw-features { list-style: none; padding: 0; margin: 0; }
+
+        .bm-vw-added {
+            padding: 3px 0 3px 16px;
+            position: relative;
+            color: #059669;
+            font-weight: 500;
+        }
+        .bm-vw-added::before { content: "+ "; position: absolute; left: 0; font-weight: 700; }
+
+        .bm-vw-deleted {
+            padding: 3px 0 3px 16px;
+            position: relative;
+            color: #cc0000;
+            font-weight: 500;
+        }
+        .bm-vw-deleted::before { content: "− "; position: absolute; left: 0; font-weight: 700; }
+
+        .bm-vw-legend {
+            margin-top: 12px;
+            padding: 12px 16px;
+            background: #f9fafb;
+            border-radius: 6px;
+            font-size: 12px;
+            border-left: 4px solid #cc0000;
+        }
+        .bm-vw-legend-added { color: #059669; font-weight: 600; }
+        .bm-vw-legend-deleted { color: #cc0000; font-weight: 600; }
+
+        @media print {
+            .bm-vw-table-wrap { overflow-x: visible; }
+            .bm-vw-table { page-break-inside: auto; }
+            .bm-vw-table tr { page-break-inside: avoid; }
+        }
+    </style>
+    """
+
+    return html
+
+
+# ============================================================================
+# PRICE LADDER SECTION — 1:1 SIDE-BY-SIDE PER MODE
+# ============================================================================
+
+def generate_price_ladder_section(comparison_data: Dict[str, Any]) -> str:
+    """
+    Generate price ladder section with 1:1 side-by-side comparison per
+    fuel type × transmission mode. Each car gets equal width; cars with
+    no data for a given mode are omitted from that panel.
+    """
+    import re
+
+    if not comparison_data:
+        return ""
+
+    # Collect car names and their price ladders
+    cars: List[Dict[str, Any]] = []
+    for car_name, car_data in comparison_data.items():
+        if not isinstance(car_data, dict) or "error" in car_data:
+            continue
+        vw = car_data.get("variant_walk") or {}
+        pl = vw.get("price_ladder", {}) if isinstance(vw, dict) else {}
+        if pl:
+            cars.append({"name": car_name, "price_ladder": pl})
+
+    if not cars:
+        return ""
+
+    def extract_price_value(price_str: str) -> float:
+        if not price_str or price_str in ("Not Available", "N/A", ""):
+            return 0.0
+        s = price_str.replace("₹", "").replace("lakh", "").replace(",", "").strip()
+        m = re.search(r"(\d+\.?\d*)", s)
+        return float(m.group(1)) if m else 0.0
+
+    def build_ladder_column(car_name: str, variants: Dict[str, str]) -> str:
+        """Build one car's ladder column HTML."""
+        sorted_variants = sorted(variants.items(), key=lambda x: extract_price_value(x[1]))
+        has_data = any(
+            p and p not in ("Not Available", "N/A", "")
+            for _, p in sorted_variants
+        )
+        if not has_data:
+            return ""
+
+        col_html = f'<div class="pl-car-col"><div class="pl-car-col-name">{car_name}</div>'
+        col_html += '<div class="pl-ladder-line">'
+        for variant_name, price in sorted_variants:
+            if price and price not in ("Not Available", "N/A", ""):
+                clean = price.replace("₹", "").strip()
+                col_html += f"""
+                <div class="pl-ladder-point">
+                    <div class="pl-ladder-dot"></div>
+                    <div class="pl-ladder-label">
+                        <span class="pl-variant-name">{variant_name}</span>
+                        <span class="pl-price">{clean}</span>
+                    </div>
+                </div>"""
+        col_html += "</div></div>"
+        return col_html
+
+    # Determine all modes to render: fuel × transmission
+    FUEL_TYPES = [("petrol", "PETROL"), ("diesel", "DIESEL")]
+    TRANS_TYPES = [("MT", "MANUAL"), ("AT", "AUTOMATIC")]
+
+    panels_html = ""
+
+    for fuel_key, fuel_label in FUEL_TYPES:
+        for trans_key, trans_label in TRANS_TYPES:
+            # Build columns only for cars that have data for this combination
+            columns_html = ""
+            visible_count = 0
+            for car in cars:
+                fuel_data = car["price_ladder"].get(fuel_key) or {}
+                trans_data = fuel_data.get(trans_key) or {}
+                col = build_ladder_column(car["name"], trans_data)
+                if col:
+                    columns_html += col
+                    visible_count += 1
+
+            if visible_count == 0:
+                continue
+
+            # VS badges between columns
+            parts = columns_html.split('</div><div class="pl-car-col">')
+            if len(parts) > 1:
+                columns_html = '</div><div class="pl-vs-badge">VS</div><div class="pl-car-col">'.join(parts)
+
+            panels_html += f"""
+            <div class="pl-panel">
+                <div class="pl-panel-header">
+                    <span class="pl-fuel-badge pl-fuel-{fuel_key}">{fuel_label}</span>
+                    <span class="pl-trans-label">{trans_label} TRANSMISSION</span>
+                </div>
+                <div class="pl-cars-row pl-cars-{visible_count}">
+                    {columns_html}
+                </div>
+            </div>"""
+
+    if not panels_html:
+        return ""
+
+    html = f"""
+    <div class="content bm-price-ladder-section" id="price-ladder-section">
+        <div class="section-header">
+            <div class="icon-wrapper">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="1" x2="12" y2="23"/>
+                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                </svg>
+            </div>
+            <h2>Price Ladder</h2>
+        </div>
+        <div class="pl-panels-container">
+            {panels_html}
+        </div>
+        <div class="pl-note">
+            <strong>Note:</strong> Prices are ex-showroom and may vary by location.
+            Each panel shows the price ladder for a specific fuel &amp; transmission combination,
+            with all compared cars displayed side by side for direct comparison.
+        </div>
+    </div>
+
+    <style>
+        .bm-price-ladder-section {{ margin-bottom: 40px; }}
+
+        .pl-panels-container {{
+            display: flex;
+            flex-direction: column;
+            gap: 28px;
+            margin-top: 20px;
+        }}
+
+        .pl-panel {{
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            overflow: hidden;
+            border: 1px solid #e5e7eb;
+        }}
+
+        .pl-panel-header {{
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 16px 24px;
+            background: #1a1a1a;
+        }}
+
+        .pl-fuel-badge {{
+            padding: 4px 14px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 1px;
+        }}
+        .pl-fuel-petrol {{ background: #f59e0b; color: #1a1a1a; }}
+        .pl-fuel-diesel  {{ background: #3b82f6; color: white; }}
+
+        .pl-trans-label {{
+            font-size: 14px;
+            font-weight: 700;
+            color: white;
+            letter-spacing: 1.5px;
+        }}
+
+        .pl-cars-row {{
+            display: flex;
+            align-items: stretch;
+            min-height: 260px;
+        }}
+
+        .pl-car-col {{
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 24px 20px 20px;
+            border-right: 1px solid #f0f0f0;
+            min-width: 0;
+        }}
+        .pl-car-col:last-child {{ border-right: none; }}
+
+        .pl-car-col-name {{
+            font-size: 13px;
+            font-weight: 700;
+            color: #1a1a1a;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 18px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #cc0000;
+            text-align: center;
+        }}
+
+        .pl-ladder-line {{
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            position: relative;
+            padding-left: 16px;
+        }}
+
+        .pl-ladder-line::before {{
+            content: "";
+            position: absolute;
+            left: 4px;
+            top: 8px;
+            bottom: 8px;
+            width: 2px;
+            background: #d1d5db;
+        }}
+
+        .pl-ladder-point {{
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 8px 0;
+            position: relative;
+        }}
+
+        .pl-ladder-dot {{
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #cc0000;
+            flex-shrink: 0;
+            margin-top: 3px;
+            position: absolute;
+            left: -20px;
+            z-index: 2;
+        }}
+
+        .pl-ladder-label {{
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+        }}
+
+        .pl-variant-name {{
+            font-size: 12px;
+            font-weight: 600;
+            color: #1f2937;
+        }}
+
+        .pl-price {{
+            font-size: 13px;
+            font-weight: 700;
+            color: #cc0000;
+        }}
+
+        .pl-vs-badge {{
+            width: 44px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 800;
+            color: white;
+            background: #1a1a1a;
+            letter-spacing: 1px;
+        }}
+
+        .pl-note {{
+            margin-top: 16px;
+            padding: 12px 16px;
+            background: #f9fafb;
+            border-radius: 6px;
+            font-size: 12px;
+            border-left: 4px solid #cc0000;
+            color: #4b5563;
+        }}
+
+        @media print {{
+            .pl-panel {{ page-break-inside: avoid; break-inside: avoid; }}
+            .pl-panels-container {{ gap: 20px; }}
+        }}
+    </style>
+    """
+
+    return html
+
+
+# ---------------------------------------------------------------------------
+# Vehicle Highlights Section
+# ---------------------------------------------------------------------------
+
+def _get_val(car_data: Dict[str, Any], key: str) -> str:
+    """Return a scraped value, falling back to empty string for N/A variants."""
+    raw = car_data.get(key, "")
+    if not raw or str(raw).strip().lower() in ("not available", "n/a", "none", ""):
+        return ""
+    return str(raw).strip()
+
+
+def generate_vehicle_highlights_section(comparison_data: Dict[str, Any]) -> str:
+    """
+    Generate an 'Overall Highlights' section with one card per vehicle.
+    Uses already-scraped data — no additional API calls.
+    """
+    if not comparison_data:
+        return ""
+
+    car_entries = [
+        (name, data) for name, data in comparison_data.items()
+        if isinstance(data, dict) and "error" not in data
+    ]
+    if not car_entries:
+        return ""
+
+    # --- build one card per car ---
+    cards_html = ""
+    for car_name, cd in car_entries:
+        # Hero image
+        hero_url = ""
+        images = cd.get("images") or {}
+        hero_list = images.get("hero", [])
+        if hero_list:
+            first = hero_list[0]
+            if isinstance(first, (list, tuple)) and first:
+                hero_url = first[0]
+            elif isinstance(first, str):
+                hero_url = first
+
+        img_html = (
+            f'<img class="vh-hero-img" src="{hero_url}" alt="{car_name}" '
+            f'onerror="this.parentElement.style.display=\'none\'">'
+            if hero_url else ""
+        )
+
+        # ---- grouped stat rows ----
+        def row(icon, label, value):
+            if not value:
+                return ""
+            TRUNC = 90
+            if len(value) <= TRUNC:
+                val_html = f'<span class="vh-stat-value">{value}</span>'
+            else:
+                uid = abs(hash(car_name + label)) % 9999999
+                short = value[:TRUNC]
+                rest  = value[TRUNC:]
+                val_html = (
+                    f'<span class="vh-stat-value">'
+                    f'{short}'
+                    f'<span class="vh-val-rest" id="vh-rest-{uid}" style="display:none;">{rest}</span>'
+                    f'<button class="vh-read-more" '
+                    f'onclick="var r=document.getElementById(\'vh-rest-{uid}\');'
+                    f'var show=r.style.display===\'none\';'
+                    f'r.style.display=show?\'inline\':\'none\';'
+                    f'this.textContent=show?\' read less\':\'… read more\';">'
+                    f'… read more</button>'
+                    f'</span>'
+                )
+            return f'''
+            <div class="vh-stat-row">
+                <span class="vh-stat-icon">{icon}</span>
+                <span class="vh-stat-label">{label}</span>
+                {val_html}
+            </div>'''
+
+        def group(title, rows_html):
+            if not rows_html.strip():
+                return ""
+            return f'''
+            <div class="vh-group">
+                <div class="vh-group-title">{title}</div>
+                {rows_html}
+            </div>'''
+
+        # Overview
+        ov = (
+            row("₹", "Price Range", _get_val(cd, "price_range")) +
+            row("⭐", "User Rating", _get_val(cd, "user_rating")) +
+            row("📦", "Monthly Sales", _get_val(cd, "monthly_sales")) +
+            row("🪑", "Seating", _get_val(cd, "seating_capacity"))
+        )
+
+        # Performance
+        accel = _get_val(cd, "acceleration")
+        torque = _get_val(cd, "torque")
+        # shorten torque (first sentence / first clause)
+        if torque and len(torque) > 60:
+            torque = torque.split("(")[0].split(",")[0].strip()
+        pf = (
+            row("⚡", "Acceleration", accel) +
+            row("🔩", "Torque", torque) +
+            row("⛽", "Mileage", _get_val(cd, "mileage")) +
+            row("🏙️", "City Performance", _get_val(cd, "city_performance")) +
+            row("🛣️", "Highway Performance", _get_val(cd, "highway_performance"))
+        )
+
+        # Safety
+        sf = (
+            row("🛡️", "NCAP Rating", _get_val(cd, "ncap_rating")) +
+            row("💥", "Airbags", _get_val(cd, "airbags")) +
+            row("🤖", "ADAS", _get_val(cd, "adas")) +
+            row("🔒", "Safety Features", _get_val(cd, "vehicle_safety_features"))
+        )
+
+        # Comfort & Tech
+        ct = (
+            row("🌡️", "Climate Control", _get_val(cd, "climate_control")) +
+            row("📱", "Infotainment", _get_val(cd, "infotainment_screen")) +
+            row("🔗", "Connectivity", _get_val(cd, "apple_carplay")) +
+            row("🔆", "Sunroof", _get_val(cd, "sunroof")) +
+            row("💺", "Ventilated Seats", _get_val(cd, "ventilated_seats")) +
+            row("🎵", "Audio", _get_val(cd, "audio_system"))
+        )
+
+        # Ride & Handling
+        rh = (
+            row("🛤️", "Ride Quality", _get_val(cd, "ride_quality")) +
+            row("⚖️", "Stability", _get_val(cd, "stability")) +
+            row("🔈", "NVH", _get_val(cd, "nvh"))
+        )
+
+        body_html = (
+            group("Overview", ov) +
+            group("Performance", pf) +
+            group("Safety", sf) +
+            group("Comfort & Technology", ct) +
+            group("Ride & Handling", rh)
+        )
+
+        cards_html += f'''
+        <div class="vh-card">
+            <div class="vh-card-header">
+                {img_html}
+                <div class="vh-car-title">{car_name}</div>
+            </div>
+            <div class="vh-card-body">
+                {body_html}
+            </div>
+        </div>'''
+
+    html = f'''
+    <div class="content vh-section" id="vehicle-highlights">
+        <div class="section-header">
+            <div class="icon-wrapper">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+            </div>
+            <h2>Vehicle Highlights</h2>
+        </div>
+        <p class="vh-subtitle">Key metrics and features for each vehicle at a glance</p>
+        <div class="vh-cards-grid">
+            {cards_html}
+        </div>
+    </div>
+
+    <style>
+        .vh-section {{ margin-top: 40px; }}
+
+        .vh-subtitle {{
+            font-size: 13px;
+            color: #6c757d;
+            margin: -8px 0 24px 0;
+        }}
+
+        .vh-cards-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 28px;
+            align-items: start;
+        }}
+
+        .vh-card {{
+            background: #fff;
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            border: 1px solid #e9ecef;
+            transition: box-shadow 0.3s;
+        }}
+
+        .vh-card:hover {{
+            box-shadow: 0 8px 32px rgba(0,0,0,0.13);
+        }}
+
+        .vh-card-header {{
+            position: relative;
+            background: linear-gradient(135deg, #1c2a39 0%, #2E3B4E 100%);
+        }}
+
+        .vh-hero-img {{
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            display: block;
+            opacity: 0.85;
+        }}
+
+        .vh-car-title {{
+            padding: 14px 18px;
+            font-size: 17px;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: 0.5px;
+            background: linear-gradient(135deg, #1c2a39 0%, #2E3B4E 100%);
+        }}
+
+        .vh-card-body {{
+            padding: 18px;
+        }}
+
+        .vh-group {{
+            margin-bottom: 18px;
+        }}
+
+        .vh-group:last-child {{
+            margin-bottom: 0;
+        }}
+
+        .vh-group-title {{
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #dd032b;
+            border-bottom: 1px solid #f0f0f0;
+            padding-bottom: 6px;
+            margin-bottom: 10px;
+        }}
+
+        .vh-stat-row {{
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 6px 0;
+            border-bottom: 1px solid #f8f8f8;
+        }}
+
+        .vh-stat-row:last-child {{
+            border-bottom: none;
+        }}
+
+        .vh-stat-icon {{
+            font-size: 14px;
+            flex-shrink: 0;
+            width: 22px;
+            text-align: center;
+            margin-top: 1px;
+        }}
+
+        .vh-stat-label {{
+            font-size: 11px;
+            font-weight: 600;
+            color: #495057;
+            min-width: 110px;
+            flex-shrink: 0;
+            padding-top: 1px;
+        }}
+
+        .vh-stat-value {{
+            font-size: 12px;
+            color: #212529;
+            line-height: 1.5;
+            flex: 1;
+        }}
+
+        .vh-read-more {{
+            background: none;
+            border: none;
+            padding: 0;
+            margin: 0;
+            font-size: 11px;
+            font-weight: 600;
+            color: #dd032b;
+            cursor: pointer;
+            text-decoration: underline;
+            line-height: inherit;
+            vertical-align: baseline;
+        }}
+
+        .vh-read-more:hover {{
+            color: #a80020;
+        }}
+
+        @media print {{
+            .vh-val-rest {{ display: inline !important; }}
+            .vh-read-more {{ display: none !important; }}
+        }}
+
+        @media (max-width: 768px) {{
+            .vh-cards-grid {{
+                grid-template-columns: 1fr;
+            }}
+        }}
+
+        @media print {{
+            .vh-card {{
+                page-break-inside: avoid;
+                break-inside: avoid;
+                box-shadow: none;
+                border: 1px solid #dee2e6;
+            }}
+            .vh-hero-img {{
+                height: 140px;
+                object-fit: contain;
+                background: #f8f9fa;
+            }}
+        }}
+    </style>
+    '''
+
+    return html
