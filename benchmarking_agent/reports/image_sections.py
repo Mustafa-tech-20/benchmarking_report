@@ -2105,7 +2105,7 @@ def get_image_section_styles() -> str:
 
     .legend-car {
         padding: 6px 14px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: #1c2a39;
         color: white;
         font-size: 12px;
         font-weight: 600;
@@ -2115,19 +2115,19 @@ def get_image_section_styles() -> str:
     }
 
     .legend-car:nth-child(2) {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        background: #cc0000;
     }
 
     .legend-car:nth-child(3) {
-        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        background: #2E3B4E;
     }
 
     .legend-car:nth-child(4) {
-        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        background: #8b0000;
     }
 
     .legend-car:nth-child(5) {
-        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        background: #4a5568;
     }
 
     .comparison-gallery-grid {
@@ -2146,7 +2146,7 @@ def get_image_section_styles() -> str:
     }
 
     .comparison-feature-label {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        background: #1c2a39;
         color: white;
         padding: 14px 25px;
         font-size: 15px;
@@ -2187,27 +2187,27 @@ def get_image_section_styles() -> str:
     }
 
     .comparison-cell:nth-child(1) .comparison-car-label {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: #1c2a39;
         color: white;
     }
 
     .comparison-cell:nth-child(2) .comparison-car-label {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        background: #cc0000;
         color: white;
     }
 
     .comparison-cell:nth-child(3) .comparison-car-label {
-        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        background: #2E3B4E;
         color: white;
     }
 
     .comparison-cell:nth-child(4) .comparison-car-label {
-        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        background: #8b0000;
         color: white;
     }
 
     .comparison-cell:nth-child(5) .comparison-car-label {
-        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        background: #4a5568;
         color: white;
     }
 

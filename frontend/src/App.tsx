@@ -646,13 +646,13 @@ function App() {
                 <div className="label-line"></div>
               </div>
               <div className="query-grid">
-                <button className="query-card" onClick={() => setInput('Compare ')}>
+                <button className="query-card" onClick={() => setInput('Compare [Car Name 1] and [Car Name 2]')}>
                   <div className="card-icon-wrapper">
                     <Car size={24} strokeWidth={1.5} />
                   </div>
                   <div className="card-content">
                     <div className="card-title">Market Comparison</div>
-                    <div className="card-description">Enter at least 2 marketed car names to compare</div>
+                    <div className="card-description">Replace placeholders with car names to compare</div>
                   </div>
                 </button>
                 <button className="query-card" onClick={() => setInput('CODE:PROTO1, Hyundai Creta')}>
