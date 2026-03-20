@@ -1229,7 +1229,27 @@ def generate_price_ladder_section(comparison_data: Dict[str, Any]) -> str:
 
             # Diesel Price Ladder
             diesel_data = price_ladder.get('diesel') or {}
+
+            # Check if there's any valid price data in diesel before creating the section
+            has_valid_diesel_data = False
             if diesel_data:
+                mt_variants = diesel_data.get('MT') or {}
+                at_variants = diesel_data.get('AT') or {}
+
+                # Check if MT has valid prices
+                for _, price in mt_variants.items():
+                    if price and price != "Not Available":
+                        has_valid_diesel_data = True
+                        break
+
+                # Check if AT has valid prices if MT didn't have any
+                if not has_valid_diesel_data:
+                    for _, price in at_variants.items():
+                        if price and price != "Not Available":
+                            has_valid_diesel_data = True
+                            break
+
+            if has_valid_diesel_data:
                 html += """
             <div class="price-ladder-card">
                 <div style="text-align: center;">
@@ -1718,9 +1738,28 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str, 
         .site-header {{ display: flex; justify-content: space-between; align-items: center; padding: 16px 40px; background: #fff; border-bottom: 1px solid #e9ecef; width: 100%; position: sticky; top: 0; z-index: 1000; }}
         .logo {{ height: 22px; width: auto; }}
         .header-actions {{ display: flex; align-items: center; gap: 30px; }}
-        .main-nav {{ display: flex; gap: 25px; }}
-        .main-nav a {{ text-decoration: none; color: #212529; font-size: 14px; font-weight: 500; transition: color 0.2s ease-in-out; }}
-        .main-nav a:hover {{ color: #dd032b; }}
+        .main-nav {{ display: flex; gap: 4px; align-items: center; }}
+        .main-nav > a, .main-nav > .nav-dropdown > .nav-dropdown-toggle {{
+            text-decoration: none; color: #212529; font-size: 13px; font-weight: 500;
+            transition: color 0.2s; padding: 6px 10px; border-radius: 6px; white-space: nowrap;
+        }}
+        .main-nav > a:hover, .main-nav > .nav-dropdown > .nav-dropdown-toggle:hover {{ color: #dd032b; background: #f5f5f5; }}
+        .main-nav > a.nav-active {{ color: #dd032b; font-weight: 600; }}
+        .nav-dropdown {{ position: relative; }}
+        .nav-dropdown-toggle {{ cursor: pointer; display: flex; align-items: center; gap: 4px; background: none; border: none; font-family: inherit; }}
+        .nav-dropdown-toggle::after {{ content: "▾"; font-size: 10px; opacity: 0.6; }}
+        .nav-dropdown-menu {{
+            display: none; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+            background: #fff; border: 1px solid #e5e7eb; border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12); padding: 6px 0; min-width: 160px; z-index: 999;
+            padding-top: 12px; margin-top: -6px;
+        }}
+        .nav-dropdown-menu a {{
+            display: block; padding: 8px 16px; font-size: 13px; color: #374151;
+            text-decoration: none; font-weight: 500; white-space: nowrap; transition: background 0.15s;
+        }}
+        .nav-dropdown-menu a:hover {{ background: #fef2f2; color: #dd032b; }}
+        .nav-sep {{ width: 1px; height: 18px; background: #e5e7eb; margin: 0 2px; }}
         .main-group-header td {{
             font-size: 22px;
             font-weight: 700;
@@ -2352,12 +2391,13 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str, 
                         grid-template-columns: 1fr;
                     }}
                     
-                    .main-nav {{ 
-                        gap: 15px; 
-                    }} 
-                    
-                    .main-nav a {{
+                    .main-nav {{
+                        gap: 10px;
+                    }}
+
+                    .main-nav > a, .main-nav > .nav-dropdown > .nav-dropdown-toggle {{
                         font-size: 13px;
+                        padding: 5px 8px;
                     }}
                     
                     .content {{ 
@@ -2419,13 +2459,17 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str, 
                     
                     .main-nav {{
                         flex-wrap: wrap;
-                        gap: 10px;
+                        gap: 8px;
                         justify-content: center;
                     }}
-                    
-                    .main-nav a {{
+
+                    .main-nav > a, .main-nav > .nav-dropdown > .nav-dropdown-toggle {{
                         font-size: 12px;
                         padding: 4px 8px;
+                    }}
+
+                    .nav-sep {{
+                        display: none;
                     }}
                     
                     .print-btn {{
@@ -2712,8 +2756,8 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str, 
                     .main-nav {{
                         width: 100%;
                     }}
-                    
-                    .main-nav a {{
+
+                    .main-nav > a, .main-nav > .nav-dropdown > .nav-dropdown-toggle {{
                         font-size: 11px;
                         padding: 3px 6px;
                     }}
@@ -2877,8 +2921,8 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str, 
                         -webkit-overflow-scrolling: touch;
                         padding: 4px 0;
                     }}
-                    
-                    .main-nav a {{
+
+                    .main-nav > a, .main-nav > .nav-dropdown > .nav-dropdown-toggle {{
                         font-size: 10px;
                         padding: 4px 6px;
                         white-space: nowrap;
@@ -3127,11 +3171,21 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str, 
         <div class="header-actions">
             <nav class="main-nav">
                 <a href="#comparison-section">Specs</a>
-                <a href="#exterior-section">Exterior</a>
-                <a href="#interior-section">Interior</a>
-                <a href="#technology-section">Technology</a>
+                <div class="nav-sep"></div>
+                <div class="nav-dropdown">
+                    <button class="nav-dropdown-toggle">Gallery</button>
+                    <div class="nav-dropdown-menu">
+                        <a href="#exterior-section">Exterior</a>
+                        <a href="#interior-section">Interior</a>
+                        <a href="#comfort-section">Comfort</a>
+                        <a href="#technology-section">Technology</a>
+                        <a href="#safety-section">Safety</a>
+                    </div>
+                </div>
+                <div class="nav-sep"></div>
                 <a href="#variant-walk-section">Variant Walk</a>
                 <a href="#price-ladder-section">Price Ladder</a>
+                <div class="nav-sep"></div>
                 <a href="#summary-section">Pros & Cons</a>
                 <a href="#review-section">Analysis</a>
                 <a href="#" id="citations-toggle" onclick="toggleCitations(event)">Citations</a>
@@ -3342,7 +3396,21 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str, 
         }});
         */
         
-        document.addEventListener('DOMContentLoaded', () => {{ const observer = new IntersectionObserver((entries) => {{ entries.forEach(entry => {{ if (entry.isIntersecting) {{ entry.target.classList.add('is-visible'); observer.unobserve(entry.target); }} }}); }}, {{ threshold: 0.1 }}); document.querySelectorAll('.animate-on-scroll').forEach(el => observer.observe(el)); }});
+        document.addEventListener('DOMContentLoaded', () => {{
+            const observer = new IntersectionObserver((entries) => {{ entries.forEach(entry => {{ if (entry.isIntersecting) {{ entry.target.classList.add('is-visible'); observer.unobserve(entry.target); }} }}); }}, {{ threshold: 0.1 }});
+            document.querySelectorAll('.animate-on-scroll').forEach(el => observer.observe(el));
+
+            // Dropdown: close only after 200ms delay so mouse can move from button → menu
+            document.querySelectorAll('.nav-dropdown').forEach(function(dd) {{
+                var closeTimer = null;
+                function openMenu()  {{ clearTimeout(closeTimer); dd.querySelector('.nav-dropdown-menu').style.display = 'block'; }}
+                function scheduleClose() {{ closeTimer = setTimeout(function() {{ dd.querySelector('.nav-dropdown-menu').style.display = 'none'; }}, 200); }}
+                dd.addEventListener('mouseenter', openMenu);
+                dd.addEventListener('mouseleave', scheduleClose);
+                dd.querySelector('.nav-dropdown-menu').addEventListener('mouseenter', function() {{ clearTimeout(closeTimer); }});
+                dd.querySelector('.nav-dropdown-menu').addEventListener('mouseleave', scheduleClose);
+            }});
+        }});
     </script>
 </body></html>"""
     
