@@ -1017,12 +1017,22 @@ def _fetch_binary_feature_comparison(car_names: List[str], comparison_data: Dict
     # ------------------------------------------------------------------
     # Step 1: resolve each feature from existing scraped data where possible
     # resolved[feat_name] = {car_name: value}
+    # Limit to first 100 features total (most important categories first)
     # ------------------------------------------------------------------
     resolved: Dict[str, Dict] = {}
     missing_features: List[Dict] = []  # {"name": str, "category": str, "description": str}
 
+    MAX_FEATURES = 100  # Limit total features to 100
+    total_features_processed = 0
+
     for batch in _FEATURE_BATCHES:
+        if total_features_processed >= MAX_FEATURES:
+            break  # Stop if we've reached the limit
+
         for feat_name in batch["features"]:
+            if total_features_processed >= MAX_FEATURES:
+                break  # Stop if we've reached the limit
+
             scraped_key = _SCRAPED_KEY_MAP.get(feat_name)
             if scraped_key:
                 raw_vals = {cn: comparison_data.get(cn, {}).get(scraped_key) for cn in car_names}
@@ -1032,14 +1042,16 @@ def _fetch_binary_feature_comparison(car_names: List[str], comparison_data: Dict
                         cn: _normalize_scraped_value(feat_name, v)
                         for cn, v in raw_vals.items()
                     }
+                    total_features_processed += 1
                     continue
             missing_features.append({
                 "name": feat_name,
                 "category": batch["category"],
                 "description": batch["description"],
             })
+            total_features_processed += 1
 
-    print(f"  Feature comparison: {len(resolved)} from scraped data, {len(missing_features)} need search")
+    print(f"  Feature comparison: {len(resolved)} from scraped data, {len(missing_features)} need search (max 100 total)")
 
     # ------------------------------------------------------------------
     # Step 2: Custom Search API (1 query per feature) + batch Gemini extraction
@@ -1538,11 +1550,12 @@ def _extract_all_drivetrain_data(
         try:
             asyncio.get_running_loop()
             # Already in an event loop — run in a thread pool
+            # Wrap in a function to avoid binding the coroutine to the current event loop
+            def _run_in_new_loop():
+                return asyncio.run(fetch_all_cars_drivetrain_parallel(car_names, comparison_data))
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(
-                    asyncio.run,
-                    fetch_all_cars_drivetrain_parallel(car_names, comparison_data)
-                )
+                future = executor.submit(_run_in_new_loop)
                 return future.result(timeout=180)
         except RuntimeError:
             # No event loop running

@@ -407,10 +407,10 @@ def _strip_html_tags(text: str) -> str:
     return text
 
 
-def _apply_sentiment_highlighting(text: str) -> str:
-    """Apply green/red highlighting to positive/negative sentiment words/phrases."""
+def _analyze_overall_sentiment(text: str) -> str:
+    """Analyze overall sentiment of text and return 'positive', 'negative', or 'neutral'."""
     if not text:
-        return text
+        return "neutral"
 
     positive_keywords = [
         "excellent", "great", "good", "impressive", "smooth", "comfortable",
@@ -423,7 +423,7 @@ def _apply_sentiment_highlighting(text: str) -> str:
         "premium", "plush", "spacious", "ample", "sufficient", "adequate",
         "accurate", "sharp", "crisp", "clear", "bright", "vibrant", "swift",
         "nimble", "agile", "tight", "composed", "balanced", "well-insulated",
-        "mighty", "pliant", "absorbent", "soaks up", "dismisses"
+        "mighty", "pliant", "absorbent", "soaks up", "dismisses", "offers"
     ]
 
     negative_keywords = [
@@ -432,23 +432,26 @@ def _apply_sentiment_highlighting(text: str) -> str:
         "sluggish", "lethargic", "abrupt", "grabby", "spongy", "floaty",
         "bouncy", "body roll", "understeer", "oversteer", "intrusive", "loud",
         "rough", "not available", "not found", "disappointing", "mediocre",
-        "average", "issues", "problem", "concern", "limited", "lag",
-        "cramped", "tight", "narrow", "small", "insufficient", "inadequate",
-        "dull", "dim", "slow", "delayed", "unresponsive", "mushy", "soft",
+        "issues", "problem", "concern", "limited", "lag",
+        "cramped", "narrow", "insufficient", "inadequate",
+        "dull", "dim", "slow", "delayed", "unresponsive", "mushy",
         "wallowy", "unsettled", "jittery", "nervous", "twitchy", "difficult",
         "tricky", "cumbersome", "awkward", "clunky", "cheap", "plasticky"
     ]
 
-    result = text
-    for word in positive_keywords:
-        pattern = re.compile(r'\b' + re.escape(word) + r'\b', re.IGNORECASE)
-        result = pattern.sub(f'<span class="sentiment-positive">{word}</span>', result)
+    text_lower = text.lower()
 
-    for word in negative_keywords:
-        pattern = re.compile(r'\b' + re.escape(word) + r'\b', re.IGNORECASE)
-        result = pattern.sub(f'<span class="sentiment-negative">{word}</span>', result)
+    # Count positive and negative keywords
+    positive_count = sum(1 for word in positive_keywords if re.search(r'\b' + re.escape(word) + r'\b', text_lower))
+    negative_count = sum(1 for word in negative_keywords if re.search(r'\b' + re.escape(word) + r'\b', text_lower))
 
-    return result
+    # Determine overall sentiment
+    if positive_count > negative_count and positive_count > 0:
+        return "positive"
+    elif negative_count > positive_count and negative_count > 0:
+        return "negative"
+    else:
+        return "neutral"
 
 
 def _generate_consolidated_review_html(comparison_data: Dict[str, Any]) -> str:
@@ -536,21 +539,20 @@ def _generate_consolidated_review_html(comparison_data: Dict[str, Any]) -> str:
 
     review_html = f"""
     <style>
-        .sentiment-positive {{
-            color: #0d6b0d;
-            font-weight: 700;
+        .review-cell-positive {{
             background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
-            padding: 2px 6px;
-            border-radius: 3px;
-            border: 1px solid #28a745;
+            border-left: 4px solid #28a745;
+            color: #155724;
         }}
-        .sentiment-negative {{
-            color: #a71d2a;
-            font-weight: 700;
+        .review-cell-negative {{
             background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
-            padding: 2px 6px;
-            border-radius: 3px;
-            border: 1px solid #dc3545;
+            border-left: 4px solid #dc3545;
+            color: #721c24;
+        }}
+        .review-cell-neutral {{
+            background: #f8f9fa;
+            border-left: 4px solid #6c757d;
+            color: #495057;
         }}
         .review-table-container {{
             overflow-x: auto;
@@ -560,9 +562,11 @@ def _generate_consolidated_review_html(comparison_data: Dict[str, Any]) -> str:
         }}
         .review-table td {{
             line-height: 1.6;
+            padding: 12px 15px;
         }}
         .review-table td strong {{
-            color: #1c2a39;
+            color: inherit;
+            font-weight: 600;
         }}
     </style>
     <div class="review-table-container animate-on-scroll">
@@ -600,16 +604,19 @@ def _generate_consolidated_review_html(comparison_data: Dict[str, Any]) -> str:
             combined_review = get_combined_review(car_data, spec_fields)
 
             if combined_review:
-                highlighted = _apply_sentiment_highlighting(combined_review)
+                # Analyze overall sentiment
+                sentiment = _analyze_overall_sentiment(combined_review)
+                sentiment_class = f"review-cell-{sentiment}"
+
                 word_count = count_words(combined_review)
                 char_count = count_chars(combined_review)
 
-                review_html += "<td>"
+                review_html += f'<td class="{sentiment_class}">'
                 if word_count > WORD_THRESHOLD or char_count > CHAR_THRESHOLD:
-                    review_html += f'<div class="expandable-content">{highlighted}</div>'
+                    review_html += f'<div class="expandable-content">{combined_review}</div>'
                     review_html += '<button onclick="toggleExpand(this)" class="read-more-btn">Read more</button>'
                 else:
-                    review_html += highlighted
+                    review_html += combined_review
                 review_html += "</td>"
             else:
                 review_html += '<td style="color: #adb5bd; font-style: italic; font-size: 12px;">Not available</td>'
@@ -729,7 +736,7 @@ def _generate_detailed_reviews_html(detailed_reviews: Dict[str, Any]) -> str:
 
 
 def _generate_dynamics_spider_chart_html(dynamics_ratings: Dict[str, Any]) -> str:
-    """Generate spider/radar chart HTML for vehicle dynamics ratings from forums/social media."""
+    """Generate comprehensive ratings table for all vehicle specs from forums/social media."""
     if not dynamics_ratings or not dynamics_ratings.get("ratings"):
         return "<p style='color:#6c757d; padding:20px;'>Vehicle dynamics ratings from forums/social media not available.</p>"
 
@@ -742,125 +749,162 @@ def _generate_dynamics_spider_chart_html(dynamics_ratings: Dict[str, Any]) -> st
         return "<p style='color:#6c757d; padding:20px;'>Vehicle dynamics ratings data unavailable.</p>"
 
     car_names = list(ratings.keys())
-    colors = [
-        "rgba(46, 59, 78, 0.8)", "rgba(221, 3, 43, 0.8)",
-        "rgba(26, 122, 26, 0.8)", "rgba(255, 140, 0, 0.8)",
-        "rgba(106, 17, 203, 0.8)", "rgba(23, 162, 184, 0.8)",
-    ]
-    bg_colors = [
-        "rgba(46, 59, 78, 0.15)", "rgba(221, 3, 43, 0.15)",
-        "rgba(26, 122, 26, 0.15)", "rgba(255, 140, 0, 0.15)",
-        "rgba(106, 17, 203, 0.15)", "rgba(23, 162, 184, 0.15)",
-    ]
-
-    datasets = []
-    for i, car_name in enumerate(car_names):
-        car_ratings = ratings.get(car_name, {})
-        data_values = [float(car_ratings.get(attr, 5.0)) for attr in attributes]
-        datasets.append({
-            "label": car_name,
-            "data": data_values,
-            "borderColor": colors[i % len(colors)],
-            "backgroundColor": bg_colors[i % len(bg_colors)],
-            "borderWidth": 2,
-            "pointBackgroundColor": colors[i % len(colors)],
-            "pointRadius": 4,
-        })
-
     sources_text = ", ".join(sources) if sources else "Automotive forums & social media"
 
+    # Group attributes by category for better organization
+    def categorize_attribute(attr: str) -> str:
+        """Categorize attribute based on keywords."""
+        attr_lower = attr.lower()
+        if any(k in attr_lower for k in ["ride", "handling", "steering", "braking", "suspension", "nvh", "noise", "vibration"]):
+            return "Driving Dynamics"
+        elif any(k in attr_lower for k in ["performance", "acceleration", "torque", "power", "engine", "transmission", "gear"]):
+            return "Performance & Powertrain"
+        elif any(k in attr_lower for k in ["safety", "airbag", "abs", "adas", "crash", "ncap"]):
+            return "Safety Features"
+        elif any(k in attr_lower for k in ["interior", "seat", "comfort", "climate", "space", "boot"]):
+            return "Interior & Comfort"
+        elif any(k in attr_lower for k in ["infotainment", "screen", "audio", "connectivity", "display", "tech"]):
+            return "Technology & Infotainment"
+        elif any(k in attr_lower for k in ["exterior", "design", "lighting", "sunroof", "wheel", "tyre"]):
+            return "Exterior & Design"
+        elif any(k in attr_lower for k in ["mileage", "fuel", "efficiency", "range"]):
+            return "Fuel Economy"
+        elif any(k in attr_lower for k in ["price", "value", "cost", "warranty"]):
+            return "Value & Pricing"
+        elif any(k in attr_lower for k in ["ground clearance", "off", "4x4", "awd", "4wd", "crawl"]):
+            return "Off-Road & Utility"
+        elif any(k in attr_lower for k in ["dimension", "wheelbase", "turning", "seating", "capacity"]):
+            return "Dimensions & Capacity"
+        else:
+            return "Other Specifications"
+
+    # Group attributes by category
+    categorized_attrs = {}
+    for attr in attributes:
+        category = categorize_attribute(attr)
+        if category not in categorized_attrs:
+            categorized_attrs[category] = []
+        categorized_attrs[category].append(attr)
+
+    # Sort categories
+    category_order = [
+        "Driving Dynamics", "Performance & Powertrain", "Safety Features",
+        "Interior & Comfort", "Technology & Infotainment", "Exterior & Design",
+        "Fuel Economy", "Dimensions & Capacity", "Off-Road & Utility",
+        "Value & Pricing", "Other Specifications"
+    ]
+    sorted_categories = [cat for cat in category_order if cat in categorized_attrs]
+    sorted_categories += [cat for cat in categorized_attrs.keys() if cat not in category_order]
+
     html = f"""
-    <div class="spider-chart-wrapper">
-        <div class="spider-chart-container animate-on-scroll">
-            <canvas id="vehicleDynamicsChart" style="max-width: 600px; max-height: 500px; margin: 0 auto; display: block;"></canvas>
-        </div>
-        <div class="dynamics-rating-table animate-on-scroll">
-            <table class="review-table" style="margin-top: 20px;">
+    <style>
+        .dynamics-filter-wrapper {{
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }}
+        .dynamics-filter-input {{
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 13px;
+        }}
+        .category-header {{
+            background: linear-gradient(135deg, #2e3b4e 0%, #1c2a39 100%);
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }}
+        .rating-excellent {{ background: #d4edda; color: #155724; font-weight: 600; }}
+        .rating-good {{ background: #d1ecf1; color: #0c5460; font-weight: 600; }}
+        .rating-average {{ background: #fff3cd; color: #856404; font-weight: 600; }}
+        .rating-poor {{ background: #f8d7da; color: #721c24; font-weight: 600; }}
+    </style>
+    <div class="dynamics-filter-wrapper">
+        <input type="text" id="dynamicsFilter" class="dynamics-filter-input"
+               placeholder="Search specifications (e.g., ride quality, safety, infotainment)..."
+               onkeyup="filterDynamicsTable()">
+    </div>
+    <div class="dynamics-rating-table animate-on-scroll">
+        <div class="review-table-container">
+            <table class="review-table" id="dynamicsRatingsTable">
                 <thead>
                     <tr>
-                        <th>Attribute</th>
+                        <th style="width: 25%;">Specification</th>
                         {''.join(f'<th>{car}</th>' for car in car_names)}
                     </tr>
                 </thead>
                 <tbody>
     """
 
-    for attr in attributes:
-        html += f"<tr><td class='review-category'>{attr}</td>"
-        for car_name in car_names:
-            val = ratings.get(car_name, {}).get(attr, "N/A")
-            if isinstance(val, (int, float)):
-                score = float(val)
-                if score >= 7.5:
-                    color_class = "sentiment-positive"
-                elif score <= 5.5:
-                    color_class = "sentiment-negative"
+    # Generate table rows grouped by category
+    for category in sorted_categories:
+        attrs_in_category = categorized_attrs[category]
+        html += f'<tr class="category-row"><td colspan="{len(car_names) + 1}" class="category-header">{category}</td></tr>'
+
+        for attr in attrs_in_category:
+            html += f'<tr class="spec-row"><td class="review-category">{attr}</td>'
+            for car_name in car_names:
+                val = ratings.get(car_name, {}).get(attr, "N/A")
+                if isinstance(val, (int, float)):
+                    score = float(val)
+                    if score >= 8.0:
+                        rating_class = "rating-excellent"
+                    elif score >= 6.5:
+                        rating_class = "rating-good"
+                    elif score >= 5.0:
+                        rating_class = "rating-average"
+                    else:
+                        rating_class = "rating-poor"
+                    html += f'<td><span class="{rating_class}" style="padding: 2px 8px; border-radius: 4px; display: inline-block;">{score:.1f}/10</span></td>'
                 else:
-                    color_class = ""
-                html += f'<td><span class="{color_class}">{score:.1f}/10</span></td>'
-            else:
-                html += f"<td>{val}</td>"
-        html += "</tr>"
+                    html += f'<td style="color: #6c757d; font-style: italic;">{val}</td>'
+            html += '</tr>'
 
     html += f"""
                 </tbody>
             </table>
         </div>
-        <div class="dynamics-disclaimer">
+        <div class="dynamics-disclaimer" style="margin-top: 15px; padding: 12px; background: #f8f9fa; border-radius: 6px;">
             <small><strong>Data Sources:</strong> {sources_text}</small><br>
-            <small style="color: #6c757d;">{disclaimer}</small>
+            <small style="color: #6c757d;">{disclaimer}</small><br>
+            <small style="color: #6c757d; margin-top: 5px; display: block;">
+                <strong>Rating Scale:</strong>
+                <span class="rating-excellent" style="padding: 2px 6px; border-radius: 3px; margin-left: 5px;">8.0-10.0 Excellent</span>
+                <span class="rating-good" style="padding: 2px 6px; border-radius: 3px; margin-left: 5px;">6.5-7.9 Good</span>
+                <span class="rating-average" style="padding: 2px 6px; border-radius: 3px; margin-left: 5px;">5.0-6.4 Average</span>
+                <span class="rating-poor" style="padding: 2px 6px; border-radius: 3px; margin-left: 5px;">&lt;5.0 Below Average</span>
+            </small>
         </div>
     </div>
     <script>
-    (function() {{
-        const dynamicsCtx = document.getElementById('vehicleDynamicsChart');
-        if (!dynamicsCtx) return;
-        new Chart(dynamicsCtx, {{
-            type: 'radar',
-            data: {{
-                labels: {json.dumps(attributes)},
-                datasets: {json.dumps(datasets)}
-            }},
-            options: {{
-                responsive: true,
-                scales: {{
-                    r: {{
-                        beginAtZero: false,
-                        min: 0,
-                        max: 10,
-                        ticks: {{
-                            stepSize: 2,
-                            font: {{ size: 11 }}
-                        }},
-                        pointLabels: {{
-                            font: {{ size: 12, weight: '600' }},
-                            color: '#2c3e50'
-                        }},
-                        grid: {{ color: 'rgba(0,0,0,0.1)' }}
-                    }}
-                }},
-                plugins: {{
-                    legend: {{
-                        position: 'bottom',
-                        labels: {{
-                            font: {{ size: 13 }},
-                            padding: 15,
-                            usePointStyle: true
-                        }}
-                    }},
-                    tooltip: {{
-                        callbacks: {{
-                            label: function(ctx) {{
-                                return ctx.dataset.label + ': ' + ctx.parsed.r.toFixed(1) + '/10';
-                            }}
-                        }}
-                    }}
+    function filterDynamicsTable() {{
+        const input = document.getElementById('dynamicsFilter');
+        const filter = input.value.toLowerCase();
+        const table = document.getElementById('dynamicsRatingsTable');
+        const rows = table.getElementsByClassName('spec-row');
+
+        for (let i = 0; i < rows.length; i++) {{
+            const td = rows[i].getElementsByTagName('td')[0];
+            if (td) {{
+                const txtValue = td.textContent || td.innerText;
+                if (txtValue.toLowerCase().indexOf(filter) > -1) {{
+                    rows[i].style.display = '';
+                }} else {{
+                    rows[i].style.display = 'none';
                 }}
             }}
-        }});
-    }})();
+        }}
+    }}
     </script>
     """
+
     return html
 
 
@@ -1289,27 +1333,29 @@ def create_comparison_chart_html(
         .container {{ max-width: 100%; margin: 0 auto; background: white; overflow: hidden; }}
         .site-header {{ display: flex; justify-content: space-between; align-items: center; padding: 16px 40px; background: #fff; border-bottom: 1px solid #e9ecef; width: 100%; position: sticky; top: 0; z-index: 1000; }}
         .logo {{ height: 22px; width: auto; }}
-        .header-actions {{ display: flex; align-items: center; gap: 30px; }}
-        .main-nav {{ display: flex; gap: 20px; align-items: center; }}
+        .header-actions {{ display: flex; align-items: center; gap: 20px; }}
+        .main-nav {{ display: flex; gap: 4px; align-items: center; }}
         .main-nav > a, .main-nav > .nav-dropdown > .nav-dropdown-toggle {{
             text-decoration: none; color: #212529; font-size: 13px; font-weight: 500;
-            transition: all 0.2s ease; padding: 8px 12px; border-radius: 6px;
+            transition: color 0.2s; padding: 6px 10px; border-radius: 6px; white-space: nowrap;
         }}
         .main-nav > a:hover, .main-nav > .nav-dropdown > .nav-dropdown-toggle:hover {{ color: #dd032b; background: #f5f5f5; }}
-        .nav-sep {{ width: 1px; height: 20px; background: #dee2e6; margin: 0 5px; }}
+        .main-nav > a.nav-active {{ color: #dd032b; font-weight: 600; }}
         .nav-dropdown {{ position: relative; }}
         .nav-dropdown-toggle {{ cursor: pointer; display: flex; align-items: center; gap: 4px; background: none; border: none; font-family: inherit; }}
         .nav-dropdown-toggle::after {{ content: "▾"; font-size: 10px; opacity: 0.6; }}
         .nav-dropdown-menu {{
-            display: none; position: absolute; top: 100%; left: 0; background: white;
-            border: 1px solid #e9ecef; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-            min-width: 160px; padding: 8px 0; z-index: 1001; margin-top: 4px;
+            display: none; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+            background: #fff; border: 1px solid #e5e7eb; border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12); padding: 6px 0; min-width: 160px; z-index: 999;
+            padding-top: 12px; margin-top: -6px;
         }}
         .nav-dropdown-menu a {{
-            display: block; padding: 10px 16px; color: #333; text-decoration: none;
-            font-size: 13px; font-weight: 500; transition: all 0.15s ease;
+            display: block; padding: 8px 16px; font-size: 13px; color: #374151;
+            text-decoration: none; font-weight: 500; white-space: nowrap; transition: background 0.15s;
         }}
         .nav-dropdown-menu a:hover {{ background: #fef2f2; color: #dd032b; }}
+        .nav-sep {{ width: 1px; height: 18px; background: #e5e7eb; margin: 0 2px; }}
         .main-group-header td {{
             font-size: 22px;
             font-weight: 700;
@@ -2962,13 +3008,13 @@ def create_comparison_chart_html(
             .category-name {{
                 font-size: 14px;
                 font-weight: 600;
-                color: #495057;
+                color: #ffffff;
             }}
 
             .category-rating {{
                 font-size: 15px;
                 font-weight: 700;
-                color: #2E3B4E;
+                color: #ffffff;
             }}
 
             .rating-bar {{

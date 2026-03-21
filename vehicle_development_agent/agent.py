@@ -90,26 +90,17 @@ CRITICAL FORMAT RULES:
         return f"Error generating AI analysis summary: {str(e)}"
 
 
-def extract_vehicle_dynamics_ratings(car_list: List[str]) -> Dict[str, Any]:
-    """
-    Extract subjective vehicle dynamics ratings from forums/social media.
-    Converts user opinions into structured ratings (0-10) for each vehicle dynamic attribute.
-    """
+def _get_ratings_batch(car_list: List[str], attributes: List[str], batch_num: int) -> Dict[str, Any]:
+    """Helper function to get ratings for a batch of attributes."""
     try:
         model = GenerativeModel(GEMINI_MAIN_MODEL)
-
-        dynamics_attributes = [
-            "Ride Quality", "Handling", "Steering Feel", "Braking Performance",
-            "NVH (Noise/Vibration)", "Engine Performance", "Acceleration",
-            "Off-road Capability", "Comfort", "Infotainment", "Value for Money"
-        ]
 
         prompt = f"""You are an automotive analyst. Based on your knowledge of user reviews, forum discussions (Team-BHP, CarWale, CarDekho, Reddit r/IndiaCars), and social media opinions for these vehicles, rate each vehicle on a scale of 1-10 for each vehicle dynamics attribute.
 
 Vehicles to rate: {', '.join(car_list)}
 
 Attributes to rate:
-{json.dumps(dynamics_attributes, indent=2)}
+{json.dumps(attributes, indent=2)}
 
 For each vehicle, provide ratings based on aggregated user sentiments from forums and social media. Consider:
 - Team-BHP long-term owner reviews
@@ -119,27 +110,15 @@ For each vehicle, provide ratings based on aggregated user sentiments from forum
 
 Return a JSON object with this exact structure:
 {{
-    "attributes": {json.dumps(dynamics_attributes)},
     "ratings": {{
         "Car Name 1": {{
             "Ride Quality": 7.5,
-            "Handling": 8.0,
-            "Steering Feel": 7.0,
-            "Braking Performance": 8.5,
-            "NVH (Noise/Vibration)": 6.5,
-            "Engine Performance": 8.0,
-            "Acceleration": 7.5,
-            "Off-road Capability": 9.0,
-            "Comfort": 7.0,
-            "Infotainment": 7.5,
-            "Value for Money": 8.0
+            "Handling": 8.0
         }}
-    }},
-    "sources": ["Team-BHP forums", "CarWale reviews", "YouTube reviews", "Reddit r/IndiaCars"],
-    "disclaimer": "Ratings derived from aggregated user opinions on automotive forums and social media"
+    }}
 }}
 
-IMPORTANT: Return ONLY valid JSON. Rate all {len(car_list)} vehicles. Use actual decimal values between 1.0 and 10.0."""
+IMPORTANT: Return ONLY valid JSON. Rate all {len(car_list)} vehicles for all {len(attributes)} attributes. Use actual decimal values between 1.0 and 10.0."""
 
         response = model.generate_content(prompt)
         response_text = response.text.strip()
@@ -152,10 +131,70 @@ IMPORTANT: Return ONLY valid JSON. Rate all {len(car_list)} vehicles. Use actual
             response_text = response_text[:-3]
 
         ratings_data = json.loads(response_text.strip())
-        return ratings_data
+        print(f"  ✓ Batch {batch_num}: Rated {len(attributes)} attributes")
+        return ratings_data.get("ratings", {})
+
+    except Exception as e:
+        print(f"  ✗ Batch {batch_num} error: {str(e)}")
+        return {}
+
+
+def extract_vehicle_dynamics_ratings(car_list: List[str]) -> Dict[str, Any]:
+    """
+    Extract subjective vehicle dynamics ratings from forums/social media.
+    Converts user opinions into structured ratings (0-10) for each vehicle dynamic attribute.
+    Makes 3 parallel calls for efficiency.
+    """
+    try:
+        # Split attributes into 3 batches
+        all_attributes = [
+            "Ride Quality", "Handling", "Steering Feel", "Braking Performance",
+            "NVH (Noise/Vibration)", "Engine Performance", "Acceleration",
+            "Off-road Capability", "Comfort", "Infotainment", "Value for Money"
+        ]
+
+        batch_1 = all_attributes[0:4]   # Ride Quality, Handling, Steering Feel, Braking Performance
+        batch_2 = all_attributes[4:8]   # NVH, Engine Performance, Acceleration, Off-road Capability
+        batch_3 = all_attributes[8:11]  # Comfort, Infotainment, Value for Money
+
+        print(f"\n📊 Extracting ratings in 3 parallel batches...")
+
+        # Run 3 batches in parallel using ThreadPoolExecutor
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+            future_1 = executor.submit(_get_ratings_batch, car_list, batch_1, 1)
+            future_2 = executor.submit(_get_ratings_batch, car_list, batch_2, 2)
+            future_3 = executor.submit(_get_ratings_batch, car_list, batch_3, 3)
+
+            # Get results
+            ratings_1 = future_1.result()
+            ratings_2 = future_2.result()
+            ratings_3 = future_3.result()
+
+        # Merge all ratings
+        merged_ratings = {}
+        for car in car_list:
+            merged_ratings[car] = {}
+            # Merge batch 1
+            if car in ratings_1:
+                merged_ratings[car].update(ratings_1[car])
+            # Merge batch 2
+            if car in ratings_2:
+                merged_ratings[car].update(ratings_2[car])
+            # Merge batch 3
+            if car in ratings_3:
+                merged_ratings[car].update(ratings_3[car])
+
+        return {
+            "attributes": all_attributes,
+            "ratings": merged_ratings,
+            "sources": ["Team-BHP forums", "CarWale reviews", "YouTube reviews", "Reddit r/IndiaCars"],
+            "disclaimer": "Ratings derived from aggregated user opinions on automotive forums and social media"
+        }
 
     except Exception as e:
         print(f"Error extracting vehicle dynamics ratings: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return {}
 
 

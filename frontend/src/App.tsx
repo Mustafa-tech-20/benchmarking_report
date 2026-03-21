@@ -57,6 +57,12 @@ interface ConversationDetail {
   session_id?: string | null;
 }
 
+interface Toast {
+  id: string;
+  message: string;
+  type: 'error' | 'success' | 'info';
+}
+
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<UserInfo | null>(null);
@@ -70,11 +76,28 @@ function App() {
   const [conversations, setConversations] = useState<ConversationListItem[]>([]);
   const [loadingConversations, setLoadingConversations] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [toasts, setToasts] = useState<Toast[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const userDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Toast notification functions
+  const showToast = (message: string, type: 'error' | 'success' | 'info' = 'info') => {
+    const id = Date.now().toString();
+    const newToast: Toast = { id, message, type };
+    setToasts(prev => [...prev, newToast]);
+
+    // Auto-remove after 4 seconds
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 4000);
+  };
+
+  const removeToast = (id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
 
   // Check authentication status on mount
   useEffect(() => {
@@ -117,6 +140,12 @@ function App() {
         credentials: 'include',
       });
 
+      if (response.status === 401 || response.status === 403) {
+        showToast('Session expired. Please log in again.', 'error');
+        handleLogout();
+        return;
+      }
+
       if (response.ok) {
         const data = await response.json();
         setConversations(data);
@@ -137,6 +166,12 @@ function App() {
         },
         credentials: 'include',
       });
+
+      if (response.status === 401 || response.status === 403) {
+        showToast('Session expired. Please log in again.', 'error');
+        handleLogout();
+        return;
+      }
 
       if (response.ok) {
         const conversation: ConversationDetail = await response.json();
@@ -369,14 +404,9 @@ function App() {
 
       // Check for authentication errors
       if (response.status === 401 || response.status === 403) {
-        handleLogout();
+        showToast('Session expired. Please log in again.', 'error');
         setMessages(prev => prev.filter(m => m.id !== loadingId));
-        setMessages(prev => [...prev, {
-          id: Date.now().toString(),
-          role: 'assistant',
-          content: '🔒 Session expired. Please log in again.',
-          timestamp: new Date(),
-        }]);
+        handleLogout();
         return;
       }
 
@@ -885,6 +915,18 @@ function App() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Toast Notifications */}
+      <div className="toast-container">
+        {toasts.map((toast) => (
+          <div key={toast.id} className={`toast toast-${toast.type}`}>
+            <span>{toast.message}</span>
+            <button className="toast-close" onClick={() => removeToast(toast.id)}>
+              <X size={14} />
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   );
