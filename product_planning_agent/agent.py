@@ -402,20 +402,59 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
         #         "citation_text": "Code car - sales data not applicable",
         #     }
 
-        # Extract variant walk data (only for product planning agent)
+        # Extract variant walk data AND generation comparison in parallel (only for product planning agent)
         if not car_data.get('is_code_car'):
-            print(f"[{car}] Extracting variant walk data...")
-            from product_planning_agent.extraction.variant_walk import extract_variant_walk
-            variant_data = extract_variant_walk(car)
-            if variant_data and variant_data.get('variants'):
-                car_data['variant_walk'] = variant_data
-                print(f"[{car}] ✓ Extracted {len(variant_data.get('variants', {}))} variants")
-            else:
-                print(f"[{car}] ✗ No variant data found")
+            try:
+                print(f"[{car}] Extracting variant walk and generation comparison data in parallel...")
+                import concurrent.futures as cf_local  # Local import to avoid scoping issues
+                from product_planning_agent.extraction.variant_walk import extract_variant_walk
+                from product_planning_agent.extraction.generation_comparison import extract_old_generation_data
+
+                def extract_variant():
+                    return extract_variant_walk(car)
+
+                def extract_generation():
+                    return extract_old_generation_data(car, {})
+
+                # Run both extractions in parallel
+                with cf_local.ThreadPoolExecutor(max_workers=2) as executor:
+                    variant_future = executor.submit(extract_variant)
+                    gen_future = executor.submit(extract_generation)
+
+                    # Wait for both to complete
+                    variant_data = variant_future.result()
+                    gen_comparison_data = gen_future.result()
+
+                # Store variant walk data
+                if variant_data and variant_data.get('variants'):
+                    car_data['variant_walk'] = variant_data
+                    print(f"[{car}] ✓ Extracted {len(variant_data.get('variants', {}))} variants")
+                else:
+                    print(f"[{car}] ✗ No variant data found")
+                    car_data['variant_walk'] = None
+
+                # Store generation comparison data
+                if gen_comparison_data and gen_comparison_data.get('has_old_generation'):
+                    car_data['generation_comparison'] = gen_comparison_data
+                    old_gen_name = gen_comparison_data.get('old_generation', {}).get('name', 'previous generation')
+                    print(f"[{car}] ✓ Extracted old vs new comparison (vs {old_gen_name})")
+                else:
+                    car_data['generation_comparison'] = None
+                    if gen_comparison_data and gen_comparison_data.get('error'):
+                        print(f"[{car}] ✗ Generation comparison error: {gen_comparison_data.get('error')}")
+                    else:
+                        print(f"[{car}] ℹ No previous generation for comparison")
+
+            except Exception as variant_err:
+                # Don't lose scraped specs if variant extraction fails!
+                print(f"[{car}] ⚠ Variant extraction failed: {variant_err}")
+                print(f"[{car}] Continuing with scraped specs data...")
                 car_data['variant_walk'] = None
+                car_data['generation_comparison'] = None
         else:
-            print(f"[{car}] Skipping variant walk (code car)")
+            print(f"[{car}] Skipping variant walk and generation comparison (code car)")
             car_data['variant_walk'] = None
+            car_data['generation_comparison'] = None
 
         # Count actually found specs (exclude all empty/not-found variations)
         empty_values = ("Not Available", "N/A", "Not found", "not found", None, "", "—", "-", "None")

@@ -1029,7 +1029,12 @@ Return ONLY valid JSON (no markdown):
                     if "{" in text and "}" in text:
                         text = text[text.index("{"):text.rindex("}") + 1]
                     result = json_repair.loads(text)
-                    return result.get("features", [])
+                    # Ensure result is a dict before calling .get()
+                    if not isinstance(result, dict):
+                        return []
+                    features = result.get("features", [])
+                    # Ensure we return a list, not a string or other type
+                    return features if isinstance(features, list) else []
                 except Exception as e:
                     print(f"  Extraction batch error: {e}")
                     return []
@@ -3924,17 +3929,308 @@ def generate_variant_walk_section(comparison_data: Dict[str, Any]) -> str:
 # PRICE LADDER SECTION — 1:1 SIDE-BY-SIDE PER MODE
 # ============================================================================
 
+def generate_old_vs_new_price_ladder_bm(car_name: str, old_gen_data: Dict[str, Any],
+                                          new_gen_data: Dict[str, Any]) -> str:
+    """
+    Generate Old vs New generation price ladder.
+    Layout: price axis (left) | old variants on vertical line | callout boxes (center) | new variants on vertical line
+    Uses absolute positioning for dots exactly on the vertical line at 50% of each column.
+    Color scheme: white background, red accents (#dd032b), black text.
+    """
+    import re
+
+    if not old_gen_data.get('has_old_generation'):
+        return ""
+
+    html = ""
+    variant_mapping = old_gen_data.get('variant_mapping', {})
+    old_variants = old_gen_data.get('old_variants', {})
+    new_price_ladder = new_gen_data.get('price_ladder', {})
+
+    fuel_trans_combos = [
+        ('petrol_mt', 'Petrol', 'MT', 'petrol'),
+        ('petrol_at', 'Petrol', 'AT', 'petrol'),
+        ('diesel_mt', 'Diesel', 'MT', 'diesel'),
+        ('diesel_at', 'Diesel', 'AT', 'diesel')
+    ]
+
+    for combo_key, fuel_label, trans_label, fuel_key in fuel_trans_combos:
+        old_vars = old_variants.get(combo_key, [])
+        mappings = variant_mapping.get(combo_key, [])
+        if not old_vars or not mappings:
+            continue
+        new_prices = new_price_ladder.get(fuel_key, {}).get(trans_label, {})
+        if not new_prices:
+            continue
+
+        # Collect all prices to build axis scale
+        all_price_vals = []
+        for ov in old_vars:
+            m = re.search(r'(\d+\.?\d*)', str(ov.get('price', '')))
+            if m:
+                all_price_vals.append(float(m.group(1)))
+        for p in new_prices.values():
+            m = re.search(r'(\d+\.?\d*)', str(p))
+            if m:
+                all_price_vals.append(float(m.group(1)))
+
+        if not all_price_vals:
+            continue
+
+        min_p = min(all_price_vals)
+        max_p = max(all_price_vals)
+        # Round axis to nice lakhs values with padding
+        axis_min_lakh = int(min_p)
+        axis_max_lakh = int(max_p) + 1
+
+        # Build axis tick marks (every 1-2 lakhs depending on range)
+        price_range = axis_max_lakh - axis_min_lakh
+        tick_step = 1 if price_range <= 10 else 2
+        axis_ticks = list(range(axis_min_lakh, axis_max_lakh + 1, tick_step))
+
+        # Sort old variants by price (ascending)
+        old_sorted = sorted(old_vars, key=lambda v: float(re.search(r'(\d+\.?\d*)', str(v.get('price', '0'))).group(1)) if re.search(r'(\d+\.?\d*)', str(v.get('price', '0'))) else 0)
+
+        # Sort new variants by price
+        new_sorted = sorted(new_prices.items(), key=lambda x: float(re.search(r'(\d+\.?\d*)', str(x[1])).group(1)) if re.search(r'(\d+\.?\d*)', str(x[1])) else 0)
+
+        # Calculate pixel position based on price
+        # Container is 600px, usable area is from 30px (top) to 530px (600-70 bottom padding) = 500px usable
+        CHART_TOP = 30
+        CHART_USABLE = 500
+        def price_to_px(price_val):
+            """Convert price to pixel position from top (higher price = closer to top)."""
+            if axis_max_lakh == axis_min_lakh:
+                return CHART_TOP + CHART_USABLE // 2
+            pct = (price_val - axis_min_lakh) / (axis_max_lakh - axis_min_lakh)
+            return CHART_TOP + int((1 - pct) * CHART_USABLE)
+
+        # --- Build HTML ---
+        html += f"""
+        <div class="gen-comparison-page" style="page-break-after: always; margin-bottom: 60px; background: white;">
+            <h2 style="text-align: center; font-size: 1.8em; margin-bottom: 10px; color: #000;">
+                New Vs Old {car_name} Price points [{fuel_label} {trans_label}]
+            </h2>
+            <div style="text-align: center; margin-bottom: 20px;">
+                <p style="font-size: 1.05em; color: #374151;">
+                    &bull; {car_name} still maintains its competitive pricing.<br>
+                    &bull; Price increase done are justified by its feature additions
+                </p>
+            </div>
+            <div style="display: flex; gap: 0; height: 600px; position: relative;">
+
+                <!-- PRICE AXIS -->
+                <div style="flex: 0 0 70px; position: relative;">
+                    <!-- axis line -->
+                    <div style="position: absolute; left: 12px; top: 30px; bottom: 70px; width: 2px; background: #374151;"></div>
+                    <!-- top arrow -->
+                    <div style="position: absolute; left: 8px; top: 22px; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 8px solid #374151;"></div>
+                    <!-- bottom arrow -->
+                    <div style="position: absolute; left: 8px; bottom: 62px; width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 8px solid #374151;"></div>
+"""
+        # Axis tick labels
+        for tick in axis_ticks:
+            tick_px = price_to_px(tick)
+            html += f"""
+                    <div style="position: absolute; left: 20px; top: {tick_px}px; transform: translateY(-50%); font-size: 0.75em; color: #374151; font-weight: 600; white-space: nowrap;">
+                        {tick} L
+                    </div>
+"""
+        html += f"""
+                    <div style="position: absolute; bottom: 5px; left: 0; width: 70px; text-align: left;">
+                        <div style="font-weight: 700; font-size: 0.8em; color: #000;">{fuel_label} {trans_label}</div>
+                        <div style="font-size: 0.6em; color: #6b7280;">Ex-Showroom</div>
+                    </div>
+                </div>
+
+                <!-- OLD GENERATION COLUMN -->
+                <div style="flex: 1; position: relative;">
+                    <!-- vertical red line at center of this column -->
+                    <div style="position: absolute; left: 50%; top: 30px; bottom: 70px; width: 3px; background: #374151; transform: translateX(-50%); z-index: 1;"></div>
+"""
+        # Position each old variant: dot at center, label to the left
+        for ov in old_sorted:
+            vname = ov.get('variant', '')
+            price_str = ov.get('price', '')
+            pm = re.search(r'(\d+\.?\d*)', str(price_str))
+            if pm:
+                price_val = float(pm.group(1))
+                pd = pm.group(1)
+                top_px = price_to_px(price_val)
+                # Dot positioned absolutely at 50% of column
+                html += f"""
+                    <!-- Dot at center -->
+                    <div style="position: absolute; left: 50%; top: {top_px}px; transform: translate(-50%, -50%); width: 14px; height: 14px; border-radius: 50%; background: #374151; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3); z-index: 2;"></div>
+                    <!-- Label to the left of dot -->
+                    <div style="position: absolute; right: 52%; top: {top_px}px; transform: translateY(-50%); padding-right: 12px; font-size: 0.78em; color: #000; white-space: nowrap; text-align: right; z-index: 2;">
+                        <span style="font-weight: 700;">{pd}</span>, {vname}
+                    </div>
+"""
+        html += f"""
+                    <!-- Bottom label -->
+                    <div style="position: absolute; bottom: 5px; left: 0; right: 0; text-align: center;">
+                        <div style="font-size: 1em; font-weight: 700; color: #000; margin-bottom: 5px;">{fuel_label[0]} {trans_label}</div>
+                        <div style="display: inline-block; padding: 6px 20px; background: #1f2937; color: white; border-radius: 6px; font-weight: 700; font-size: 0.85em;">Old {car_name.split()[0]}</div>
+                    </div>
+                </div>
+
+                <!-- CALLOUT BOXES (CENTER) -->
+                <div style="flex: 0 0 180px; display: flex; flex-direction: column; justify-content: center; gap: 15px; padding: 30px 5px; overflow: hidden;">
+"""
+        # Helper: fuzzy-match new variant name from mapping against price_ladder keys
+        def _find_new_price(new_var_name, new_prices_dict):
+            """Try exact match first, then substring/prefix match."""
+            if new_var_name in new_prices_dict:
+                return new_prices_dict[new_var_name]
+            nv_lower = new_var_name.lower().strip()
+            for key, val in new_prices_dict.items():
+                if nv_lower.startswith(key.lower().strip()):
+                    return val
+                if key.lower().strip().startswith(nv_lower):
+                    return val
+            nv_first = nv_lower.split()[0] if nv_lower else ''
+            for key, val in new_prices_dict.items():
+                if key.lower().strip().split()[0] == nv_first:
+                    return val
+            return '0'
+
+        callout_count = 0
+        for mapping in mappings:
+            features = mapping.get('features_added', [])
+            if len(features) >= 2 and callout_count < 3:
+                old_var_name = mapping.get('old_variant', '')
+                new_var_name = mapping.get('new_variant', '')
+                old_price = next((v['price'] for v in old_vars if v['variant'] == old_var_name), '0')
+                new_price_val = _find_new_price(new_var_name, new_prices)
+                old_val = float(re.search(r'(\d+\.?\d*)', str(old_price)).group(1)) if re.search(r'(\d+\.?\d*)', str(old_price)) else 0
+                new_val = float(re.search(r'(\d+\.?\d*)', str(new_price_val)).group(1)) if re.search(r'(\d+\.?\d*)', str(new_price_val)) else 0
+                price_diff = new_val - old_val
+                if abs(price_diff) > 0:
+                    arrow = "&uarr;" if price_diff > 0 else "&darr;"
+                    diff_color = "#dd032b" if price_diff > 0 else "#059669"
+                    html += f"""
+                    <div style="background: white; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 170px;">
+                        <div style="text-align: center; font-weight: 700; color: #000; margin-bottom: 4px; border-bottom: 1px solid #e5e7eb; padding-bottom: 3px; font-size: 0.65em;">
+                            Price charged Vs Features added
+                        </div>
+                        <div style="text-align: center; font-size: 0.9em; font-weight: 800; color: {diff_color}; margin-bottom: 4px;">
+                            {arrow} Rs.{abs(price_diff):.2f}L
+                        </div>
+                        <div style="font-size: 0.6em; color: #000; line-height: 1.3; max-height: 80px; overflow: hidden;">
+"""
+                    for feature in features[:5]:
+                        html += f"                            + {feature}<br>\n"
+                    html += """
+                        </div>
+                    </div>
+"""
+                    callout_count += 1
+
+        if callout_count == 0:
+            html += """<div style="text-align: center; color: #9ca3af; font-size: 0.75em;">No significant<br>feature changes</div>"""
+
+        html += """
+                </div>
+
+                <!-- NEW GENERATION COLUMN -->
+                <div style="flex: 1; position: relative;">
+                    <!-- vertical red line at center of this column -->
+                    <div style="position: absolute; left: 50%; top: 30px; bottom: 70px; width: 3px; background: #374151; transform: translateX(-50%); z-index: 1;"></div>
+"""
+        # Position each new variant: dot at center, label to the right
+        for vname, price in new_sorted:
+            pm = re.search(r'(\d+\.?\d*)', str(price))
+            if pm:
+                price_val = float(pm.group(1))
+                pd = pm.group(1)
+                top_px = price_to_px(price_val)
+                html += f"""
+                    <!-- Dot at center -->
+                    <div style="position: absolute; left: 50%; top: {top_px}px; transform: translate(-50%, -50%); width: 14px; height: 14px; border-radius: 50%; background: #374151; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3); z-index: 2;"></div>
+                    <!-- Label to the right of dot -->
+                    <div style="position: absolute; left: 52%; top: {top_px}px; transform: translateY(-50%); padding-left: 12px; font-size: 0.78em; color: #000; white-space: nowrap; z-index: 2;">
+                        <span style="font-weight: 700;">{pd}</span>, {vname}
+                    </div>
+"""
+        html += f"""
+                    <!-- Bottom label -->
+                    <div style="position: absolute; bottom: 5px; left: 0; right: 0; text-align: center;">
+                        <div style="font-size: 1em; font-weight: 700; color: #000; margin-bottom: 5px;">{fuel_label[0]} {trans_label}</div>
+                        <div style="display: inline-block; padding: 6px 20px; background: #1f2937; color: white; border-radius: 6px; font-weight: 700; font-size: 0.85em;">New {car_name.split()[0]}</div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div style="margin-top: 15px; padding: 10px; background: #f3f4f6; border-left: 4px solid #374151; font-size: 0.85em; color: #000;">
+                <strong>Note:</strong> Below variants are as per reveal done during launch event on {old_gen_data.get('old_generation', {}).get('launch_year', '2024')}.
+                More sub-variants [ with/without sunroof, CAMO edition etc] may get released in future.
+            </div>
+        </div>
+"""
+
+    return html
+
+
 def generate_price_ladder_section(comparison_data: Dict[str, Any]) -> str:
     """
     Generate price ladder section with 1:1 side-by-side comparison per
-    fuel type × transmission mode. Each car gets equal width; cars with
-    no data for a given mode are omitted from that panel.
+    fuel type × transmission mode. Now supports both old vs new comparison AND traditional format.
     """
     import re
 
     if not comparison_data:
         return ""
 
+    # Check if any car has generation comparison data
+    has_any_gen_comparison = any(
+        car_data.get('generation_comparison', {}).get('has_old_generation', False)
+        for car_data in comparison_data.values()
+        if isinstance(car_data, dict) and "error" not in car_data
+    )
+
+    # If generation comparison exists, use the new format for those cars
+    if has_any_gen_comparison:
+        html = ""
+        for car_name, car_data in comparison_data.items():
+            if not isinstance(car_data, dict) or "error" in car_data:
+                continue
+
+            old_gen_data = car_data.get('generation_comparison') or {}
+            variant_walk = car_data.get('variant_walk') or {}
+
+            if old_gen_data.get('has_old_generation'):
+                html += generate_old_vs_new_price_ladder_bm(car_name, old_gen_data, variant_walk)
+
+        if html:
+            return f"""
+    <div class="content bm-price-ladder-section" id="price-ladder-section">
+        <div class="section-header">
+            <div class="icon-wrapper">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="1" x2="12" y2="23"/>
+                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                </svg>
+            </div>
+            <h2>Price Ladder - Old vs New Comparison</h2>
+        </div>
+        {html}
+    </div>
+    <style>
+        .gen-comparison-page {{
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }}
+        @media print {{
+            .gen-comparison-page {{ page-break-after: always; }}
+        }}
+    </style>
+    """
+
+    # Otherwise, use traditional format
     # Collect car names and their price ladders
     cars: List[Dict[str, Any]] = []
     for car_name, car_data in comparison_data.items():

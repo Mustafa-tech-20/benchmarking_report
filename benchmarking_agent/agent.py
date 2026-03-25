@@ -444,30 +444,63 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
 
     # --- Parallel variant walk extraction (after all specs are done) ---
     from product_planning_agent.extraction.variant_walk import extract_variant_walk
+    from benchmarking_agent.extraction.generation_comparison import extract_old_generation_data
+    import concurrent.futures as cf_local  # Local import to avoid scoping issues
 
-    def _fetch_variant(car_name: str):
+    def _fetch_variant_and_generation(car_name: str):
+        """Fetch both variant walk and generation comparison data in parallel."""
         car_data = results["comparison_data"].get(car_name, {})
         if car_data.get('is_code_car') or "error" in car_data:
-            return car_name, None
-        print(f"[{car_name}] Extracting variant walk data...")
+            return car_name, None, None
+
+        print(f"[{car_name}] Extracting variant walk and generation comparison in parallel...")
+
+        def extract_variant():
+            return extract_variant_walk(car_name)
+
+        def extract_generation():
+            return extract_old_generation_data(car_name, {})
+
         try:
-            variant_data = extract_variant_walk(car_name)
+            # Run both extractions in parallel
+            with cf_local.ThreadPoolExecutor(max_workers=2) as executor:
+                variant_future = executor.submit(extract_variant)
+                gen_future = executor.submit(extract_generation)
+
+                variant_data = variant_future.result()
+                gen_data = gen_future.result()
+
+            # Log variant results
             if variant_data and variant_data.get('variants'):
                 print(f"[{car_name}] ✓ Extracted {len(variant_data.get('variants', {}))} variants")
-                return car_name, variant_data
             else:
-                print(f"[{car_name}] Variant walk: Gemini returned empty variants")
-                return car_name, None
-        except Exception as vw_err:
-            print(f"[{car_name}] Variant walk error: {vw_err}")
-            return car_name, None
+                print(f"[{car_name}] ✗ Variant walk: No variants found")
+                variant_data = None
+
+            # Log generation comparison results
+            if gen_data and gen_data.get('has_old_generation'):
+                old_gen_name = gen_data.get('old_generation', {}).get('name', 'previous generation')
+                print(f"[{car_name}] ✓ Old vs new comparison (vs {old_gen_name})")
+            else:
+                if gen_data and gen_data.get('error'):
+                    print(f"[{car_name}] ✗ Generation comparison error: {gen_data.get('error')}")
+                else:
+                    print(f"[{car_name}] ℹ No previous generation for comparison")
+                gen_data = None
+
+            return car_name, variant_data, gen_data
+
+        except Exception as err:
+            print(f"[{car_name}] Error during extraction: {err}")
+            return car_name, None, None
 
     non_code_cars = [c for c in results["comparison_data"] if not results["comparison_data"][c].get('is_code_car')]
     if non_code_cars:
-        print(f"\nFetching variant walk for {len(non_code_cars)} cars in parallel...")
+        print(f"\nFetching variant walk and generation comparison for {len(non_code_cars)} cars in parallel...")
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(non_code_cars)) as vex:
-            for car_name, variant_data in vex.map(_fetch_variant, non_code_cars):
+            for car_name, variant_data, gen_data in vex.map(_fetch_variant_and_generation, non_code_cars):
                 results["comparison_data"][car_name]['variant_walk'] = variant_data
+                results["comparison_data"][car_name]['generation_comparison'] = gen_data
 
     # Clear collected specs and PDF specs for next comparison
     if hasattr(add_code_car_specs_tool, 'collected_specs'):
