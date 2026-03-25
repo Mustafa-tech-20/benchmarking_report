@@ -7,6 +7,8 @@ import re
 from product_planning_agent.reports.image_sections import (
     generate_hero_section,
     generate_image_gallery_section,
+    generate_technical_spec_section,
+    generate_feature_list_section,
     get_image_section_styles
 )
 
@@ -3170,7 +3172,8 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str, 
         <a href="#"><img src="https://www.mahindra.com//sites/default/files/2025-07/mahindra-red-logo.webp" alt="Logo" class="logo"></a>
         <div class="header-actions">
             <nav class="main-nav">
-                <a href="#comparison-section">Specs</a>
+                <a href="#tech-spec-section">Tech Specs</a>
+                <a href="#feature-list-section">Features</a>
                 <div class="nav-sep"></div>
                 <div class="nav-dropdown">
                     <button class="nav-dropdown-toggle">Gallery</button>
@@ -3194,19 +3197,9 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str, 
         </div>
     </header>
     {generate_hero_section(comparison_data)}
+    {generate_technical_spec_section(comparison_data)}
+    {generate_feature_list_section(comparison_data)}
     <div class="container">
-        <div class="content">
-            <div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M18 18h-2c-1.1 0-2-.9-2-2v-3c0-1.1.9-2 2-2h2c1.1 0 2 .9 2 2v3c0 1.1-.9 2-2 2zM6 18H4c-1.1 0-2-.9-2-2v-3c0-1.1.9-2 2-2h2c1.1 0 2 .9 2 2v3c0 1.1-.9 2-2 2zM17 11V9c0-1.1-.9-2-2-2h-2V5c0-1.1-.9-2-2-2h-2c-1.1 0-2 .9-2 2v2H5c-1.1 0-2 .9-2 2v2h18v-2c0-1.1-.9-2-2-2h-2z"/></svg></div><h2 id="comparison-section">Detailed Specifications</h2></div>
-            <div class="table-container animate-on-scroll">
-                <div class="table-filter-wrapper">
-                    <div class="filter-input-group">
-                        <svg class="filter-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg>
-                        <input type="text" id="specFilter" class="filter-input" placeholder="Search specifications (e.g., mileage, safety, transmission)..." onkeyup="filterSpecs()"/>
-                        <button class="filter-clear-btn" onclick="clearFilter()" id="clearFilterBtn" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
-                    </div><div class="filter-results-info" id="filterResults"></div>
-                </div>{features_table}
-            </div>
-        </div>
         {generate_image_gallery_section("Exterior Highlights", comparison_data, "exterior", "exterior-section")}
         {generate_image_gallery_section("Interior Highlights", comparison_data, "interior", "interior-section")}
         {generate_image_gallery_section("Technology Highlights", comparison_data, "technology", "technology-section")}
