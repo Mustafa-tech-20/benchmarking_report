@@ -1054,165 +1054,94 @@ def _fetch_binary_feature_comparison(car_names: List[str], comparison_data: Dict
     print(f"  Feature comparison: {len(resolved)} from scraped data, {len(missing_features)} need search (max 100 total)")
 
     # ------------------------------------------------------------------
-    # Step 2: INTERLEAVED Custom Search + Gemini extraction
-    #         Search and extraction run concurrently for maximum throughput
+    # Step 2: Sequential CSE searches + parallel Gemini extraction (3 at a time)
     # ------------------------------------------------------------------
-    import threading
     import concurrent.futures
-    import time as _time
-    import queue
 
     gemini_resolved: Dict[str, Dict] = {}
 
     if missing_features:
         try:
-            from vehicle_development_agent.core.scraper import (
-                google_custom_search, SEARCH_ENGINE_ID,
-                call_gemini_simple, GEMINI_WORKERS,
-            )
+            from vehicle_development_agent.core.scraper import google_custom_search, SEARCH_ENGINE_ID
+            from vertexai.generative_models import GenerativeModel, GenerationConfig
 
-            cars_str = " vs ".join(car_names)
             car1 = car_names[0]
             car2 = car_names[1] if len(car_names) > 1 else "Competitor"
+            cars_str = " vs ".join(car_names)
 
-            # Thread-safe containers
-            search_results_map: Dict[str, list] = {}
-            _search_lock = threading.Lock()
-            _result_lock = threading.Lock()
-            _extraction_queue = queue.Queue()
-            _searches_complete = threading.Event()
-
-            BATCH_SIZE = 10
-            total_searches = len(missing_features)
-            searches_done = [0]  # Use list for mutable int in closure
-            extractions_started = [0]
-            extractions_done = [0]
-
-            print(f"  INTERLEAVED: {total_searches} searches + extraction running concurrently...")
-
-            # ── Search worker: run searches and queue batches for extraction ──
-            def _search_worker(feat_info):
-                feat_name = feat_info["name"]
-                query = f"{cars_str} {feat_name}"
+            # Step 2a: Sequential CSE searches
+            print(f"  Searching {len(missing_features)} features...")
+            search_results = {}
+            for i, feat in enumerate(missing_features):
                 try:
-                    results = google_custom_search(query, SEARCH_ENGINE_ID, num_results=3)
+                    results = google_custom_search(f"{cars_str} {feat['name']}", SEARCH_ENGINE_ID, num_results=2)
+                    search_results[feat['name']] = results
                 except Exception:
-                    results = []
+                    search_results[feat['name']] = []
+                if (i + 1) % 20 == 0:
+                    print(f"    Searches: {i + 1}/{len(missing_features)}")
+            print(f"    Searches: {len(missing_features)}/{len(missing_features)} done")
 
-                with _search_lock:
-                    search_results_map[feat_name] = results
-                    searches_done[0] += 1
-                    # Print progress every 20 searches
-                    if searches_done[0] % 20 == 0:
-                        print(f"    Searches: {searches_done[0]}/{total_searches} done")
+            # Step 2b: Create batches of 10
+            BATCH_SIZE = 10
+            batches = [missing_features[i:i + BATCH_SIZE] for i in range(0, len(missing_features), BATCH_SIZE)]
 
-                return feat_name, results
-
-            # ── Extraction worker: process batches as they become ready ──
-            def _extract_batch_with_results(batch, batch_results):
+            # Gemini extraction function
+            def extract_batch(batch):
                 sections = []
-                json_lines = []
-                for feat_info in batch:
-                    feat_name = feat_info["name"]
-                    results = batch_results.get(feat_name, [])
-                    section = f"--- FEATURE: {feat_name} ---\n"
-                    for i, r in enumerate(results[:3], 1):
-                        section += f"[{i}] {r.get('domain', '')}: {r.get('snippet', '')}\n"
-                    if not results:
-                        section += "(no search results — use training knowledge)\n"
-                    sections.append(section)
-                    json_lines.append(
-                        f'    {{"name": "{feat_name}", "{car1}": <value>, "{car2}": <value>}}'
-                    )
+                feat_names = []
+                for feat in batch:
+                    name = feat['name']
+                    feat_names.append(name)
+                    results = search_results.get(name, [])
+                    if results:
+                        snippet = results[0].get('snippet', '')[:120]
+                        sections.append(f"[{name}]: {snippet}")
+                    else:
+                        sections.append(f"[{name}]: (use knowledge)")
 
-                prompt = f"""For {cars_str}, determine each feature's value from the snippets below.
+                prompt = f"""For {car1} vs {car2}, determine feature presence.
 
-{"".join(sections)}
-Rules:
-- true / false for yes/no features
-- integer for counts (e.g. 2 for cup holders)
-- short text ≤20 chars for material/type/brand (e.g. "Leatherette")
-- false if feature is absent
+{chr(10).join(sections)}
 
-Return ONLY valid JSON (no markdown):
-{{
-  "features": [
-{chr(10).join(json_lines)}
-  ]
-}}"""
+Return JSON only: {{"features": [{{"name": "X", "{car1}": true/false, "{car2}": true/false}}, ...]}}"""
+
                 try:
-                    text = call_gemini_simple(prompt).strip()
-                    if "```json" in text:
-                        text = text.split("```json")[1].split("```")[0]
-                    elif "```" in text:
-                        text = text.split("```")[1].split("```")[0]
+                    model = GenerativeModel("gemini-2.5-flash")
+                    resp = model.generate_content(prompt, generation_config=GenerationConfig(temperature=0.1, max_output_tokens=2048))
+                    text = resp.text.strip() if hasattr(resp, 'text') else ""
+                    if not text:
+                        print(f"    [DEBUG] Empty response for batch: {feat_names[:3]}...")
+                        return []
+                    # Debug: print first 200 chars of raw response
+                    print(f"    [DEBUG] Raw response ({len(text)} chars): {text[:200]}...")
+                    if "```" in text:
+                        text = text.split("```")[1] if "```json" not in text else text.split("```json")[1]
+                        text = text.split("```")[0]
                     text = text.strip()
-                    if "{" in text and "}" in text:
+                    if "{" in text:
                         text = text[text.index("{"):text.rindex("}") + 1]
                     result = json_repair.loads(text)
-                    if not isinstance(result, dict):
-                        return []
-                    features = result.get("features", [])
-                    return features if isinstance(features, list) else []
+                    features = result.get("features", []) if isinstance(result, dict) else []
+                    print(f"    [DEBUG] Parsed {len(features)} features from batch")
+                    return features
                 except Exception as e:
-                    print(f"    Extraction batch error: {e}")
+                    print(f"    [DEBUG] Exception in extract_batch: {type(e).__name__}: {e}")
                     return []
 
-            # Create feature batches upfront
-            feat_batches = [
-                missing_features[i:i + BATCH_SIZE]
-                for i in range(0, len(missing_features), BATCH_SIZE)
-            ]
-            total_batches = len(feat_batches)
+            # Step 2c: Process batches with 3 parallel Gemini calls
+            print(f"  Extracting features ({len(batches)} batches, 3 parallel)...")
+            for i in range(0, len(batches), 3):
+                batch_group = batches[i:i + 3]
+                with concurrent.futures.ThreadPoolExecutor(max_workers=3) as ex:
+                    futures = [ex.submit(extract_batch, b) for b in batch_group]
+                    for future in concurrent.futures.as_completed(futures):
+                        for feat in future.result():
+                            name = feat.get("name", "")
+                            if name:
+                                gemini_resolved[name] = {cn: feat.get(cn) for cn in car_names}
 
-            # Run searches and extractions concurrently
-            with concurrent.futures.ThreadPoolExecutor(max_workers=25) as search_ex, \
-                 concurrent.futures.ThreadPoolExecutor(max_workers=10) as extract_ex:
-
-                # Submit all search tasks
-                search_futures = {search_ex.submit(_search_worker, f): f for f in missing_features}
-
-                # Track which batches have been submitted for extraction
-                batch_submitted = [False] * total_batches
-                extraction_futures = []
-
-                # Process as searches complete - start extraction when batch is ready
-                for future in concurrent.futures.as_completed(search_futures):
-                    # Check if any batch is now ready for extraction
-                    for batch_idx, batch in enumerate(feat_batches):
-                        if batch_submitted[batch_idx]:
-                            continue
-
-                        # Check if all features in this batch have search results
-                        batch_ready = all(
-                            f["name"] in search_results_map
-                            for f in batch
-                        )
-
-                        if batch_ready:
-                            # Collect results for this batch
-                            batch_results = {
-                                f["name"]: search_results_map[f["name"]]
-                                for f in batch
-                            }
-                            # Submit extraction task
-                            ext_future = extract_ex.submit(
-                                _extract_batch_with_results, batch, batch_results
-                            )
-                            extraction_futures.append(ext_future)
-                            batch_submitted[batch_idx] = True
-                            extractions_started[0] += 1
-
-                # Wait for any remaining extractions
-                for future in concurrent.futures.as_completed(extraction_futures):
-                    for feat_obj in future.result():
-                        name = feat_obj.get("name", "")
-                        if name:
-                            with _result_lock:
-                                gemini_resolved[name] = {cn: feat_obj.get(cn) for cn in car_names}
-                    extractions_done[0] += 1
-
-            print(f"  Fetched {len(gemini_resolved)} features via {total_searches} searches + {total_batches} Gemini calls (interleaved)")
+            print(f"  Fetched {len(gemini_resolved)} features via {len(missing_features)} searches + {len(batches)} Gemini calls")
 
         except Exception as e:
             print(f"  Feature search/extraction error: {e}")
