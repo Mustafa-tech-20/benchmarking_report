@@ -1334,10 +1334,10 @@ def create_comparison_chart_html(
         .site-header {{ display: flex; justify-content: space-between; align-items: center; padding: 16px 40px; background: #fff; border-bottom: 1px solid #e9ecef; width: 100%; position: sticky; top: 0; z-index: 1000; }}
         .logo {{ height: 22px; width: auto; }}
         .header-actions {{ display: flex; align-items: center; gap: 20px; }}
-        .main-nav {{ display: flex; gap: 4px; align-items: center; }}
+        .main-nav {{ display: flex; gap: 2px; align-items: center; }}
         .main-nav > a, .main-nav > .nav-dropdown > .nav-dropdown-toggle {{
-            text-decoration: none; color: #212529; font-size: 13px; font-weight: 500;
-            transition: color 0.2s; padding: 6px 10px; border-radius: 6px; white-space: nowrap;
+            text-decoration: none; color: #212529; font-size: 12px; font-weight: 500;
+            transition: color 0.2s; padding: 5px 8px; border-radius: 6px; white-space: nowrap;
         }}
         .main-nav > a:hover, .main-nav > .nav-dropdown > .nav-dropdown-toggle:hover {{ color: #dd032b; background: #f5f5f5; }}
         .main-nav > a.nav-active {{ color: #dd032b; font-weight: 600; }}
@@ -3155,7 +3155,6 @@ def create_comparison_chart_html(
                 </div>
                 <div class="nav-sep"></div>
                 <a href="#drivetrain-section">Drivetrain</a>
-                <a href="#spider-charts-section">Radar Analysis</a>
                 <div class="nav-dropdown">
                     <button class="nav-dropdown-toggle">Reviews</button>
                     <div class="nav-dropdown-menu">
@@ -3164,9 +3163,15 @@ def create_comparison_chart_html(
                         <a href="#dynamics-section">Dynamics</a>
                     </div>
                 </div>
+                <div class="nav-dropdown">
+                    <button class="nav-dropdown-toggle">Analysis</button>
+                    <div class="nav-dropdown-menu">
+                        <a href="#spider-charts-section">Radar Charts</a>
+                        <a href="#ai-analysis-section">AI Analysis</a>
+                    </div>
+                </div>
                 <div class="nav-sep"></div>
                 <a href="#summary-section">Summary</a>
-                <a href="#ai-analysis-section">AI Analysis</a>
                 <a href="#" id="citations-toggle" onclick="toggleCitations(event)">Citations</a>
             </nav>
             <button class="print-btn" onclick="printReport()">Save as PDF</button>
