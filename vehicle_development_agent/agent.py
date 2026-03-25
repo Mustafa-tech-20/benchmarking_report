@@ -602,15 +602,77 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
         print(f"[{car}] Done: {populated}/{total} specs found ({percentage:.1f}%)")
         return car, car_data
 
-    # Sequential processing to avoid rate limits
-    print(f"\nProcessing {len(car_list)} cars sequentially")
+    # Separate code cars from regular cars
+    code_cars = []
+    regular_cars = []
     for car in car_list:
+        if is_code_car(car):
+            code_cars.append(car)
+        else:
+            regular_cars.append(car)
+
+    # Process code cars individually (no scraping needed, instant)
+    for car in code_cars:
         try:
             car_key, car_data = _process_single_car(car)
             results["comparison_data"][car_key] = car_data
         except Exception as exc:
             print(f"[{car}] FAILED: {exc}")
             results["comparison_data"][car] = {"car_name": car, "error": str(exc)}
+
+    # Process regular cars in parallel using interleaved processor
+    if regular_cars:
+        print(f"\nProcessing {len(regular_cars)} cars with INTERLEAVED PARALLEL processor...")
+        try:
+            from vehicle_development_agent.core.interleaved_processor import scrape_cars_parallel_sync
+
+            # Convert car names to the format expected by the parallel processor
+            cars_for_parallel = []
+            for car_name in regular_cars:
+                parts = car_name.strip().split(maxsplit=1)
+                brand = parts[0] if parts else ""
+                model = parts[1] if len(parts) > 1 else ""
+                cars_for_parallel.append({"brand": brand, "model": model})
+
+            # Run parallel scraping
+            parallel_result = scrape_cars_parallel_sync(cars_for_parallel)
+
+            # Merge results back
+            for car_id, car_data in parallel_result.get("results", {}).items():
+                car_name = car_data.get("car_name", car_id)
+                # Find the original car name from the list
+                matched_car = None
+                for orig_car in regular_cars:
+                    if orig_car.lower().replace(" ", "_") == car_id or orig_car.lower() == car_name.lower():
+                        matched_car = orig_car
+                        break
+                if not matched_car:
+                    matched_car = car_name
+
+                # Count specs found
+                empty_values = ("Not Available", "N/A", "Not found", "not found", None, "", "—", "-", "None")
+                populated = sum(
+                    1 for f in CAR_SPECS
+                    if car_data.get(f) not in empty_values and str(car_data.get(f, "")).strip() not in empty_values
+                )
+                total = len(CAR_SPECS)
+                percentage = (populated / total * 100) if total > 0 else 0
+                print(f"[{matched_car}] Done: {populated}/{total} specs found ({percentage:.1f}%)")
+
+                results["comparison_data"][matched_car] = car_data
+
+            print(f"\nParallel processing complete: {len(parallel_result.get('results', {}))} cars in {parallel_result.get('total_time', 0):.1f}s")
+
+        except Exception as e:
+            print(f"\nParallel processing failed: {e}")
+            print("Falling back to sequential processing...")
+            for car in regular_cars:
+                try:
+                    car_key, car_data = _process_single_car(car)
+                    results["comparison_data"][car_key] = car_data
+                except Exception as exc:
+                    print(f"[{car}] FAILED: {exc}")
+                    results["comparison_data"][car] = {"car_name": car, "error": str(exc)}
 
     # Clear collected specs and PDF specs for next comparison
     if hasattr(add_code_car_specs_tool, 'collected_specs'):
@@ -694,25 +756,58 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
             print(f"  {car_name}: {found}/{total} specs ({percentage:.1f}%)")
     print("=" * 60)
 
-    print("\n STEP 2: Generating AI-powered comparison summary...")
-    summary_data = generate_comparison_summary(results["comparison_data"])
+    # =========================================================================
+    # PARALLEL PROCESSING: Steps 2, 3, 4.5, 4.6 run concurrently
+    # Step 4 must wait for Step 3 (needs detailed_reviews)
+    # =========================================================================
+    print("\n STEPS 2-4.6: Running in parallel for faster processing...")
+
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def run_step_2():
+        print("  [STEP 2] Generating AI-powered comparison summary...")
+        return generate_comparison_summary(results["comparison_data"])
+
+    def run_step_3():
+        print("  [STEP 3] Extracting detailed reviews from automotive publications...")
+        return extract_detailed_reviews(car_list, SEARCH_SITES)
+
+    def run_step_4_5():
+        print("  [STEP 4.5] Extracting vehicle dynamics ratings from forums/social media...")
+        return extract_vehicle_dynamics_ratings(car_list)
+
+    def run_step_4_6():
+        print("  [STEP 4.6] Generating AI-powered analysis summary...")
+        return generate_ai_analysis_summary(results["comparison_data"])
+
+    # Run Steps 2, 3, 4.5, 4.6 in parallel
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        future_summary = executor.submit(run_step_2)
+        future_reviews = executor.submit(run_step_3)
+        future_dynamics = executor.submit(run_step_4_5)
+        future_ai_analysis = executor.submit(run_step_4_6)
+
+        # Collect results as they complete
+        summary_data = future_summary.result()
+        detailed_reviews = future_reviews.result()
+        dynamics_ratings = future_dynamics.result()
+        ai_analysis_summary = future_ai_analysis.result()
+
     results["summary_data"] = summary_data
-
-    print("\n STEP 3: Extracting detailed reviews from automotive publications...")
-    detailed_reviews = extract_detailed_reviews(car_list, SEARCH_SITES)
     results["detailed_reviews"] = detailed_reviews
+    results["dynamics_ratings"] = dynamics_ratings
+    results["ai_analysis_summary"] = ai_analysis_summary
 
-    print("\n STEP 4: Extracting comparative graphs data with overall ratings...")
+    print("  [STEP 2] ✓ Summary complete")
+    print("  [STEP 3] ✓ Reviews complete")
+    print("  [STEP 4.5] ✓ Dynamics ratings complete")
+    print("  [STEP 4.6] ✓ AI analysis complete")
+
+    # Step 4 runs after Step 3 (needs detailed_reviews)
+    print("  [STEP 4] Extracting comparative graphs data with overall ratings...")
     comparative_graphs = extract_comparative_graphs_data(car_list, results["comparison_data"], detailed_reviews)
     results["comparative_graphs"] = comparative_graphs
-
-    print("\n STEP 4.5: Extracting vehicle dynamics ratings from forums/social media...")
-    dynamics_ratings = extract_vehicle_dynamics_ratings(car_list)
-    results["dynamics_ratings"] = dynamics_ratings
-
-    print("\n STEP 4.6: Generating AI-powered analysis summary...")
-    ai_analysis_summary = generate_ai_analysis_summary(results["comparison_data"])
-    results["ai_analysis_summary"] = ai_analysis_summary
+    print("  [STEP 4] ✓ Comparative graphs complete")
 
     print("\n STEP 5: Creating enhanced interactive HTML report...")
     html_content = create_comparison_chart_html(
@@ -725,13 +820,17 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
         dynamics_ratings
     )
 
-    # Upload HTML directly to GCS (viewable in browser)
-    html_gcs_uri, html_signed_url = save_chart_to_gcs(html_content, folder_name)
+    # Upload HTML and JSON to GCS in parallel
+    print("  Uploading HTML and JSON to GCS in parallel...")
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        future_html = executor.submit(save_chart_to_gcs, html_content, folder_name)
+        future_json = executor.submit(save_json_to_gcs, results, folder_name)
+
+        html_gcs_uri, html_signed_url = future_html.result()
+        json_gcs_uri, json_signed_url = future_json.result()
+
     results["chart_gcs_uri"] = html_gcs_uri
     results["chart_signed_url"] = html_signed_url
-
-    # Upload JSON directly to GCS
-    json_gcs_uri, json_signed_url = save_json_to_gcs(results, folder_name)
     results["json_gcs_uri"] = json_gcs_uri
     results["json_signed_url"] = json_signed_url
 

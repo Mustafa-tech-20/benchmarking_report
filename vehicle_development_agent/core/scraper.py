@@ -1935,3 +1935,78 @@ async def async_scrape_car_data(car_name: str) -> Dict[str, Any]:
     print(f"{'='*60}\n")
 
     return car_data
+
+
+# ============================================================================
+# MULTI-CAR PARALLEL PROCESSING
+# ============================================================================
+
+def scrape_cars_parallel(cars: List[Dict[str, str]]) -> Dict[str, Any]:
+    """
+    Scrape multiple cars in parallel using API-interleaved processing.
+
+    This function maximizes throughput by interleaving different API types:
+    - When Gemini is rate-limited, Custom Search tasks are processed
+    - When Custom Search is rate-limited, Gemini tasks are processed
+
+    Expected performance:
+    - 2 cars: ~2-3 minutes (down from 7-10 minutes sequential)
+    - 10 cars: ~8-12 minutes (down from 35-50 minutes sequential)
+
+    Args:
+        cars: List of car dicts, e.g., [{"brand": "Mahindra", "model": "XUV700"}, ...]
+
+    Returns:
+        {
+            "results": {car_id: car_data, ...},
+            "total_time": float,
+            "metrics": metrics_dict
+        }
+    """
+    from vehicle_development_agent.async_config import interleaved_config
+
+    if not interleaved_config.enabled:
+        # Fallback to sequential processing
+        print("Interleaved processing disabled, using sequential mode...")
+        results = {}
+        start_time = time.time()
+        for car in cars:
+            car_name = f"{car.get('brand', '')} {car.get('model', '')}".strip()
+            car_id = f"{car.get('brand', '').lower()}_{car.get('model', '').lower()}".replace(" ", "_")
+            results[car_id] = scrape_car_data(car_name)
+        return {
+            "results": results,
+            "total_time": time.time() - start_time,
+            "metrics": {},
+        }
+
+    # Use interleaved parallel processor
+    from vehicle_development_agent.core.interleaved_processor import scrape_cars_parallel_sync
+    return scrape_cars_parallel_sync(cars)
+
+
+async def async_scrape_cars_parallel(cars: List[Dict[str, str]]) -> Dict[str, Any]:
+    """
+    Async version of scrape_cars_parallel.
+
+    For use from async code.
+    """
+    from vehicle_development_agent.async_config import interleaved_config
+
+    if not interleaved_config.enabled:
+        # Fallback to sequential processing
+        results = {}
+        start_time = time.time()
+        for car in cars:
+            car_name = f"{car.get('brand', '')} {car.get('model', '')}".strip()
+            car_id = f"{car.get('brand', '').lower()}_{car.get('model', '').lower()}".replace(" ", "_")
+            results[car_id] = await async_scrape_car_data(car_name)
+        return {
+            "results": results,
+            "total_time": time.time() - start_time,
+            "metrics": {},
+        }
+
+    # Use interleaved parallel processor
+    from vehicle_development_agent.core.interleaved_processor import scrape_cars_parallel as async_scrape_parallel
+    return await async_scrape_parallel(cars)

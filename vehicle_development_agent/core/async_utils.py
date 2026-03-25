@@ -21,7 +21,7 @@ from tenacity import (
     after_log,
 )
 
-from benchmarking_agent.async_config import rate_limit_config
+from vehicle_development_agent.async_config import rate_limit_config
 
 # Type variables for generic functions
 P = ParamSpec('P')
