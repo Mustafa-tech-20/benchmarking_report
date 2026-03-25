@@ -35,7 +35,7 @@ from benchmarking_agent.extraction.async_images import (
 # Test different query formats to see which works best
 BATCH_TEST_QUERIES = [
     # Format 1: Simple feature
-    ("Toyota Camry", "headlights"),
+    ("Toyota Camry", "h"),
     ("Toyota Camry", "dashboard"),
     ("Toyota Camry", "interior seats"),
 
