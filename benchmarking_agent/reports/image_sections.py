@@ -4046,7 +4046,7 @@ def generate_old_vs_new_price_ladder_bm(car_name: str, old_gen_data: Dict[str, A
                 <!-- OLD GENERATION COLUMN -->
                 <div style="flex: 1; position: relative;">
                     <!-- vertical red line at center of this column -->
-                    <div style="position: absolute; left: 50%; top: 30px; bottom: 70px; width: 3px; background: #374151; transform: translateX(-50%); z-index: 1;"></div>
+                    <div style="position: absolute; left: 50%; top: 30px; bottom: 70px; width: 3px; background: #dd032b; transform: translateX(-50%); z-index: 1;"></div>
 """
         # Position each old variant: dot at center, label to the left
         for ov in old_sorted:
@@ -4135,7 +4135,7 @@ def generate_old_vs_new_price_ladder_bm(car_name: str, old_gen_data: Dict[str, A
                 <!-- NEW GENERATION COLUMN -->
                 <div style="flex: 1; position: relative;">
                     <!-- vertical red line at center of this column -->
-                    <div style="position: absolute; left: 50%; top: 30px; bottom: 70px; width: 3px; background: #374151; transform: translateX(-50%); z-index: 1;"></div>
+                    <div style="position: absolute; left: 50%; top: 30px; bottom: 70px; width: 3px; background: #dd032b; transform: translateX(-50%); z-index: 1;"></div>
 """
         # Position each new variant: dot at center, label to the right
         for vname, price in new_sorted:

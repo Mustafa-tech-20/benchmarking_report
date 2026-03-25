@@ -1082,7 +1082,7 @@ def generate_old_vs_new_price_ladder(car_name: str, old_gen_data: Dict[str, Any]
                 <!-- OLD GENERATION COLUMN -->
                 <div style="flex: 1; position: relative;">
                     <!-- vertical red line at center of this column -->
-                    <div style="position: absolute; left: 50%; top: 30px; bottom: 70px; width: 3px; background: #374151; transform: translateX(-50%); z-index: 1;"></div>
+                    <div style="position: absolute; left: 50%; top: 30px; bottom: 70px; width: 3px; background: #dd032b; transform: translateX(-50%); z-index: 1;"></div>
 """
         # Position each old variant: dot at center, label to the left
         for ov in old_sorted:
@@ -1171,7 +1171,7 @@ def generate_old_vs_new_price_ladder(car_name: str, old_gen_data: Dict[str, Any]
                 <!-- NEW GENERATION COLUMN -->
                 <div style="flex: 1; position: relative;">
                     <!-- vertical red line at center of this column -->
-                    <div style="position: absolute; left: 50%; top: 30px; bottom: 70px; width: 3px; background: #374151; transform: translateX(-50%); z-index: 1;"></div>
+                    <div style="position: absolute; left: 50%; top: 30px; bottom: 70px; width: 3px; background: #dd032b; transform: translateX(-50%); z-index: 1;"></div>
 """
         # Position each new variant: dot at center, label to the right
         for vname, price in new_sorted:
@@ -3442,7 +3442,11 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str, 
                 <a href="#tech-spec-section">Tech Specs</a>
                 <a href="#feature-list-section">Features</a>
                 <div class="nav-sep"></div>
-                <a href="#lifecycle-section">Lifecycle</a>
+                <div class="nav-dropdown">
+                    <button class="nav-dropdown-toggle">Lifecycle</button>
+                    <div class="nav-dropdown-menu" id="lifecycle-dropdown">
+                    </div>
+                </div>
                 <div class="nav-dropdown">
                     <button class="nav-dropdown-toggle">Gallery</button>
                     <div class="nav-dropdown-menu">
@@ -3666,6 +3670,22 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str, 
             const observer = new IntersectionObserver((entries) => {{ entries.forEach(entry => {{ if (entry.isIntersecting) {{ entry.target.classList.add('is-visible'); observer.unobserve(entry.target); }} }}); }}, {{ threshold: 0.1 }});
             document.querySelectorAll('.animate-on-scroll').forEach(el => observer.observe(el));
 
+            // Populate lifecycle dropdown with car names
+            const lifecyclePages = document.querySelectorAll('.lifecycle-page');
+            const lifecycleDropdown = document.getElementById('lifecycle-dropdown');
+            if (lifecycleDropdown && lifecyclePages.length > 0) {{
+                lifecyclePages.forEach(page => {{
+                    const pageId = page.id;
+                    const titleEl = page.querySelector('.lifecycle-title');
+                    if (titleEl) {{
+                        const carName = titleEl.textContent.replace('Journey of ', '').replace(' so far', '');
+                        const link = document.createElement('a');
+                        link.href = '#' + pageId;
+                        link.textContent = carName;
+                        lifecycleDropdown.appendChild(link);
+                    }}
+                }});
+            }}
 
             // Dropdown: close only after 200ms delay so mouse can move from button → menu
             document.querySelectorAll('.nav-dropdown').forEach(function(dd) {{
