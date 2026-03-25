@@ -17,6 +17,7 @@ from benchmarking_agent.core.scraper import (
     call_custom_search_parallel,
     extract_spec_from_search_results,
 )
+from product_planning_agent.core.interleaved_processor import scrape_cars_parallel_sync
 # from benchmarking_agent.extraction.sales import scrape_sales_data
 from benchmarking_agent.utils.gcs import save_chart_to_gcs, save_json_to_gcs
 from benchmarking_agent.core.internal_car_tools import (
@@ -298,24 +299,22 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
     print(f"Method: {'Custom Search API' if use_custom_search else 'Gemini URL Parsing (Legacy)'}")
     print(f"{'#'*60}\n")
 
-    # --- Parallel car processing ---
+    # --- Interleaved Parallel Car Processing ---
+    # Separate code cars from web-scrape cars
+    pdf_specs_store = getattr(save_pdf_car_specs_tool, 'pdf_specs', {})
+    code_cars_list = []
+    web_scrape_cars = []
 
-    def _process_single_car(car: str) -> tuple[str, dict]:
-        """Scrape specs + sales for one car. Thread-safe: scrape_car_data() calls
-        asyncio.run() internally so each thread owns its own event loop."""
+    for car in car_list:
         manual_specs = manual_specs_dict.get(car)
-        # Check if PDF specs were saved for this car
-        pdf_specs_store = getattr(save_pdf_car_specs_tool, 'pdf_specs', {})
         pdf_specs = pdf_specs_store.get(car)
 
         if is_code_car(car):
             # CODE: internal cars must NEVER be web-scraped
             if manual_specs and not manual_specs.get('left_blank'):
-                # RAG/manually-collected specs — use directly
                 print(f"[{car}] Using RAG/manual specs (no web search)")
                 car_data = manual_specs
             elif pdf_specs:
-                # PDF-uploaded specs — merge onto blank base
                 print(f"[{car}] Using PDF-uploaded specs (no web search)")
                 car_data = create_blank_specs_for_code_car(car)
                 car_data['left_blank'] = False
@@ -323,10 +322,8 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
                 car_data['source_urls'] = ["PDF uploaded by user"]
                 car_data['images'] = {}
                 for field, value in pdf_specs.items():
-                    # Skip citation-like keys the agent may have included
                     if field.endswith("_citation"):
                         continue
-                    # Flatten dicts/lists to a plain string
                     if isinstance(value, dict):
                         value = value.get("value") or value.get("text") or str(value)
                     elif isinstance(value, list):
@@ -338,144 +335,128 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
                             "citation_text": "Extracted from PDF uploaded by user"
                         }
             else:
-                # No specs collected yet — use blank rather than web-scraping
                 print(f"[{car}] No specs available for CODE car, using blank")
                 car_data = create_blank_specs_for_code_car(car)
-        elif manual_specs and manual_specs.get('left_blank'):
-            print(f"[{car}] Using blank specifications")
-            car_data = manual_specs
-        else:
-            car_data = scrape_car_data(car, manual_specs, use_custom_search=use_custom_search, pdf_specs=pdf_specs)
-
-        # Sales data extraction commented out
-        # if not car_data.get('is_code_car'):
-        #     print(f"[{car}] Fetching sales data...")
-        #     if use_custom_search:
-        #         sales_query = f"{car} monthly sales units"
-        #
-        #         def _run_sales_async() -> list:
-        #             loop = asyncio.new_event_loop()
-        #             asyncio.set_event_loop(loop)
-        #             try:
-        #                 return loop.run_until_complete(
-        #                     call_custom_search_parallel(
-        #                         {"monthly_sales": sales_query}, num_results=5, max_concurrent=1
-        #                     )
-        #                 ).get("monthly_sales", [])
-        #             finally:
-        #                 loop.close()
-        #
-        #         try:
-        #             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as sex:
-        #                 sales_results = sex.submit(_run_sales_async).result(timeout=60)
-        #         except Exception as e:
-        #             print(f"[{car}] Sales fetch error: {e}")
-        #             sales_results = []
-        #
-        #         if sales_results:
-        #             ext = extract_spec_from_search_results(car, "monthly_sales", sales_results)
-        #             car_data["monthly_sales"] = ext["value"]
-        #             car_data["monthly_sales_citation"] = {
-        #                 "source_url": ext["source_url"],
-        #                 "citation_text": ext["citation"],
-        #             }
-        #             if ext["source_url"] not in car_data.get("source_urls", []):
-        #                 car_data["source_urls"].append(ext["source_url"])
-        #         else:
-        #             car_data["monthly_sales"] = "Not Available"
-        #             car_data["monthly_sales_citation"] = {
-        #                 "source_url": "N/A",
-        #                 "citation_text": "No sales data found",
-        #             }
-        #     else:
-        #         sales_data = scrape_sales_data(car)
-        #         for key, value in sales_data.items():
-        #             if key not in ('car_name', 'sales_source_urls'):
-        #                 car_data[key] = value
-        #         if sales_data.get('sales_source_urls'):
-        #             car_data.setdefault('source_urls', []).extend(sales_data['sales_source_urls'])
-        # else:
-        #     print(f"[{car}] Skipping sales data (code car)")
-        #     car_data["monthly_sales"] = "Not Available"
-        #     car_data["monthly_sales_citation"] = {
-        #         "source_url": "N/A",
-        #         "citation_text": "Code car - sales data not applicable",
-        #     }
-
-        # Extract variant walk data AND generation comparison in parallel (only for product planning agent)
-        if not car_data.get('is_code_car'):
-            try:
-                print(f"[{car}] Extracting variant walk and generation comparison data in parallel...")
-                import concurrent.futures as cf_local  # Local import to avoid scoping issues
-                from product_planning_agent.extraction.variant_walk import extract_variant_walk
-                from product_planning_agent.extraction.generation_comparison import extract_old_generation_data
-
-                def extract_variant():
-                    return extract_variant_walk(car)
-
-                def extract_generation():
-                    return extract_old_generation_data(car, {})
-
-                # Run both extractions in parallel
-                with cf_local.ThreadPoolExecutor(max_workers=2) as executor:
-                    variant_future = executor.submit(extract_variant)
-                    gen_future = executor.submit(extract_generation)
-
-                    # Wait for both to complete
-                    variant_data = variant_future.result()
-                    gen_comparison_data = gen_future.result()
-
-                # Store variant walk data
-                if variant_data and variant_data.get('variants'):
-                    car_data['variant_walk'] = variant_data
-                    print(f"[{car}] ✓ Extracted {len(variant_data.get('variants', {}))} variants")
-                else:
-                    print(f"[{car}] ✗ No variant data found")
-                    car_data['variant_walk'] = None
-
-                # Store generation comparison data
-                if gen_comparison_data and gen_comparison_data.get('has_old_generation'):
-                    car_data['generation_comparison'] = gen_comparison_data
-                    old_gen_name = gen_comparison_data.get('old_generation', {}).get('name', 'previous generation')
-                    print(f"[{car}] ✓ Extracted old vs new comparison (vs {old_gen_name})")
-                else:
-                    car_data['generation_comparison'] = None
-                    if gen_comparison_data and gen_comparison_data.get('error'):
-                        print(f"[{car}] ✗ Generation comparison error: {gen_comparison_data.get('error')}")
-                    else:
-                        print(f"[{car}] ℹ No previous generation for comparison")
-
-            except Exception as variant_err:
-                # Don't lose scraped specs if variant extraction fails!
-                print(f"[{car}] ⚠ Variant extraction failed: {variant_err}")
-                print(f"[{car}] Continuing with scraped specs data...")
-                car_data['variant_walk'] = None
-                car_data['generation_comparison'] = None
-        else:
-            print(f"[{car}] Skipping variant walk and generation comparison (code car)")
             car_data['variant_walk'] = None
             car_data['generation_comparison'] = None
+            results["comparison_data"][car] = car_data
+            code_cars_list.append(car)
+        elif manual_specs and manual_specs.get('left_blank'):
+            print(f"[{car}] Using blank specifications")
+            manual_specs['variant_walk'] = None
+            manual_specs['generation_comparison'] = None
+            results["comparison_data"][car] = manual_specs
+        else:
+            # Parse car name into brand/model for interleaved processor
+            parts = car.split(" ", 1)
+            brand = parts[0] if parts else car
+            model = parts[1] if len(parts) > 1 else ""
+            web_scrape_cars.append({"brand": brand, "model": model, "original_name": car})
 
-        # Count actually found specs (exclude all empty/not-found variations)
-        empty_values = ("Not Available", "N/A", "Not found", "not found", None, "", "—", "-", "None")
-        populated = sum(
-            1 for f in CAR_SPECS
-            if car_data.get(f) not in empty_values and str(car_data.get(f, "")).strip() not in empty_values
-        )
-        total = len(CAR_SPECS)
-        percentage = (populated / total * 100) if total > 0 else 0
-        print(f"[{car}] Done: {populated}/{total} specs found ({percentage:.1f}%)")
-        return car, car_data
-
-    # Sequential processing to avoid rate limits
-    print(f"\nProcessing {len(car_list)} cars sequentially")
-    for car in car_list:
+    # Use interleaved processor for web-scrape cars (TRUE PARALLEL PIPELINES)
+    if web_scrape_cars:
+        print(f"\nProcessing {len(web_scrape_cars)} cars with INTERLEAVED PARALLEL PROCESSING...")
         try:
-            car_key, car_data = _process_single_car(car)
-            results["comparison_data"][car_key] = car_data
+            parallel_results = scrape_cars_parallel_sync(web_scrape_cars)
+
+            # Map results back to original car names
+            for car_info in web_scrape_cars:
+                car_id = f"{car_info['brand'].lower().replace(' ', '_')}_{car_info['model'].lower().replace(' ', '_')}"
+                original_name = car_info['original_name']
+
+                if car_id in parallel_results.get("results", {}):
+                    car_data = parallel_results["results"][car_id]
+                    car_data['variant_walk'] = None
+                    car_data['generation_comparison'] = None
+                    results["comparison_data"][original_name] = car_data
+
+                    # Print summary
+                    empty_values = ("Not Available", "N/A", "Not found", "not found", None, "", "—", "-", "None")
+                    populated = sum(
+                        1 for f in CAR_SPECS
+                        if car_data.get(f) not in empty_values and str(car_data.get(f, "")).strip() not in empty_values
+                    )
+                    total = len(CAR_SPECS)
+                    percentage = (populated / total * 100) if total > 0 else 0
+                    print(f"[{original_name}] Done: {populated}/{total} specs found ({percentage:.1f}%)")
+                else:
+                    print(f"[{original_name}] FAILED: No results from parallel processor")
+                    results["comparison_data"][original_name] = {"car_name": original_name, "error": "Processing failed"}
+
         except Exception as exc:
-            print(f"[{car}] FAILED: {exc}")
-            results["comparison_data"][car] = {"car_name": car, "error": str(exc)}
+            print(f"Interleaved processor failed: {exc}")
+            # Fallback to sequential processing
+            for car_info in web_scrape_cars:
+                original_name = car_info['original_name']
+                try:
+                    car_data = scrape_car_data(original_name, manual_specs_dict.get(original_name),
+                                              use_custom_search=use_custom_search,
+                                              pdf_specs=pdf_specs_store.get(original_name))
+                    car_data['variant_walk'] = None
+                    car_data['generation_comparison'] = None
+                    results["comparison_data"][original_name] = car_data
+                except Exception as e:
+                    print(f"[{original_name}] FAILED: {e}")
+                    results["comparison_data"][original_name] = {"car_name": original_name, "error": str(e)}
+
+    # --- Parallel variant walk and generation comparison extraction ---
+    from product_planning_agent.extraction.variant_walk import extract_variant_walk
+    from product_planning_agent.extraction.generation_comparison import extract_old_generation_data
+
+    def _fetch_variant_and_generation(car_name: str):
+        """Fetch both variant walk and generation comparison data in parallel."""
+        car_data = results["comparison_data"].get(car_name, {})
+        if car_data.get('is_code_car') or "error" in car_data:
+            return car_name, None, None
+
+        print(f"[{car_name}] Extracting variant walk and generation comparison in parallel...")
+
+        def extract_variant():
+            return extract_variant_walk(car_name)
+
+        def extract_generation():
+            return extract_old_generation_data(car_name, {})
+
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+                variant_future = executor.submit(extract_variant)
+                gen_future = executor.submit(extract_generation)
+
+                variant_data = variant_future.result()
+                gen_data = gen_future.result()
+
+            # Log variant results
+            if variant_data and variant_data.get('variants'):
+                print(f"[{car_name}] ✓ Extracted {len(variant_data.get('variants', {}))} variants")
+            else:
+                print(f"[{car_name}] ✗ Variant walk: No variants found")
+                variant_data = None
+
+            # Log generation comparison results
+            if gen_data and gen_data.get('has_old_generation'):
+                old_gen_name = gen_data.get('old_generation', {}).get('name', 'previous generation')
+                print(f"[{car_name}] ✓ Old vs new comparison (vs {old_gen_name})")
+            else:
+                if gen_data and gen_data.get('error'):
+                    print(f"[{car_name}] ✗ Generation comparison error: {gen_data.get('error')}")
+                else:
+                    print(f"[{car_name}] ℹ No previous generation for comparison")
+                gen_data = None
+
+            return car_name, variant_data, gen_data
+
+        except Exception as err:
+            print(f"[{car_name}] Error during extraction: {err}")
+            return car_name, None, None
+
+    non_code_cars = [c for c in results["comparison_data"] if not results["comparison_data"][c].get('is_code_car') and "error" not in results["comparison_data"][c]]
+    if non_code_cars:
+        print(f"\nFetching variant walk and generation comparison for {len(non_code_cars)} cars in parallel...")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(non_code_cars)) as vex:
+            for car_name, variant_data, gen_data in vex.map(_fetch_variant_and_generation, non_code_cars):
+                if car_name in results["comparison_data"]:
+                    results["comparison_data"][car_name]['variant_walk'] = variant_data
+                    results["comparison_data"][car_name]['generation_comparison'] = gen_data
 
     # Clear collected specs and PDF specs for next comparison
     if hasattr(add_code_car_specs_tool, 'collected_specs'):
@@ -508,8 +489,6 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
     ]
 
     # Run both steps in parallel using ThreadPoolExecutor for CPU-bound tasks
-    import concurrent.futures
-
     def run_summary():
         return generate_comparison_summary(results["comparison_data"])
 
@@ -543,13 +522,17 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
     print("\n STEP 3: Creating enhanced interactive HTML report...")
     html_content = create_comparison_chart_html(results["comparison_data"], summary, proscons_data)
 
-    # Upload HTML directly to GCS (viewable in browser)
-    html_gcs_uri, html_signed_url = save_chart_to_gcs(html_content, folder_name)
+    # Upload HTML and JSON to GCS in parallel
+    print("  Uploading HTML and JSON to GCS in parallel...")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        future_html = executor.submit(save_chart_to_gcs, html_content, folder_name)
+        future_json = executor.submit(save_json_to_gcs, results, folder_name)
+
+        html_gcs_uri, html_signed_url = future_html.result()
+        json_gcs_uri, json_signed_url = future_json.result()
+
     results["chart_gcs_uri"] = html_gcs_uri
     results["chart_signed_url"] = html_signed_url
-
-    # Upload JSON directly to GCS
-    json_gcs_uri, json_signed_url = save_json_to_gcs(results, folder_name)
     results["json_gcs_uri"] = json_gcs_uri
     results["json_signed_url"] = json_signed_url
 

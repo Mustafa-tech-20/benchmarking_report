@@ -608,11 +608,13 @@ def _fetch_binary_feature_comparison(car_names: List[str], comparison_data: Dict
     print(f"  Feature comparison: {len(resolved)} from scraped data, {len(missing_features)} need search (max 100 total)")
 
     # ------------------------------------------------------------------
-    # Step 2: Custom Search API (1 query per feature) + batch Gemini extraction
-    #         (10 features per Gemini call, all batches in parallel)
+    # Step 2: INTERLEAVED Custom Search + Gemini extraction
+    #         Search and extraction run concurrently for maximum throughput
     # ------------------------------------------------------------------
     import threading
     import concurrent.futures
+    import time as _time
+    import queue
 
     gemini_resolved: Dict[str, Dict] = {}
 
@@ -627,38 +629,46 @@ def _fetch_binary_feature_comparison(car_names: List[str], comparison_data: Dict
             car1 = car_names[0]
             car2 = car_names[1] if len(car_names) > 1 else "Competitor"
 
-            # ── 2a: one Custom Search query per missing feature ────────────
-            print(f"  Running {len(missing_features)} custom search queries...")
+            # Thread-safe containers
             search_results_map: Dict[str, list] = {}
+            _search_lock = threading.Lock()
+            _result_lock = threading.Lock()
+            _extraction_queue = queue.Queue()
+            _searches_complete = threading.Event()
 
-            def _search_feature(feat_info):
+            BATCH_SIZE = 10
+            total_searches = len(missing_features)
+            searches_done = [0]  # Use list for mutable int in closure
+            extractions_started = [0]
+            extractions_done = [0]
+
+            print(f"  INTERLEAVED: {total_searches} searches + extraction running concurrently...")
+
+            # ── Search worker: run searches and queue batches for extraction ──
+            def _search_worker(feat_info):
                 feat_name = feat_info["name"]
                 query = f"{cars_str} {feat_name}"
                 try:
-                    return feat_name, google_custom_search(query, SEARCH_ENGINE_ID, num_results=3)
+                    results = google_custom_search(query, SEARCH_ENGINE_ID, num_results=3)
                 except Exception:
-                    return feat_name, []
+                    results = []
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=15) as ex:
-                for fname, results in ex.map(_search_feature, missing_features):
-                    search_results_map[fname] = results
+                with _search_lock:
+                    search_results_map[feat_name] = results
+                    searches_done[0] += 1
+                    # Print progress every 20 searches
+                    if searches_done[0] % 20 == 0:
+                        print(f"    Searches: {searches_done[0]}/{total_searches} done")
 
-            # ── 2b: batch Gemini extraction, 10 features per call, parallel ─
-            BATCH_SIZE = 10
-            feat_batches = [
-                missing_features[i:i + BATCH_SIZE]
-                for i in range(0, len(missing_features), BATCH_SIZE)
-            ]
-            print(f"  {len(feat_batches)} Gemini extraction batches firing in parallel...")
+                return feat_name, results
 
-            _lock = threading.Lock()
-
-            def _extract_batch(batch):
+            # ── Extraction worker: process batches as they become ready ──
+            def _extract_batch_with_results(batch, batch_results):
                 sections = []
                 json_lines = []
                 for feat_info in batch:
                     feat_name = feat_info["name"]
-                    results = search_results_map.get(feat_name, [])
+                    results = batch_results.get(feat_name, [])
                     section = f"--- FEATURE: {feat_name} ---\n"
                     for i, r in enumerate(results[:3], 1):
                         section += f"[{i}] {r.get('domain', '')}: {r.get('snippet', '')}\n"
@@ -694,26 +704,69 @@ Return ONLY valid JSON (no markdown):
                     if "{" in text and "}" in text:
                         text = text[text.index("{"):text.rindex("}") + 1]
                     result = json_repair.loads(text)
-                    # Ensure result is a dict before calling .get()
                     if not isinstance(result, dict):
                         return []
                     features = result.get("features", [])
-                    # Ensure we return a list, not a string or other type
                     return features if isinstance(features, list) else []
                 except Exception as e:
-                    print(f"  Extraction batch error: {e}")
+                    print(f"    Extraction batch error: {e}")
                     return []
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=len(feat_batches)) as ex:
-                future_to_batch = {ex.submit(_extract_batch, b): b for b in feat_batches}
-                for future in concurrent.futures.as_completed(future_to_batch):
+            # Create feature batches upfront
+            feat_batches = [
+                missing_features[i:i + BATCH_SIZE]
+                for i in range(0, len(missing_features), BATCH_SIZE)
+            ]
+            total_batches = len(feat_batches)
+
+            # Run searches and extractions concurrently
+            with concurrent.futures.ThreadPoolExecutor(max_workers=25) as search_ex, \
+                 concurrent.futures.ThreadPoolExecutor(max_workers=10) as extract_ex:
+
+                # Submit all search tasks
+                search_futures = {search_ex.submit(_search_worker, f): f for f in missing_features}
+
+                # Track which batches have been submitted for extraction
+                batch_submitted = [False] * total_batches
+                extraction_futures = []
+
+                # Process as searches complete - start extraction when batch is ready
+                for future in concurrent.futures.as_completed(search_futures):
+                    # Check if any batch is now ready for extraction
+                    for batch_idx, batch in enumerate(feat_batches):
+                        if batch_submitted[batch_idx]:
+                            continue
+
+                        # Check if all features in this batch have search results
+                        batch_ready = all(
+                            f["name"] in search_results_map
+                            for f in batch
+                        )
+
+                        if batch_ready:
+                            # Collect results for this batch
+                            batch_results = {
+                                f["name"]: search_results_map[f["name"]]
+                                for f in batch
+                            }
+                            # Submit extraction task
+                            ext_future = extract_ex.submit(
+                                _extract_batch_with_results, batch, batch_results
+                            )
+                            extraction_futures.append(ext_future)
+                            batch_submitted[batch_idx] = True
+                            extractions_started[0] += 1
+
+                # Wait for any remaining extractions
+                for future in concurrent.futures.as_completed(extraction_futures):
                     for feat_obj in future.result():
                         name = feat_obj.get("name", "")
                         if name:
-                            with _lock:
+                            with _result_lock:
                                 gemini_resolved[name] = {cn: feat_obj.get(cn) for cn in car_names}
+                    extractions_done[0] += 1
 
-            print(f"  Fetched {len(gemini_resolved)} features via search + {len(feat_batches)} Gemini calls")
+            print(f"  Fetched {len(gemini_resolved)} features via {total_searches} searches + {total_batches} Gemini calls (interleaved)")
 
         except Exception as e:
             print(f"  Feature search/extraction error: {e}")

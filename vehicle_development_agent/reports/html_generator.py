@@ -3155,9 +3155,7 @@ def create_comparison_chart_html(
                 </div>
                 <div class="nav-sep"></div>
                 <a href="#drivetrain-section">Drivetrain</a>
-                <a href="#summary-section">Summary</a>
                 <a href="#spider-charts-section">Radar Analysis</a>
-                <div class="nav-sep"></div>
                 <div class="nav-dropdown">
                     <button class="nav-dropdown-toggle">Reviews</button>
                     <div class="nav-dropdown-menu">
@@ -3167,6 +3165,7 @@ def create_comparison_chart_html(
                     </div>
                 </div>
                 <div class="nav-sep"></div>
+                <a href="#summary-section">Summary</a>
                 <a href="#ai-analysis-section">AI Analysis</a>
                 <a href="#" id="citations-toggle" onclick="toggleCitations(event)">Citations</a>
             </nav>

@@ -1,5 +1,10 @@
 """
 Async Configuration for Rate Limiting and Concurrency Control
+
+Includes:
+- RateLimitConfig: API rate limiting settings
+- CircuitBreakerConfig: Circuit breaker pattern settings
+- InterleavedConfig: Multi-car parallel processing settings
 """
 from dataclasses import dataclass
 from typing import Dict
@@ -7,30 +12,26 @@ from typing import Dict
 
 @dataclass
 class RateLimitConfig:
-    """Configuration for API rate limiting."""
+    """Configuration for API rate limiting - disabled, using exponential backoff instead."""
 
-    # Google Custom Search API limits
-    # Free tier: 100 queries/day, paid tier: 10,000 queries/day
-    # Limit to 10 requests/second to be safe
-    custom_search_max_concurrent: int = 10
-    custom_search_requests_per_second: float = 10.0
-    custom_search_burst_limit: int = 20
+    # No rate limiting - rely on exponential backoff/retry on 429s
+    custom_search_max_concurrent: int = 500
+    custom_search_requests_per_second: float = 1000.0
+    custom_search_burst_limit: int = 500
 
-    # Gemini API limits
-    # Gemini Flash: 15 RPM (requests per minute) free tier, 1000 RPM paid
-    # Gemini Pro: 5 RPM free tier, 360 RPM paid
-    gemini_flash_max_concurrent: int = 8
-    gemini_flash_requests_per_minute: float = 15.0
-    gemini_pro_max_concurrent: int = 3
-    gemini_pro_requests_per_minute: float = 5.0
+    # No rate limiting - rely on exponential backoff/retry on 429s
+    gemini_flash_max_concurrent: int = 200
+    gemini_flash_requests_per_minute: float = 10000.0
+    gemini_pro_max_concurrent: int = 100
+    gemini_pro_requests_per_minute: float = 5000.0
 
     # HTTP client settings
-    max_connections: int = 100
-    max_connections_per_host: int = 30
+    max_connections: int = 200
+    max_connections_per_host: int = 100
     connection_timeout: int = 30
     request_timeout: int = 60
 
-    # Retry settings
+    # Retry settings (exponential backoff handles rate limits)
     max_retries: int = 5
     base_delay: float = 1.0
     max_delay: float = 60.0
@@ -47,6 +48,40 @@ class CircuitBreakerConfig:
     success_threshold: int = 2  # Number of successes to close circuit
 
 
+@dataclass
+class InterleavedConfig:
+    """Configuration for API-interleaved parallel car processing."""
+
+    # Master switch
+    enabled: bool = True
+
+    # Car processing limits
+    max_concurrent_cars: int = 6  # Max cars to process simultaneously
+
+    # Task queue settings
+    task_queue_size: int = 500  # Max tasks per resource queue
+    worker_count: int = 30  # Concurrent asyncio workers (lightweight coroutines)
+
+    # Resource budgets (prevents starvation)
+    gemini_flash_max_pending: int = 25  # Max pending Gemini Flash tasks
+    gemini_flash_priority_boost: int = 2  # Priority boost when queue is low
+    gemini_pro_max_pending: int = 8  # Max pending Gemini Pro tasks
+    custom_search_max_pending: int = 100  # Max pending search tasks (increased)
+    custom_search_priority_boost: int = 1  # Priority boost when queue is low
+
+    # Batching settings
+    spec_batch_size: int = 10  # Specs per Gemini extraction call
+    search_batch_size: int = 1  # Searches per batch (kept at 1 for accuracy)
+
+    # Timeouts
+    task_timeout: float = 60.0  # Single task timeout in seconds
+    phase_timeout: float = 300.0  # Phase timeout in seconds
+
+    # Car fairness
+    round_robin_enabled: bool = True  # Alternate between cars
+
+
 # Global configuration instances
 rate_limit_config = RateLimitConfig()
 circuit_breaker_config = CircuitBreakerConfig()
+interleaved_config = InterleavedConfig()
