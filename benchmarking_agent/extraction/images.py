@@ -3,6 +3,7 @@ Feature-specific image extraction using Google CSE with site: filter
 Restricts searches to AutoCarIndia.com for reliable, categorized images
 """
 
+import time
 import requests
 import concurrent.futures
 from typing import Dict, List, Tuple
@@ -281,86 +282,38 @@ def extract_autocar_images(car_name: str) -> Dict[str, List[Tuple[str, str]]]:
     # Track used URLs to prevent duplicates
     used_urls = set()
 
-    # Get hero image first (main exterior shot)
-    try:
-        params = {
-            "key": GOOGLE_API_KEY,
-            "cx": COMPANY_SEARCH_ID,
-            "q": f"{car_name} official photo",
-            "searchType": "image",
-            "num": 10,  # Get more results for better selection
-            "imgSize": "large",
-        }
-        response = requests.get(CUSTOM_SEARCH_URL, params=params, timeout=10)
-        if response.status_code == 200:
-            items = response.json().get("items", [])
-            if items:
-                # Score all hero images to find the best match
-                scored_heroes = []
-                fallback_url = None  # Track first valid URL as fallback
-
+    # Get hero image first (main exterior shot) - simple, no scoring
+    for attempt in range(3):
+        try:
+            params = {
+                "key": GOOGLE_API_KEY,
+                "cx": COMPANY_SEARCH_ID,
+                "q": f"{car_name} official photo",
+                "searchType": "image",
+                "num": 5,
+                "imgSize": "large",
+            }
+            response = requests.get(CUSTOM_SEARCH_URL, params=params, timeout=10)
+            if response.status_code == 200:
+                items = response.json().get("items", [])
                 for item in items:
                     hero_url = item.get("link", "")
-
-                    # Skip x-raw-image URLs
-                    if "x-raw-image" in hero_url:
+                    # Skip problematic URLs
+                    if "x-raw-image" in hero_url or "encrypted-tbn" in hero_url:
                         continue
-
-                    # Skip encrypted thumbnails (blurry)
-                    if "encrypted-tbn" in hero_url:
-                        continue
-
-                    # Validate URL
-                    if not hero_url.startswith(('http://', 'https://')):
-                        image_meta = item.get("image", {})
-                        hero_url = image_meta.get("contextLink", "")  # Use context, not thumbnail
-
                     if hero_url and hero_url.startswith(('http://', 'https://')) and hero_url not in used_urls:
-                        # Store first valid URL as fallback
-                        if fallback_url is None:
-                            fallback_url = hero_url
-
-                        # Validate car name match in URL and metadata
-                        title = item.get("title", "").lower()
-                        snippet = item.get("snippet", "").lower()
-                        link = hero_url.lower()
-                        display_link = item.get("displayLink", "").lower()
-
-                        combined_text = f"{title} {snippet} {link} {display_link}"
-                        car_keywords = [w.lower() for w in car_name.split() if len(w) > 3]
-
-                        # Check if car name is present
-                        car_matches = sum(1 for keyword in car_keywords if keyword in combined_text)
-
-                        # Penalty for other car brand names in the URL/title
-                        other_brands = ["kia", "tata", "maruti", "mahindra", "toyota", "honda", "ford", "volkswagen", "skoda", "nissan", "renault"]
-                        # Remove the current car's brand from penalty list
-                        current_brand = car_name.split()[0].lower()
-                        other_brands = [b for b in other_brands if b != current_brand]
-
-                        has_other_brand = any(brand in combined_text for brand in other_brands)
-
-                        # Add all valid images with scores (even 0.0)
-                        score = 0.0
-                        if car_matches > 0 and not has_other_brand:
-                            score = car_matches / len(car_keywords)
-                            # Bonus for official domains
-                            if any(domain in display_link for domain in ["hyundai.com", "mahindra.com", "kia.com", "autocarindia", "cardekho"]):
-                                score += 0.3
-                        scored_heroes.append((score, hero_url))
-
-                # Sort by score and take the best (always return highest score, even if 0.0)
-                if scored_heroes:
-                    scored_heroes.sort(key=lambda x: x[0], reverse=True)
-                    best_score, best_hero_url = scored_heroes[0]
-                    results["hero"].append((best_hero_url, car_name))
-                    used_urls.add(best_hero_url)
-                elif fallback_url:
-                    # If all were filtered, use fallback
-                    results["hero"].append((fallback_url, car_name))
-                    used_urls.add(fallback_url)
-    except Exception:
-        pass
+                        results["hero"].append((hero_url, car_name))
+                        used_urls.add(hero_url)
+                        break
+                break  # Success, exit retry loop
+            elif response.status_code == 429:
+                print(f"    Hero image rate limited for {car_name}, retry {attempt + 1}/3")
+                time.sleep(1 + attempt)
+            else:
+                print(f"    Hero image status {response.status_code} for {car_name}")
+                break
+        except Exception as e:
+            print(f"    Hero image error for {car_name}: {e}")
 
     # Search for each feature in parallel
     search_tasks = []

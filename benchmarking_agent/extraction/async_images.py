@@ -252,15 +252,24 @@ async def async_extract_autocar_images(car_name: str) -> Dict[str, List[Tuple[st
                     "imgSize": "large",
                 }
 
-                async with http_client.session.get(CUSTOM_SEARCH_URL, params=params) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        items = data.get("items", [])
-                        if items:
-                            hero_url = items[0].get("link", "")
-                            if hero_url and hero_url not in used_urls:
-                                results["hero"].append((hero_url, car_name))
-                                used_urls.add(hero_url)
+                # Try up to 3 times for hero image
+                for attempt in range(3):
+                    async with http_client.session.get(CUSTOM_SEARCH_URL, params=params) as response:
+                        if response.status == 200:
+                            data = await response.json()
+                            items = data.get("items", [])
+                            if items:
+                                hero_url = items[0].get("link", "")
+                                if hero_url and hero_url not in used_urls:
+                                    results["hero"].append((hero_url, car_name))
+                                    used_urls.add(hero_url)
+                                    break
+                        elif response.status == 429:
+                            logger.warning(f"Hero image rate limited for {car_name}, retry {attempt + 1}/3")
+                            await asyncio.sleep(1 + attempt)
+                        else:
+                            logger.warning(f"Hero image status {response.status} for {car_name}")
+                            break
         except Exception as e:
             logger.warning(f"Hero image fetch failed: {e}")
 
