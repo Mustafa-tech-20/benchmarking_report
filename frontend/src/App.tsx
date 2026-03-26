@@ -557,17 +557,17 @@ function App() {
 
         <div className="nav-right">
           <div className="nav-agent-display">
-            <Car size={16} />
+            <Car size={14} />
             <span>{getAgentName(user?.role || '')}</span>
           </div>
 
           <button className="nav-btn" onClick={startNewConversation}>
-            <Plus size={18} />
+            <Plus size={16} />
             <span>New Chat</span>
           </button>
 
           <button className="nav-btn" onClick={() => setShowHistory(!showHistory)}>
-            <History size={18} />
+            <History size={16} />
             <span>History</span>
           </button>
 
@@ -584,7 +584,7 @@ function App() {
                 <div className="user-credits">{user?.role} Role</div>
               </div>
               <button className="user-dropdown-btn">
-                <ChevronDown size={16} />
+                <ChevronDown size={14} />
               </button>
             </div>
 
