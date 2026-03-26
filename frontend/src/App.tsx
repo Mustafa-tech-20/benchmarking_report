@@ -837,7 +837,7 @@ function App() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask anything"
+              placeholder="Compare prototype or production vehicles..."
               className="chatgpt-textarea"
               disabled={isLoading}
               rows={1}
@@ -899,7 +899,7 @@ function App() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask anything"
+                placeholder="Compare prototype or production vehicles..."
                 className="chatgpt-textarea"
                 disabled={isLoading}
                 rows={1}
