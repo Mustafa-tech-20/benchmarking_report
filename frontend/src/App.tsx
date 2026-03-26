@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, X, FileText, Loader2, ChevronDown, Car, Settings, BarChart3, Plus, Bot, LogOut, History, MessageSquare, Trash2 } from 'lucide-react';
+import { Send, X, FileText, Loader2, ChevronDown, Car, Settings, BarChart3, Plus, Bot, LogOut, History, MessageSquare, Trash2, Sun, Moon } from 'lucide-react';
 import { getSessionFromCookies, saveSessionToCookies, clearSessionCookies } from './utils/cookies';
 import Login from './Login';
 import './App.css';
@@ -77,6 +77,7 @@ function App() {
   const [loadingConversations, setLoadingConversations] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [isDarkMode, setIsDarkMode] = useState(true);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -97,6 +98,19 @@ function App() {
 
   const removeToast = (id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id));
+  };
+
+  // Theme toggle effect
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.remove('light-theme');
+    } else {
+      document.documentElement.classList.add('light-theme');
+    }
+  }, [isDarkMode]);
+
+  const toggleTheme = () => {
+    setIsDarkMode(!isDarkMode);
   };
 
   // Check authentication status on mount
@@ -571,6 +585,10 @@ function App() {
             <span>History</span>
           </button>
 
+          <button className="theme-toggle" onClick={toggleTheme} title={isDarkMode ? 'Light mode' : 'Dark mode'}>
+            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+
           <div className="user-profile-wrapper" ref={userDropdownRef}>
             <div
               className="user-profile-dropdown"
@@ -732,7 +750,7 @@ function App() {
                   {message.isLoading ? (
                     <div className="loading-indicator">
                       <Loader2 className="spinner" />
-                      <span>Analyzing...</span>
+                      <span>Analyzing</span>
                     </div>
                   ) : (
                     <>
