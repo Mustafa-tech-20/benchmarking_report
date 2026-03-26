@@ -6,7 +6,7 @@ import google.auth
 from datetime import timedelta
 from google.cloud import storage
 
-from benchmarking_agent.config import GCS_BUCKET_NAME, GCS_FOLDER_PREFIX
+from benchmarking_agent.config import GCS_BUCKET_NAME, GCS_FOLDER_PREFIX, SIGNED_URL_EXPIRATION_HOURS
 
 
 def get_gcs_client():
@@ -93,8 +93,11 @@ def upload_json_to_gcs(json_content: str, gcs_destination_path: str) -> str:
         raise
 
 
-def generate_signed_url(gcs_path: str, expiration_minutes: int = 60) -> str:
+def generate_signed_url(gcs_path: str, expiration_hours: int = None) -> str:
     """Generate signed URL - works locally and in Cloud Run"""
+
+    if expiration_hours is None:
+        expiration_hours = SIGNED_URL_EXPIRATION_HOURS  # Default from config (168 hours)
 
     try:
         credentials, project = google.auth.default()
@@ -108,11 +111,11 @@ def generate_signed_url(gcs_path: str, expiration_minutes: int = 60) -> str:
         # This works with both local service account files and Cloud Run identity
         signed_url = blob.generate_signed_url(
             version="v4",
-            expiration=timedelta(minutes=expiration_minutes),
+            expiration=timedelta(hours=expiration_hours),
             method="GET"
         )
 
-        print(f"    Generated signed URL (expires in {expiration_minutes} min)")
+        print(f"    Generated signed URL (expires in {expiration_hours} hours)")
         return signed_url
 
     except Exception as e:
