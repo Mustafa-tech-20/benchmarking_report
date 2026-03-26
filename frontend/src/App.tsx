@@ -595,7 +595,7 @@ function App() {
               onClick={() => setShowUserDropdown(!showUserDropdown)}
             >
               <div className="user-avatar-circle">
-                {(user?.full_name || user?.email || 'U').substring(0, 2).toUpperCase()}
+                {(user?.full_name || user?.email || 'U').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase()}
               </div>
               <div className="user-info">
                 <div className="user-name">{user?.full_name || user?.email}</div>
