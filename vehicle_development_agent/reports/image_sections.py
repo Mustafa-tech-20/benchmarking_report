@@ -1063,7 +1063,12 @@ def _fetch_binary_feature_comparison(car_names: List[str], comparison_data: Dict
     if missing_features:
         try:
             from vehicle_development_agent.core.scraper import google_custom_search, SEARCH_ENGINE_ID
+            import vertexai
             from vertexai.generative_models import GenerativeModel, GenerationConfig
+            from vehicle_development_agent.config import GEMINI_LITE_LOCATION, PROJECT_ID
+
+            # Initialize vertexai with lite model location
+            vertexai.init(project=PROJECT_ID, location=GEMINI_LITE_LOCATION)
 
             car1 = car_names[0]
             car2 = car_names[1] if len(car_names) > 1 else "Competitor"
@@ -1107,7 +1112,7 @@ def _fetch_binary_feature_comparison(car_names: List[str], comparison_data: Dict
 Return JSON only: {{"features": [{{"name": "X", "{car1}": true/false, "{car2}": true/false}}, ...]}}"""
 
                 try:
-                    model = GenerativeModel("gemini-2.5-flash")
+                    model = GenerativeModel("gemini-2.5-flash-lite")
                     resp = model.generate_content(prompt, generation_config=GenerationConfig(temperature=0.1, max_output_tokens=2048))
                     text = resp.text.strip() if hasattr(resp, 'text') else ""
                     if not text:
@@ -1129,11 +1134,11 @@ Return JSON only: {{"features": [{{"name": "X", "{car1}": true/false, "{car2}": 
                     print(f"    [DEBUG] Exception in extract_batch: {type(e).__name__}: {e}")
                     return []
 
-            # Step 2c: Process batches with 3 parallel Gemini calls
-            print(f"  Extracting features ({len(batches)} batches, 3 parallel)...")
-            for i in range(0, len(batches), 3):
-                batch_group = batches[i:i + 3]
-                with concurrent.futures.ThreadPoolExecutor(max_workers=3) as ex:
+            # Step 2c: Process batches with 4 parallel Gemini calls
+            print(f"  Extracting features ({len(batches)} batches, 4 parallel)...")
+            for i in range(0, len(batches), 4):
+                batch_group = batches[i:i + 4]
+                with concurrent.futures.ThreadPoolExecutor(max_workers=4) as ex:
                     futures = [ex.submit(extract_batch, b) for b in batch_group]
                     for future in concurrent.futures.as_completed(futures):
                         for feat in future.result():
@@ -3023,7 +3028,7 @@ def _derive_venn_from_summary(
     common_features: List[str] = []
     try:
         from vertexai.generative_models import GenerativeModel
-        model = GenerativeModel("gemini-2.5-flash")
+        model = GenerativeModel("gemini-2.5-flash-lite")
 
         unique_combined = car1_unique + car2_unique  # already-known differences
         prompt = f"""You are an automotive analyst. Two vehicles are being compared:
