@@ -663,10 +663,9 @@ function App() {
         {messages.length === 0 ? (
           <div className="welcome-screen">
             <div className="welcome-content">
-              <h2>Car Benchmarking Platform</h2>
+              <h2>Vehicle Benchmarking</h2>
               <p className="welcome-description">
-                Compare prototype and production vehicles using internal datasets and curated external intelligence.
-                You're using the <strong>{getAgentName(user?.role || '')}</strong>.
+                Compare prototypes and production vehicles with AI-powered analysis.
               </p>
             </div>
 
@@ -678,7 +677,7 @@ function App() {
               <div className="query-grid">
                 <button className="query-card" onClick={() => setInput('Compare [Car Name 1] and [Car Name 2]')}>
                   <div className="card-icon-wrapper">
-                    <Car size={24} strokeWidth={1.5} />
+                    <Car size={18} strokeWidth={1.5} />
                   </div>
                   <div className="card-content">
                     <div className="card-title">Market Comparison</div>
@@ -687,7 +686,7 @@ function App() {
                 </button>
                 <button className="query-card" onClick={() => setInput('CODE:PROTO1, Hyundai Creta')}>
                   <div className="card-icon-wrapper">
-                    <Settings size={24} strokeWidth={1.5} />
+                    <Settings size={18} strokeWidth={1.5} />
                   </div>
                   <div className="card-content">
                     <div className="card-title">Prototype Analysis (RAG)</div>
@@ -696,7 +695,7 @@ function App() {
                 </button>
                 <button className="query-card" onClick={() => setInput('compare CODE:PROTO1 from uploaded PDF with ')}>
                   <div className="card-icon-wrapper">
-                    <FileText size={24} strokeWidth={1.5} />
+                    <FileText size={18} strokeWidth={1.5} />
                   </div>
                   <div className="card-content">
                     <div className="card-title">Prototype Analysis (PDF)</div>
@@ -705,11 +704,11 @@ function App() {
                 </button>
                 <button className="query-card" onClick={() => setInput('Summarize this PDF')}>
                   <div className="card-icon-wrapper">
-                    <BarChart3 size={24} strokeWidth={1.5} />
+                    <BarChart3 size={18} strokeWidth={1.5} />
                   </div>
                   <div className="card-content">
                     <div className="card-title">Document Analysis</div>
-                    <div className="card-description">Extract specs from uploaded PDF</div>
+                    <div className="card-description">Summarize uploaded PDF</div>
                   </div>
                 </button>
               </div>
