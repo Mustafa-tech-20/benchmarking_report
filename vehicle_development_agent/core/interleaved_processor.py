@@ -598,14 +598,28 @@ class InterleavedCarProcessor:
                     elif task.task_type == "extract":
                         cached_results = self._search_results_cache.get(task.car_id, {})
                         results = await execute_extraction_task(task, cached_results)
-                        # Add to car result
+                        # Add to car result with actual source URLs
                         if task.car_id in self.results:
-                            specs = {k: v["value"] for k, v in results.items()}
-                            added = await self.results[task.car_id].add_specs(
-                                specs, "SEARCH", "search_results"
-                            )
-                            if added > 0:
-                                print(f"    {task.car_name}: +{added} specs extracted")
+                            total_added = 0
+                            for spec_name, spec_data in results.items():
+                                value = spec_data.get("value", "Not found")
+                                url = spec_data.get("source_url", "N/A")
+                                # Fallback to zigwheels URL if no valid URL
+                                if not url or url in ["N/A", "search_results", ""]:
+                                    # Generate zigwheels URL from car name
+                                    car_parts = task.car_name.lower().split()
+                                    if len(car_parts) >= 2:
+                                        brand = car_parts[0]
+                                        model = "-".join(car_parts[1:])
+                                        url = f"https://www.zigwheels.com/{brand}-cars/{model}"
+                                    else:
+                                        url = f"https://www.zigwheels.com/cars/{task.car_name.lower().replace(' ', '-')}"
+                                added = await self.results[task.car_id].add_specs(
+                                    {spec_name: value}, "SEARCH", url
+                                )
+                                total_added += added
+                            if total_added > 0:
+                                print(f"    {task.car_name}: +{total_added} specs extracted")
                         success = True
                         self.metrics.record_task_complete(task.resource_type, True)
 
