@@ -3451,24 +3451,47 @@ def _derive_venn_from_summary(
     # Ask Gemini only for COMMON features (much smaller prompt)
     common_features: List[str] = []
     try:
+        import vertexai
         from vertexai.generative_models import GenerativeModel
+        from benchmarking_agent.config import GEMINI_LITE_LOCATION, PROJECT_ID
+        vertexai.init(project=PROJECT_ID, location=GEMINI_LITE_LOCATION)
         model = GenerativeModel("gemini-2.5-flash-lite")
 
-        unique_combined = car1_unique + car2_unique  # already-known differences
-        prompt = f"""You are an automotive analyst. Two vehicles are being compared:
-- {car1} (Car 1)
-- {car2} (Car 2)
+        # Build a clearer comparison of what both cars have
+        car1_data = condensed.get(car1, {})
+        car2_data = condensed.get(car2, {})
 
-We already know the DIFFERENCES:
-- Features unique to {car1}: {json.dumps(car1_unique[:20])}
-- Features unique to {car2}: {json.dumps(car2_unique[:20])}
+        # Find specs that exist in both cars
+        shared_specs = {}
+        for key in car1_data:
+            if key in car2_data:
+                shared_specs[key] = {car1: car1_data[key], car2: car2_data[key]}
 
-Shared specification data for both cars:
-{json.dumps(condensed, indent=2)[:3000]}
+        prompt = f"""You are an automotive analyst comparing two vehicles:
+- {car1}
+- {car2}
 
-Task: List 10-20 features/specifications that are COMMON to BOTH cars (present in both).
-Focus on: safety features, engine type, transmission options, body type, shared tech, similar comfort items.
-Each item should be a concise plain-English feature description.
+Here are specifications/features that BOTH cars have (key: value for each car):
+{json.dumps(shared_specs, indent=2)[:4000]}
+
+TASK: Identify 15-25 COMMON features that both cars share. Look for:
+1. Safety features both have (airbags, ABS, ESP, parking sensors, cameras, ISOFIX)
+2. Comfort features both have (AC, power windows, power steering, central locking)
+3. Infotainment both have (touchscreen, Bluetooth, USB, speakers)
+4. Convenience both have (keyless entry, push start, cruise control)
+5. Exterior both have (alloy wheels, LED lights, fog lamps)
+6. Body type similarities (SUV, 5-seater, similar dimensions)
+7. Engine/transmission types both offer (petrol, diesel, automatic, manual options)
+
+For each common feature, write a SHORT description (3-8 words) like:
+- "6 Airbags standard"
+- "Touchscreen infotainment system"
+- "Automatic climate control"
+- "LED headlamps with DRLs"
+- "Rear parking camera"
+
+DO NOT include features that are DIFFERENT between the cars.
+ONLY include features genuinely present in BOTH vehicles.
 
 Return ONLY valid JSON:
 {{"common_features": ["Feature 1", "Feature 2", ...]}}"""
