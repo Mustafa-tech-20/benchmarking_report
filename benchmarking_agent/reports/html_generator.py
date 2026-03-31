@@ -460,26 +460,102 @@ def _generate_consolidated_review_html(comparison_data: Dict[str, Any]) -> str:
                     parts.append(f"<strong>{field_name}:</strong> {clean_value}")
         return " | ".join(parts) if parts else ""
 
-    def extract_rating(car_data: Dict, spec_fields: list) -> float:
-        """Extract or derive a 0-10 rating from available data."""
+    # Collect all comments first, then batch call LLM for ratings
+    all_comments_for_rating = {}  # {(car_name, attr_name): comment_text}
+    for category, attributes in fi_categories.items():
+        for attr_name, spec_fields in attributes:
+            for car_name in car_names:
+                car_data = comparison_data.get(car_name) or {}
+                comment = get_combined_review(car_data, spec_fields)
+                if comment:
+                    all_comments_for_rating[(car_name, attr_name)] = comment
+
+    # LLM call to get all ratings at once
+    llm_ratings = {}  # {(car_name, attr_name): rating}
+    if all_comments_for_rating:
+        try:
+            from vertexai.generative_models import GenerativeModel
+            from benchmarking_agent.config import GEMINI_MAIN_MODEL
+
+            # Build prompt with all comments
+            rating_prompt_parts = []
+            for (car_name, attr_name), comment in all_comments_for_rating.items():
+                # Truncate very long comments
+                truncated = comment[:500] + "..." if len(comment) > 500 else comment
+                rating_prompt_parts.append(f'"{car_name}|{attr_name}": "{truncated}"')
+
+            # List all qualitative FI attributes explicitly
+            fi_attributes_list = """
+QUALITATIVE ATTRIBUTES (Functional Image Review):
+- Comfort: Ride, Climate Control, Seats
+- Dynamics: Customer Handling, Steering
+- Performance: Performance Feel, Driveability, Manual Transmission Operation, Clutch Operation, Automatic Transmission Operation
+- Safety: Braking, Restraints
+- Space & Versatility: Visibility, Package, Usability, Functional Hardware
+- NVH: PT-NVH, Road NVH, Wind NVH, Electro Mech NVH
+- All Terrain Capability: 4X4 Operation
+- Features: Infotainment System, Night Operation"""
+
+            prompt = f"""You are rating QUALITATIVE vehicle attributes for a Functional Image Review report.
+
+{fi_attributes_list}
+
+TASK: Based on the user comments below, provide a subjective rating (0.0-10.0) for each car's attribute.
+
+Rating scale:
+- 8-10: Excellent/Outstanding (very positive comments, praised features)
+- 6-7.9: Good (mostly positive, minor issues)
+- 5-5.9: Average/Neutral (mixed or basic/factual comments only)
+- 3-4.9: Below Average (notable issues, complaints mentioned)
+- 0-2.9: Poor (significant problems, negative feedback)
+
+USER COMMENTS TO RATE:
+{chr(10).join(rating_prompt_parts)}
+
+Return ONLY a JSON object with ratings:
+{{
+{chr(10).join([f'  "{car}|{attr}": 0.0' for (car, attr) in all_comments_for_rating.keys()])}
+}}"""
+
+            model = GenerativeModel(GEMINI_MAIN_MODEL)
+            response = model.generate_content(prompt)
+            if response and response.text:
+                import json_repair
+                text = response.text.strip()
+                if "```json" in text:
+                    text = text.split("```json")[1].split("```")[0]
+                elif "```" in text:
+                    text = text.split("```")[1].split("```")[0]
+                text = text.strip()
+                if "{" in text and "}" in text:
+                    text = text[text.index("{"):text.rindex("}") + 1]
+                ratings_data = json_repair.loads(text)
+                for key, rating in ratings_data.items():
+                    if "|" in key:
+                        car, attr = key.split("|", 1)
+                        if isinstance(rating, (int, float)):
+                            llm_ratings[(car, attr)] = min(10.0, max(0.0, float(rating)))
+        except Exception as e:
+            print(f"LLM rating extraction failed: {e}")
+
+    def extract_rating(car_name: str, attr_name: str, car_data: Dict, spec_fields: list) -> float:
+        """Get subjective rating from LLM interpretation of comments."""
+        # Check for LLM-provided rating
+        if (car_name, attr_name) in llm_ratings:
+            return llm_ratings[(car_name, attr_name)]
+
+        # Check if any field has data
+        has_data = False
         for field in spec_fields:
             value = car_data.get(field, "")
             if value and value not in ["Not Available", "Not found", "N/A", "Error", ""]:
-                text = str(value).lower()
-                rating_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:/\s*10|out\s*of\s*10)', text)
-                if rating_match:
-                    return min(10, float(rating_match.group(1)))
-                positive_words = ['excellent', 'great', 'good', 'impressive', 'smooth', 'comfortable', 'premium', 'best']
-                negative_words = ['poor', 'bad', 'harsh', 'noisy', 'uncomfortable', 'disappointing', 'average', 'mediocre']
-                pos_count = sum(1 for w in positive_words if w in text)
-                neg_count = sum(1 for w in negative_words if w in text)
-                if pos_count > neg_count:
-                    return round(7 + pos_count * 0.5, 1)
-                elif neg_count > pos_count:
-                    return round(5 - neg_count * 0.5, 1)
-                elif pos_count > 0 or neg_count > 0:
-                    return 6.0
-        return 0
+                has_data = True
+                break
+
+        if not has_data:
+            return 0  # No data
+
+        return 5.5  # Default neutral if LLM failed
 
     # Collect ratings for spider chart
     all_ratings = {car: {} for car in car_names}
@@ -490,87 +566,135 @@ def _generate_consolidated_review_html(comparison_data: Dict[str, Any]) -> str:
             all_attributes.append(attr_name)
             for car_name in car_names:
                 car_data = comparison_data.get(car_name) or {}
-                rating = extract_rating(car_data, spec_fields)
+                rating = extract_rating(car_name, attr_name, car_data, spec_fields)
                 all_ratings[car_name][attr_name] = rating
 
-    # Generate spider chart
+    # Generate separate spider charts for each category
     num_cars = len(car_names)
     car_colors = ['rgba(204, 0, 0, 0.7)', 'rgba(0, 102, 204, 0.7)', 'rgba(0, 153, 76, 0.7)', 'rgba(153, 51, 255, 0.7)']
     car_bg_colors = ['rgba(204, 0, 0, 0.2)', 'rgba(0, 102, 204, 0.2)', 'rgba(0, 153, 76, 0.2)', 'rgba(153, 51, 255, 0.2)']
 
-    datasets_js = []
-    for i, car_name in enumerate(car_names):
-        data_values = [all_ratings[car_name].get(attr, 0) for attr in all_attributes]
-        datasets_js.append(f"""{{
-            label: '{car_name}',
-            data: {data_values},
-            borderColor: '{car_colors[i % len(car_colors)]}',
-            backgroundColor: '{car_bg_colors[i % len(car_bg_colors)]}',
-            borderWidth: 2,
-            pointRadius: 4,
-            pointBackgroundColor: '{car_colors[i % len(car_colors)]}'
-        }}""")
+    spider_html = """
+    <style>
+        .fi-spider-charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+            margin-bottom: 35px;
+        }
+        .fi-spider-chart-card {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            border: 1px solid #e9ecef;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .fi-spider-chart-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+            border-color: #cc0000;
+        }
+        .fi-spider-chart-title {
+            text-align: center;
+            font-size: 15px;
+            font-weight: 700;
+            color: #1c2a39;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #cc0000;
+            padding-bottom: 8px;
+        }
+    </style>
+    <div class="fi-spider-charts-grid">
+    """
 
-    spider_chart_id = f"fiSpiderChart_{random.randint(1000, 9999)}"
-    labels_js = json.dumps(all_attributes)
+    for category, attributes in fi_categories.items():
+        # Get attribute names for this category
+        category_attrs = [attr_name for attr_name, _ in attributes]
+        chart_id = f"fiChart_{category.replace(' ', '').replace('&', '')}_{random.randint(1000, 9999)}"
 
-    spider_html = f"""
-    <div class="fi-spider-chart-container" style="margin-bottom: 30px;">
-        <h4 style="text-align: center; margin-bottom: 15px; color: #1a1a1a; font-size: 16px;">Functional Image Radar Overview</h4>
-        <div style="max-width: 700px; margin: 0 auto;">
-            <canvas id="{spider_chart_id}"></canvas>
-        </div>
-    </div>
-    <script>
-    (function() {{
-        const ctx = document.getElementById('{spider_chart_id}');
-        if (ctx) {{
-            new Chart(ctx, {{
-                type: 'radar',
-                data: {{
-                    labels: {labels_js},
-                    datasets: [{', '.join(datasets_js)}]
-                }},
-                options: {{
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    scales: {{
-                        r: {{
-                            beginAtZero: true,
-                            max: 10,
-                            ticks: {{
-                                stepSize: 2,
-                                font: {{ size: 10 }}
-                            }},
-                            pointLabels: {{
-                                font: {{ size: 9 }},
-                                callback: function(label) {{
-                                    if (label.length > 12) {{
-                                        return label.substring(0, 12) + '...';
+        # Pad to minimum 3 attributes for proper radar chart shape
+        display_attrs = category_attrs.copy()
+        if len(display_attrs) == 1:
+            # Single attribute: repeat 3 times to form triangle
+            display_attrs = [display_attrs[0], display_attrs[0], display_attrs[0]]
+        elif len(display_attrs) == 2:
+            # Two attributes: add a third by repeating first
+            display_attrs = [display_attrs[0], display_attrs[1], display_attrs[0]]
+
+        labels_js = json.dumps(display_attrs)
+
+        # Build datasets for radar chart
+        datasets_js = []
+        for i, car_name in enumerate(car_names):
+            # Get values matching the padded display_attrs
+            data_values = []
+            for attr in display_attrs:
+                data_values.append(all_ratings[car_name].get(attr, 0))
+            datasets_js.append(f"""{{
+                label: '{car_name}',
+                data: {data_values},
+                borderColor: '{car_colors[i % len(car_colors)]}',
+                backgroundColor: '{car_bg_colors[i % len(car_bg_colors)]}',
+                borderWidth: 2,
+                pointRadius: 5,
+                pointBackgroundColor: '{car_colors[i % len(car_colors)]}'
+            }}""")
+
+        spider_html += f"""
+        <div class="fi-spider-chart-card">
+            <div class="fi-spider-chart-title">{category}</div>
+            <canvas id="{chart_id}"></canvas>
+            <script>
+            (function() {{
+                const ctx = document.getElementById('{chart_id}');
+                if (ctx) {{
+                    new Chart(ctx, {{
+                        type: 'radar',
+                        data: {{
+                            labels: {labels_js},
+                            datasets: [{', '.join(datasets_js)}]
+                        }},
+                        options: {{
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            scales: {{
+                                r: {{
+                                    beginAtZero: true,
+                                    max: 10,
+                                    ticks: {{
+                                        stepSize: 2,
+                                        font: {{ size: 10 }}
+                                    }},
+                                    pointLabels: {{
+                                        font: {{ size: 11, weight: '600' }},
+                                        color: '#333'
                                     }}
-                                    return label;
+                                }}
+                            }},
+                            plugins: {{
+                                legend: {{
+                                    position: 'bottom',
+                                    labels: {{ font: {{ size: 11 }}, padding: 10 }}
                                 }}
                             }}
                         }}
-                    }},
-                    plugins: {{
-                        legend: {{
-                            position: 'bottom',
-                            labels: {{ font: {{ size: 11 }} }}
-                        }}
-                    }}
+                    }});
                 }}
-            }});
-        }}
-    }})();
-    </script>
-    """
+            }})();
+            </script>
+        </div>
+        """
+
+    spider_html += "</div>"
 
     # Generate table with ratings
     category_width = 12
     attr_width = 15
     remaining = 100 - category_width - attr_width
-    car_col_width = remaining / (num_cars * 2)
+    car_col_width = remaining / (num_cars * 2)  # Rating + Comment per car
 
     review_html = f"""
     <style>
@@ -580,7 +704,7 @@ def _generate_consolidated_review_html(comparison_data: Dict[str, Any]) -> str:
             font-size: 12px;
         }}
         .fi-review-table th {{
-            background: #1a1a1a;
+            background: #1c2a39;
             color: white;
             padding: 10px 8px;
             text-align: center;
@@ -588,7 +712,7 @@ def _generate_consolidated_review_html(comparison_data: Dict[str, Any]) -> str:
             font-size: 11px;
         }}
         .fi-review-table th.category-header {{
-            background: #003366;
+            background: #1c2a39;
         }}
         .fi-review-table td {{
             padding: 8px;
@@ -596,7 +720,7 @@ def _generate_consolidated_review_html(comparison_data: Dict[str, Any]) -> str:
             vertical-align: top;
         }}
         .fi-category-cell {{
-            background: #003366;
+            background: #1c2a39;
             color: white;
             font-weight: 700;
             text-transform: uppercase;
@@ -626,6 +750,10 @@ def _generate_consolidated_review_html(comparison_data: Dict[str, Any]) -> str:
             line-height: 1.4;
             max-width: 200px;
         }}
+        .comment-label {{
+            color: #cc0000;
+            font-weight: 600;
+        }}
         .fi-comment-cell .expandable-content {{
             max-height: 60px;
             overflow: hidden;
@@ -644,7 +772,7 @@ def _generate_consolidated_review_html(comparison_data: Dict[str, Any]) -> str:
     """
 
     for car_name in car_names:
-        review_html += f'<th style="width: {car_col_width}%;">Rating</th>'
+        review_html += f'<th style="width: {car_col_width}%;">Subjective Rating</th>'
         review_html += f'<th style="width: {car_col_width}%;">{car_name}</th>'
 
     review_html += """
@@ -660,17 +788,21 @@ def _generate_consolidated_review_html(comparison_data: Dict[str, Any]) -> str:
         for attr_name, spec_fields in attributes:
             review_html += "<tr>"
 
+            # Category cell (only on first row, spans all attribute rows)
             if first_in_category:
                 review_html += f'<td class="fi-category-cell" rowspan="{num_attrs}">{category}</td>'
                 first_in_category = False
 
+            # Attribute name
             review_html += f'<td class="fi-attr-cell">{attr_name}</td>'
 
+            # Rating and comments for each car
             for car_name in car_names:
                 car_data = comparison_data.get(car_name) or {}
                 rating = all_ratings[car_name].get(attr_name, 0)
                 comment = get_combined_review(car_data, spec_fields)
 
+                # Rating cell with color coding
                 if rating == 0:
                     rating_class = "fi-rating-na"
                     rating_display = "N/A"
@@ -689,14 +821,15 @@ def _generate_consolidated_review_html(comparison_data: Dict[str, Any]) -> str:
 
                 review_html += f'<td class="fi-rating-cell {rating_class}">{rating_display}</td>'
 
+                # Comment cell
                 if comment:
                     if len(comment) > 150:
                         review_html += f'''<td class="fi-comment-cell">
-                            <div class="expandable-content">{comment}</div>
+                            <div class="expandable-content"><span class="comment-label">User Comment:</span> {comment}</div>
                             <button onclick="toggleExpand(this)" class="read-more-btn" style="font-size:10px;padding:2px 6px;">More</button>
                         </td>'''
                     else:
-                        review_html += f'<td class="fi-comment-cell">{comment}</td>'
+                        review_html += f'<td class="fi-comment-cell"><span class="comment-label">User Comment:</span> {comment}</td>'
                 else:
                     review_html += '<td class="fi-comment-cell" style="color:#adb5bd;font-style:italic;">—</td>'
 
@@ -2639,7 +2772,7 @@ def create_comparison_chart_html(
                     </div>
                 </div>
                 <div class="nav-sep"></div>
-                <a href="#fi-review-section">FI Review</a>
+                <a href="#fi-review-section">Functional Image Review</a>
                 <a href="#" id="citations-toggle" onclick="toggleCitations(event)">Citations</a>
             </nav>
             <button class="print-btn" onclick="printReport()">Save as PDF</button>
