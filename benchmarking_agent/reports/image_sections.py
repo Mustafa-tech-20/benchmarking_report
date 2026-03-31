@@ -1992,7 +1992,7 @@ def generate_image_gallery_section(
             if row_idx < len(imgs):
                 img_data = imgs[row_idx]
                 note = ai_notes[note_idx] if ai_notes and note_idx < len(ai_notes) else ""
-                note_html = f'<div class="comparison-ai-note">{note}</div>' if note else ""
+                note_html = f'<div class="comparison-ai-note"><span class="ai-note-label">AI Note:</span> {note}</div>' if note else ""
                 note_idx += 1
 
                 cells_html += f'''
@@ -2347,18 +2347,11 @@ def get_image_section_styles() -> str:
         background: #ffffff;
         line-height: 1.5;
         border-top: 1px solid #e9ecef;
-        font-style: italic;
-        display: flex;
-        align-items: flex-start;
-        gap: 6px;
     }
 
-    .gallery-ai-note::before {
-        content: "✦";
-        font-size: 9px;
+    .gallery-ai-note .ai-note-label {
         color: #cc0000;
-        flex-shrink: 0;
-        margin-top: 2px;
+        font-weight: 600;
         font-style: normal;
     }
 
@@ -2532,11 +2525,9 @@ def get_image_section_styles() -> str:
         background: #f8f9fa;
         line-height: 1.5;
         border-top: 1px solid #e9ecef;
-        font-style: italic;
     }
 
-    .comparison-ai-note::before {
-        content: "→ ";
+    .ai-note-label {
         color: #cc0000;
         font-weight: 600;
         font-style: normal;

@@ -2615,13 +2615,14 @@ def create_comparison_chart_html(
         <a href="#"><img src="https://www.mahindra.com//sites/default/files/2025-07/mahindra-red-logo.webp" alt="Logo" class="logo"></a>
         <div class="header-actions">
             <nav class="main-nav">
+                <a href="#vehicle-highlights">Highlights</a>
                 <a href="#tech-spec-section">Tech Specs</a>
                 <a href="#venn-section">Feature Face-Off</a>
+                <a href="#feature-list-section">Feature Specs</a>
                 <div class="nav-sep"></div>
                 <div class="nav-dropdown">
                     <button class="nav-dropdown-toggle">Gallery</button>
                     <div class="nav-dropdown-menu">
-                        <a href="#vehicle-highlights">Highlights</a>
                         <a href="#exterior-section">Exterior</a>
                         <a href="#interior-section">Interior</a>
                         <a href="#technology-section">Technology</a>
@@ -2629,7 +2630,6 @@ def create_comparison_chart_html(
                         <a href="#safety-section">Safety</a>
                     </div>
                 </div>
-                <div class="nav-sep"></div>
                 <a href="#drivetrain-section">Drivetrain</a>
                 <div class="nav-dropdown">
                     <button class="nav-dropdown-toggle">Variants</button>

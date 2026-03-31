@@ -14,6 +14,7 @@ from vehicle_development_agent.reports.image_sections import (
     generate_spider_chart_section,
     generate_venn_diagram_section,
     generate_variant_walk_section,
+    generate_vehicle_highlights_section,
     get_image_section_styles
 )
 
@@ -3302,8 +3303,10 @@ def create_comparison_chart_html(
         <a href="#"><img src="https://www.mahindra.com//sites/default/files/2025-07/mahindra-red-logo.webp" alt="Logo" class="logo"></a>
         <div class="header-actions">
             <nav class="main-nav">
+                <a href="#vehicle-highlights">Highlights</a>
                 <a href="#tech-spec-section">Tech Specs</a>
                 <a href="#venn-section">Feature Face-Off</a>
+                <a href="#feature-list-section">Feature Specs</a>
                 <div class="nav-sep"></div>
                 <div class="nav-dropdown">
                     <button class="nav-dropdown-toggle">Gallery</button>
@@ -3315,9 +3318,9 @@ def create_comparison_chart_html(
                         <a href="#safety-section">Safety</a>
                     </div>
                 </div>
-                <div class="nav-sep"></div>
                 <a href="#drivetrain-section">Drivetrain</a>
                 <a href="#variant-walk-section">Variant Walk</a>
+                <div class="nav-sep"></div>
                 <div class="nav-dropdown">
                     <button class="nav-dropdown-toggle">Reviews</button>
                     <div class="nav-dropdown-menu">
@@ -3341,6 +3344,7 @@ def create_comparison_chart_html(
         </div>
     </header>
     {generate_hero_section(comparison_data)}
+    {generate_vehicle_highlights_section(comparison_data)}
     {generate_technical_spec_section(comparison_data)}
     {generate_venn_diagram_section(comparison_data)}
     {generate_feature_list_section(comparison_data)}

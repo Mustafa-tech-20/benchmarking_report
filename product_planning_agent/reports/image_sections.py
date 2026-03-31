@@ -404,7 +404,7 @@ def generate_image_gallery_section(
             if row_idx < len(imgs):
                 img_data = imgs[row_idx]
                 note = ai_notes[note_idx] if ai_notes and note_idx < len(ai_notes) else ""
-                note_html = f'<div class="comparison-ai-note">{note}</div>' if note else ""
+                note_html = f'<div class="comparison-ai-note"><span class="ai-note-label">AI Note:</span> {note}</div>' if note else ""
                 note_idx += 1
 
                 cells_html += f'''
@@ -1810,6 +1810,8 @@ def generate_lifecycle_section(comparison_data: Dict[str, Any]) -> str:
     Returns:
         HTML string with lifecycle pages for all cars
     """
+    import concurrent.futures
+
     car_names = [name for name, data in comparison_data.items()
                  if isinstance(data, dict) and "error" not in data
                  and not name.strip().upper().startswith("CODE:")]
@@ -1817,12 +1819,26 @@ def generate_lifecycle_section(comparison_data: Dict[str, Any]) -> str:
     if not car_names:
         return ""
 
+    # Extract lifecycle data for all cars in parallel
+    print(f"Extracting lifecycle data for {len(car_names)} cars in parallel...")
+    lifecycle_data_map = {}
+
+    def extract_lifecycle_for_car(car_name):
+        print(f"  [{car_name}] Extracting 5-year lifecycle timeline...")
+        car_data = comparison_data.get(car_name, {})
+        return car_name, _extract_lifecycle_data(car_name, car_data)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(car_names), 5)) as executor:
+        futures = [executor.submit(extract_lifecycle_for_car, name) for name in car_names]
+        for future in concurrent.futures.as_completed(futures):
+            car_name, lifecycle_data = future.result()
+            lifecycle_data_map[car_name] = lifecycle_data
+            print(f"  [{car_name}] ✓ Lifecycle data extracted")
+
     pages_html = ""
 
     for car_name in car_names:
-        print(f"Generating lifecycle data for {car_name}...")
-        car_data = comparison_data.get(car_name, {})
-        lifecycle_data = _extract_lifecycle_data(car_name, car_data)
+        lifecycle_data = lifecycle_data_map.get(car_name, {})
 
         # Generate timeline table
         interventions = lifecycle_data.get("interventions", [])
@@ -3351,11 +3367,9 @@ def get_image_section_styles() -> str:
         background: #f8f9fa;
         line-height: 1.5;
         border-top: 1px solid #e9ecef;
-        font-style: italic;
     }
 
-    .comparison-ai-note::before {
-        content: "→ ";
+    .ai-note-label {
         color: #cc0000;
         font-weight: 600;
         font-style: normal;

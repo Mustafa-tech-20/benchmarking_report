@@ -2068,7 +2068,7 @@ def generate_image_gallery_section(
     images_html = ""
     for idx, img_data in enumerate(display_images):
         note = ai_notes[idx] if ai_notes and idx < len(ai_notes) else ""
-        note_html = f'<div class="gallery-ai-note">{note}</div>' if note else ""
+        note_html = f'<div class="gallery-ai-note"><span class="ai-note-label">AI Note:</span> {note}</div>' if note else ""
         images_html += f'''
         <div class="gallery-item">
             <img src="{img_data['url']}" alt="{img_data['alt']}"
@@ -2508,11 +2508,9 @@ def get_image_section_styles() -> str:
         background: #f8f9fa;
         line-height: 1.5;
         border-top: 1px solid #e9ecef;
-        font-style: italic;
     }
 
-    .comparison-ai-note::before {
-        content: "→ ";
+    .ai-note-label {
         color: #cc0000;
         font-weight: 600;
         font-style: normal;
@@ -2616,18 +2614,11 @@ def get_image_section_styles() -> str:
         background: #ffffff;
         line-height: 1.5;
         border-top: 1px solid #e9ecef;
-        font-style: italic;
-        display: flex;
-        align-items: flex-start;
-        gap: 6px;
     }
 
-    .gallery-ai-note::before {
-        content: "✦";
-        font-size: 9px;
+    .gallery-ai-note .ai-note-label {
         color: #cc0000;
-        flex-shrink: 0;
-        margin-top: 2px;
+        font-weight: 600;
         font-style: normal;
     }
 
