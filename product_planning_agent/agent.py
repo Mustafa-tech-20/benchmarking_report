@@ -29,6 +29,7 @@ from benchmarking_agent.core.internal_car_tools import (
 )
 from product_planning_agent.reports.html_generator import create_comparison_chart_html
 from product_planning_agent.extraction.youtube_proscons import get_multiple_cars_proscons
+from product_planning_agent.extraction.attribute_proscons import get_multiple_cars_attribute_proscons
 from product_planning_agent.reports.youtube_proscons_html import save_youtube_proscons_html
 from product_planning_agent.reports.technical_specs_html import save_technical_specs_html
 
@@ -89,6 +90,88 @@ CRITICAL FORMAT RULES:
 
     except Exception as e:
         return f"Error generating summary: {str(e)}"
+
+
+def generate_feature_comparison_data(comparison_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Generate feature comparison data for venn diagram showing differences between cars."""
+    try:
+        # Get car names
+        car_names = [name for name, data in comparison_data.items()
+                     if isinstance(data, dict) and "error" not in data]
+
+        if len(car_names) < 2:
+            return {"features_not_in_car1": {}, "features_in_car1_only": {}}
+
+        car1_name = car_names[0]
+        car2_name = car_names[1]
+
+        # Build condensed data for comparison
+        condensed_data = {}
+        for car_name, car_data in comparison_data.items():
+            if isinstance(car_data, dict) and "error" not in car_data:
+                condensed_data[car_name] = {}
+                for key, value in car_data.items():
+                    if key not in ["images", "citations", "sources"] and value:
+                        if value not in ["Not Available", "Not found", "N/A", "-", ""]:
+                            condensed_data[car_name][key] = str(value)[:200]
+
+        model = GenerativeModel(GEMINI_MAIN_MODEL)
+
+        prompt = f"""You are an automotive analyst comparing two vehicles. Analyze the specification data and identify feature differences.
+
+Vehicle 1: {car1_name}
+Vehicle 2: {car2_name}
+
+Specification Data:
+{json.dumps(condensed_data, indent=2)}
+
+Return a JSON object with exactly this structure:
+{{
+    "features_not_in_car1": {{
+        "Power & Torque": ["specific feature 1 with numbers if available", "feature 2"],
+        "Drive Mode": ["feature descriptions"],
+        "Exterior": ["feature descriptions"],
+        "Capabilities": ["feature descriptions"],
+        "ADAS": ["feature descriptions"],
+        "Interior": ["feature descriptions"],
+        "Engine": ["feature descriptions"],
+        "BRAKES": ["feature descriptions"],
+        "Others": ["any other notable differences"]
+    }},
+    "features_in_car1_only": {{
+        "Exterior & Interior": ["feature descriptions"],
+        "Engine": ["feature descriptions"],
+        "BRAKES": ["feature descriptions"],
+        "ADAS": ["feature descriptions"],
+        "Others": ["any other notable differences"]
+    }}
+}}
+
+RULES:
+1. "features_not_in_car1" = Features that {car2_name} has but {car1_name} does NOT have
+2. "features_in_car1_only" = Features that {car1_name} has but {car2_name} does NOT have
+3. Include specific values/numbers when comparing (e.g., "187kW @5500 RPM (30.4% higher)")
+4. Only include categories that have actual differences - omit empty categories
+5. Each feature should be a concise but descriptive string
+6. Return ONLY valid JSON, no markdown formatting or explanation"""
+
+        response = model.generate_content(prompt)
+        response_text = response.text.strip()
+
+        # Clean up response if wrapped in markdown
+        if response_text.startswith("```json"):
+            response_text = response_text[7:]
+        if response_text.startswith("```"):
+            response_text = response_text[3:]
+        if response_text.endswith("```"):
+            response_text = response_text[:-3]
+
+        summary_data = json.loads(response_text.strip())
+        return summary_data
+
+    except Exception as e:
+        print(f"Error generating feature comparison: {e}")
+        return {"features_not_in_car1": {}, "features_in_car1_only": {}}
 
 
 def save_pdf_car_specs_tool(car_name: str, specs_json: str) -> str:
@@ -458,6 +541,34 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
                     results["comparison_data"][car_name]['variant_walk'] = variant_data
                     results["comparison_data"][car_name]['generation_comparison'] = gen_data
 
+    # --- IMAGE EXTRACTION (after variant walk to avoid CSE rate limits) ---
+    print(f"\n{'=' * 60}")
+    print(f"IMAGE EXTRACTION (deferred for rate limit protection)")
+    print(f"{'=' * 60}\n")
+
+    from product_planning_agent.extraction.images import extract_autocar_images
+
+    def _extract_images_for_car(car_name: str):
+        """Extract images for a single car."""
+        try:
+            images = extract_autocar_images(car_name)
+            img_count = sum(len(v) for v in images.values())
+            print(f"  [{car_name}] {img_count} images extracted")
+            return car_name, images
+        except Exception as e:
+            print(f"  [{car_name}] Image extraction failed - {e}")
+            return car_name, {
+                "hero": [], "exterior": [], "interior": [],
+                "technology": [], "comfort": [], "safety": []
+            }
+
+    # Extract images in parallel for non-code cars
+    if non_code_cars:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(non_code_cars), 5)) as img_executor:
+            for car_name, images in img_executor.map(_extract_images_for_car, non_code_cars):
+                if car_name in results["comparison_data"]:
+                    results["comparison_data"][car_name]['images'] = images
+
     # Clear collected specs and PDF specs for next comparison
     if hasattr(add_code_car_specs_tool, 'collected_specs'):
         add_code_car_specs_tool.collected_specs = {}
@@ -480,47 +591,53 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
             print(f"  {car_name}: {found}/{total} specs ({percentage:.1f}%)")
     print("=" * 60)
 
-    print("\n STEP 2 & 2.5: Running in parallel - Comparison summary + YouTube pros/cons...")
+    print("\n STEP 2 & 2.5: Running in parallel - Comparison summary + Attribute pros/cons + Feature comparison...")
 
-    # Get only non-code cars for YouTube analysis
-    youtube_car_names = [
+    # Get only non-code cars for analysis
+    analysis_car_names = [
         car for car in car_list
         if not results["comparison_data"].get(car, {}).get('is_code_car')
     ]
 
-    # Run both steps in parallel using ThreadPoolExecutor for CPU-bound tasks
+    # Run steps in parallel using ThreadPoolExecutor
     def run_summary():
         return generate_comparison_summary(results["comparison_data"])
 
-    def run_youtube():
-        if youtube_car_names:
+    def run_feature_comparison():
+        return generate_feature_comparison_data(results["comparison_data"])
+
+    def run_attribute_proscons():
+        if analysis_car_names:
             try:
-                data = get_multiple_cars_proscons(youtube_car_names, num_channels=2)
-                print(f"✓ YouTube pros/cons extracted for {len(data)} cars from 2 channels each")
+                data = get_multiple_cars_attribute_proscons(analysis_car_names)
+                print(f"✓ Attribute pros/cons extracted for {len(data)} cars")
                 return data
             except Exception as e:
-                print(f"✗ YouTube pros/cons extraction failed: {e}")
-                print("  Continuing without YouTube data...")
+                print(f"✗ Attribute pros/cons extraction failed: {e}")
+                print("  Continuing without attribute data...")
                 return None
         else:
-            print("ℹ Only code cars detected - skipping YouTube analysis")
+            print("ℹ Only code cars detected - skipping attribute analysis")
             return None
 
-    # Execute both in parallel
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+    # Execute all in parallel
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
         summary_future = executor.submit(run_summary)
-        youtube_future = executor.submit(run_youtube)
+        feature_comp_future = executor.submit(run_feature_comparison)
+        proscons_future = executor.submit(run_attribute_proscons)
 
-        # Wait for both to complete
+        # Wait for all to complete
         summary = summary_future.result()
-        proscons_data = youtube_future.result()
+        summary_data = feature_comp_future.result()
+        proscons_data = proscons_future.result()
 
     results["summary"] = summary
+    results["summary_data"] = summary_data
     if proscons_data:
-        results["youtube_proscons"] = proscons_data
+        results["attribute_proscons"] = proscons_data
 
     print("\n STEP 3: Creating enhanced interactive HTML report...")
-    html_content = create_comparison_chart_html(results["comparison_data"], summary, proscons_data)
+    html_content = create_comparison_chart_html(results["comparison_data"], summary, proscons_data, summary_data)
 
     # Upload HTML and JSON to GCS in parallel
     print("  Uploading HTML and JSON to GCS in parallel...")

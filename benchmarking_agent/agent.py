@@ -470,6 +470,34 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
                 results["comparison_data"][car_name]['variant_walk'] = variant_data
                 results["comparison_data"][car_name]['generation_comparison'] = gen_data
 
+    # --- IMAGE EXTRACTION (after variant walk to avoid CSE rate limits) ---
+    print(f"\n{'=' * 60}")
+    print(f"IMAGE EXTRACTION (deferred for rate limit protection)")
+    print(f"{'=' * 60}\n")
+
+    from benchmarking_agent.extraction.images import extract_autocar_images
+
+    def _extract_images_for_car(car_name: str):
+        """Extract images for a single car."""
+        try:
+            images = extract_autocar_images(car_name)
+            img_count = sum(len(v) for v in images.values())
+            print(f"  [{car_name}] {img_count} images extracted")
+            return car_name, images
+        except Exception as e:
+            print(f"  [{car_name}] Image extraction failed - {e}")
+            return car_name, {
+                "hero": [], "exterior": [], "interior": [],
+                "technology": [], "comfort": [], "safety": []
+            }
+
+    # Extract images in parallel for non-code cars
+    if non_code_cars:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(non_code_cars), 5)) as img_executor:
+            for car_name, images in img_executor.map(_extract_images_for_car, non_code_cars):
+                if car_name in results["comparison_data"]:
+                    results["comparison_data"][car_name]['images'] = images
+
     # Clear collected specs and PDF specs for next comparison
     if hasattr(add_code_car_specs_tool, 'collected_specs'):
         add_code_car_specs_tool.collected_specs = {}

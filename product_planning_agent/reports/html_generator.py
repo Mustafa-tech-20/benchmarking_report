@@ -10,6 +10,8 @@ from product_planning_agent.reports.image_sections import (
     generate_technical_spec_section,
     generate_feature_list_section,
     generate_lifecycle_section,
+    generate_vehicle_highlights_section,
+    generate_venn_diagram_section,
     get_image_section_styles
 )
 
@@ -380,120 +382,6 @@ def _generate_citations_html(comparison_data: Dict[str, Any]) -> str:
     return citations_html
 
 
-
-def _generate_consolidated_review_html(comparison_data: Dict[str, Any]) -> str:
-    """
-    Generate consolidated review summary table from scraped spec data.
-    Combines multiple related specs into review categories.
-    Includes expandable "Read more" feature for long reviews.
-    """
-
-    # Extract car names from comparison data
-    car_names = list(comparison_data.keys())
-
-    # Define review categories mapped to actual spec fields we extract
-    # Each category maps to a list of related specs to combine
-    review_categories = [
-        ("Ride & Handling", ["ride", "ride_quality", "bumps", "stiff_on_pot_holes", "shocks"]),
-        ("Steering", ["steering", "telescopic_steering", "turning_radius"]),
-        ("Braking", ["braking", "brakes", "brake_performance", "grabby", "spongy"]),
-        ("Performance & Drivability", ["performance", "driveability", "performance_feel", "acceleration", "torque"]),
-        ("4x4 Operation", ["off_road", "manoeuvring"]),
-        ("NVH", ["nvh", "powertrain_nvh", "road_nvh", "wind_nvh", "wind_noise", "tire_noise"]),
-        ("GSQ", ["gear_shift", "gear_selection", "manual_transmission_performance", "automatic_transmission_performance", "transmission"])
-    ]
-
-    def get_combined_review(car_data: Dict, spec_fields: list) -> str:
-        """Combine multiple spec values into a single review text."""
-        parts = []
-        for field in spec_fields:
-            value = car_data.get(field, "")
-            if value and value not in ["Not Available", "Not found", "N/A", "Error", ""]:
-                # Clean and add the value
-                clean_value = str(value).strip()
-                if clean_value and len(clean_value) > 3:
-                    # Add field name as context
-                    field_name = field.replace("_", " ").title()
-                    parts.append(f"{field_name}: {clean_value}")
-
-        if parts:
-            return " | ".join(parts)
-        return ""
-    
-    # Helper function to count words
-    def count_words(text: str) -> int:
-        return len(str(text).split())
-    
-    # Helper function to count characters
-    def count_chars(text: str) -> int:
-        return len(str(text))
-    
-    WORD_THRESHOLD = 50  
-    CHAR_THRESHOLD = 200  
-    
-    
-    num_cars = len(car_names)
-    category_width = 20  # 20% for category column
-    car_column_width = (100 - category_width) / num_cars
-
-    review_html = f"""
-    <div class="review-table-container animate-on-scroll">
-        <table class="review-table">
-            <thead>
-                <tr>
-                    <th style="width: {category_width}%;">Category</th>
-    """
-
-    # Add column headers for each car with equal widths
-    for car_name in car_names:
-        review_html += f'<th style="width: {car_column_width}%;">{car_name.upper()}</th>'
-    
-    review_html += """
-                </tr>
-            </thead>
-            <tbody>
-    """
-    
-    # Add rows for each review category
-    for category_name, spec_fields in review_categories:
-        review_html += f"""
-            <tr>
-                <td class="review-category">{category_name}:</td>
-        """
-
-        for car_name in car_names:
-            car_data = comparison_data.get(car_name) or {}
-
-            # Get combined review from multiple spec fields
-            combined_review = get_combined_review(car_data, spec_fields)
-
-            if combined_review:
-                display_value = combined_review
-                word_count = count_words(display_value)
-                char_count = count_chars(display_value)
-
-                review_html += "<td>"
-
-                # Apply expandable content if text is long
-                if word_count > WORD_THRESHOLD or char_count > CHAR_THRESHOLD:
-                    review_html += f'<div class="expandable-content">{display_value}</div>'
-                    review_html += '<button onclick="toggleExpand(this)" class="read-more-btn">Read more</button>'
-                else:
-                    review_html += display_value
-
-                review_html += "</td>"
-            else:
-                review_html += '<td style="color: #6c757d; font-style: italic;">Review not available</td>'
-
-        review_html += '</tr>\n'
-    
-    review_html += """
-            </tbody>
-        </table>
-    </div>
-    """
-
-    return review_html
 
 
 def generate_checklist_table(comparison_data: Dict[str, Any]) -> str:
@@ -1601,6 +1489,335 @@ def generate_price_ladder_section(comparison_data: Dict[str, Any]) -> str:
     return html
 
 
+def generate_attribute_proscons_section(attribute_proscons_data: Dict[str, Dict[str, Any]]) -> str:
+    """
+    Generate HTML section for attribute-based pros/cons analysis.
+
+    Args:
+        attribute_proscons_data: Dictionary mapping car names to their attribute pros/cons
+                                Format: {car_name: {category: {attribute: {pros: [], cons: []}}}}
+
+    Returns:
+        HTML string for the attribute pros/cons section
+    """
+    if not attribute_proscons_data:
+        return "<p>No attribute analysis data available.</p>"
+
+    car_names = list(attribute_proscons_data.keys())
+    num_cars = len(car_names)
+
+    # Category order and icons
+    category_icons = {
+        "Comfort": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v3"/><path d="M2 11v5a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v2H6v-2a2 2 0 0 0-4 0z"/><path d="M4 18v2"/><path d="M20 18v2"/></svg>',
+        "Dynamics": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>',
+        "Performance": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>',
+        "Safety": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+        "Space & Versatility": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>',
+        "NVH": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>',
+        "All Terrain Capability": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 17H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-1"/><polygon points="12 15 17 21 7 21 12 15"/></svg>',
+        "Features": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>'
+    }
+
+    # Define attribute categories
+    attribute_categories = {
+        "Comfort": ["Ride", "Climate Control", "Seats"],
+        "Dynamics": ["Customer Handling", "Steering"],
+        "Performance": ["Performance Feel", "Driveability", "Manual Transmission Operation", "Clutch Operation", "Automatic Transmission Operation"],
+        "Safety": ["Braking", "Restraints"],
+        "Space & Versatility": ["Visibility", "Package", "Usability", "Functional Hardware"],
+        "NVH": ["PT-NVH", "Road NVH", "Wind NVH", "Electro Mech NVH"],
+        "All Terrain Capability": ["4X4 Operation"],
+        "Features": ["Infotainment System", "Night Operation"]
+    }
+
+    # Generate YouTube source links for each car + channel combination
+    channels = ["Autocar India", "Overdrive"]
+    source_links_html = '<div class="youtube-sources"><strong>Sources:</strong> '
+    links = []
+    for car_name in car_names:
+        for channel in channels:
+            search_query = (car_name + ' ' + channel + ' review').replace(' ', '+')
+            youtube_url = f"https://www.youtube.com/results?search_query={search_query}"
+            links.append(f'<a href="{youtube_url}" target="_blank" rel="noopener noreferrer" class="youtube-source-link">{car_name} - {channel}</a>')
+    source_links_html += ' | '.join(links)
+    source_links_html += '</div>'
+
+    html = f"""
+    <div class="attribute-proscons-container">
+        {source_links_html}
+    """
+
+    for category, attributes in attribute_categories.items():
+        icon = category_icons.get(category, '')
+        html += f"""
+        <div class="attr-category-section">
+            <div class="attr-category-header" onclick="this.parentElement.classList.toggle('collapsed')">
+                <div class="attr-category-icon">{icon}</div>
+                <h3>{category}</h3>
+                <span class="attr-toggle-icon"></span>
+            </div>
+            <div class="attr-category-content">
+                <table class="attr-proscons-table">
+                    <thead>
+                        <tr>
+                            <th class="attr-name-col">Attribute</th>
+        """
+
+        # Add car name headers with Pros/Cons sub-headers
+        for car_name in car_names:
+            html += f"""
+                            <th class="car-col" colspan="2">{car_name}</th>
+            """
+
+        html += """
+                        </tr>
+                        <tr class="sub-header-row">
+                            <th></th>
+        """
+
+        for _ in car_names:
+            html += """
+                            <th class="pros-subheader">Pros</th>
+                            <th class="cons-subheader">Cons</th>
+            """
+
+        html += """
+                        </tr>
+                    </thead>
+                    <tbody>
+        """
+
+        for attr in attributes:
+            html += f"""
+                        <tr>
+                            <td class="attr-name-cell"><strong>{attr}</strong></td>
+            """
+
+            for car_name in car_names:
+                car_data = attribute_proscons_data.get(car_name, {})
+                cat_data = car_data.get(category, {})
+                attr_data = cat_data.get(attr, {"pros": [], "cons": []})
+
+                pros = attr_data.get("pros", [])
+                cons = attr_data.get("cons", [])
+
+                # Format pros
+                pros_html = "<ul class='attr-list pros-list'>"
+                for pro in pros[:3]:  # Limit to 3
+                    if pro and pro not in ["N/A", "N/A - not available", "Data not available", "Not covered in reviews"]:
+                        pros_html += f"<li>{pro}</li>"
+                    elif pro:
+                        pros_html += f"<li class='na-item'>{pro}</li>"
+                pros_html += "</ul>" if pros else "<span class='no-data'>-</span>"
+
+                # Format cons
+                cons_html = "<ul class='attr-list cons-list'>"
+                for con in cons[:3]:  # Limit to 3
+                    if con and con not in ["N/A", "N/A - not available", "Data not available", "Not covered in reviews"]:
+                        cons_html += f"<li>{con}</li>"
+                    elif con:
+                        cons_html += f"<li class='na-item'>{con}</li>"
+                cons_html += "</ul>" if cons else "<span class='no-data'>-</span>"
+
+                html += f"""
+                            <td class="pros-cell">{pros_html}</td>
+                            <td class="cons-cell">{cons_html}</td>
+                """
+
+            html += """
+                        </tr>
+            """
+
+        html += """
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        """
+
+    html += """
+    </div>
+
+    <style>
+        .attribute-proscons-container {
+            margin: 20px 0;
+        }
+        .youtube-sources {
+            padding: 12px 16px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #495057;
+            border-left: 4px solid #cc0000;
+        }
+        .youtube-source-link {
+            color: #cc0000;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .youtube-source-link:hover {
+            text-decoration: underline;
+        }
+        .attr-category-section {
+            margin-bottom: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+            background: white;
+        }
+        .attr-category-section.collapsed .attr-category-content {
+            display: none;
+        }
+        .attr-category-section.collapsed .attr-toggle-icon::before {
+            content: '+';
+        }
+        .attr-category-header {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            background: #1c2a39;
+            color: white;
+            cursor: pointer;
+            user-select: none;
+            border-left: 4px solid #cc0000;
+        }
+        .attr-category-header:hover {
+            background: #2a3a4a;
+        }
+        .attr-category-icon {
+            width: 24px;
+            height: 24px;
+            margin-right: 12px;
+        }
+        .attr-category-icon svg {
+            width: 100%;
+            height: 100%;
+        }
+        .attr-category-header h3 {
+            margin: 0;
+            flex: 1;
+            font-size: 1.1em;
+        }
+        .attr-toggle-icon {
+            font-size: 1.5em;
+            font-weight: bold;
+            transition: transform 0.3s;
+        }
+        .attr-toggle-icon::before {
+            content: '-';
+        }
+        .attr-category-content {
+            padding: 15px;
+            overflow-x: auto;
+        }
+        .attr-proscons-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .attr-proscons-table thead tr:first-child th {
+            background: #f8f9fa;
+            padding: 12px 8px;
+            text-align: center;
+            border-bottom: 2px solid #cc0000;
+            font-weight: 600;
+            color: #1c2a39;
+        }
+        .attr-proscons-table .sub-header-row th {
+            background: #f1f3f4;
+            padding: 8px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+        .attr-proscons-table .pros-subheader {
+            color: #27ae60;
+            border-right: 1px solid #dee2e6;
+        }
+        .attr-proscons-table .cons-subheader {
+            color: #e74c3c;
+        }
+        .attr-proscons-table .attr-name-col {
+            width: 150px;
+            min-width: 150px;
+        }
+        .attr-proscons-table .car-col {
+            text-align: center;
+            border-left: 2px solid #dee2e6;
+        }
+        .attr-proscons-table tbody tr {
+            border-bottom: 1px solid #e9ecef;
+        }
+        .attr-proscons-table tbody tr:hover {
+            background: #f8f9fa;
+        }
+        .attr-proscons-table td {
+            padding: 10px 8px;
+            vertical-align: top;
+        }
+        .attr-name-cell {
+            background: #fafafa;
+            border-right: 1px solid #dee2e6;
+        }
+        .pros-cell {
+            background: rgba(39, 174, 96, 0.05);
+            border-right: 1px solid #e9ecef;
+        }
+        .cons-cell {
+            background: rgba(231, 76, 60, 0.05);
+            border-right: 2px solid #dee2e6;
+        }
+        .attr-list {
+            margin: 0;
+            padding-left: 16px;
+            list-style: none;
+        }
+        .attr-list li {
+            margin-bottom: 4px;
+            position: relative;
+            padding-left: 8px;
+        }
+        .pros-list li::before {
+            content: '+';
+            position: absolute;
+            left: -8px;
+            color: #27ae60;
+            font-weight: bold;
+        }
+        .cons-list li::before {
+            content: '-';
+            position: absolute;
+            left: -8px;
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        .attr-list .na-item {
+            color: #999;
+            font-style: italic;
+        }
+        .attr-list .na-item::before {
+            content: '';
+        }
+        .no-data {
+            color: #ccc;
+            text-align: center;
+            display: block;
+        }
+        @media print {
+            .attr-category-section {
+                page-break-inside: avoid;
+            }
+            .attr-category-header {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+    """
+
+    return html
+
+
 def generate_proscons_table(proscons_data: Dict[str, Any]) -> str:
     """
     Generate pros/cons comparison table from YouTube reviews.
@@ -1692,7 +1909,7 @@ def generate_proscons_table(proscons_data: Dict[str, Any]) -> str:
     return html
 
 
-def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str, proscons_data: Optional[Dict[str, Dict[str, Any]]] = None) -> str:
+def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str, proscons_data: Optional[Dict[str, Dict[str, Any]]] = None, summary_data: Optional[Dict[str, Any]] = None) -> str:
     """
     Create interactive HTML report with enhanced design featuring grouped specifications.
     Specifications are grouped into collapsible accordions for better readability.
@@ -1743,11 +1960,11 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str, 
             # Extract sales using robust helper
             sales_volumes.append(extract_sales(car_data.get("monthly_sales", "")))
 
-    # Generate pros/cons comparison table (if provided)
+    # Generate attribute pros/cons section (if provided)
     if proscons_data:
-        proscons_html = generate_proscons_table(proscons_data)
+        proscons_html = generate_attribute_proscons_section(proscons_data)
     else:
-        proscons_html = "<p>YouTube pros/cons analysis not available. Enable YouTube Data API to get detailed pros/cons.</p>"
+        proscons_html = "<p>Attribute pros/cons analysis not available.</p>"
 
     # Format AI-powered summary
     formatted_summary = format_summary(summary)
@@ -3440,7 +3657,7 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str, 
         <div class="header-actions">
             <nav class="main-nav">
                 <a href="#tech-spec-section">Tech Specs</a>
-                <a href="#feature-list-section">Features</a>
+                <a href="#venn-section">Feature Face-Off</a>
                 <div class="nav-sep"></div>
                 <div class="nav-dropdown">
                     <button class="nav-dropdown-toggle">Lifecycle</button>
@@ -3450,6 +3667,7 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str, 
                 <div class="nav-dropdown">
                     <button class="nav-dropdown-toggle">Gallery</button>
                     <div class="nav-dropdown-menu">
+                        <a href="#vehicle-highlights">Highlights</a>
                         <a href="#exterior-section">Exterior</a>
                         <a href="#interior-section">Interior</a>
                         <a href="#technology-section">Technology</a>
@@ -3466,22 +3684,23 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str, 
                 </div>
                 <div class="nav-sep"></div>
                 <a href="#summary-section">Pros & Cons</a>
-                <a href="#review-section">Analysis</a>
                 <a href="#" id="citations-toggle" onclick="toggleCitations(event)">Citations</a>
             </nav>
             <button class="print-btn" onclick="printReport()">Save as PDF</button>
         </div>
     </header>
     {generate_hero_section(comparison_data)}
+    {generate_vehicle_highlights_section(comparison_data)}
     {generate_technical_spec_section(comparison_data)}
+    {generate_venn_diagram_section(comparison_data, summary_data)}
     {generate_feature_list_section(comparison_data)}
     {generate_lifecycle_section(comparison_data)}
     <div class="container">
-        {generate_image_gallery_section("Exterior Highlights", comparison_data, "exterior", "exterior-section")}
-        {generate_image_gallery_section("Interior Highlights", comparison_data, "interior", "interior-section")}
-        {generate_image_gallery_section("Technology Highlights", comparison_data, "technology", "technology-section")}
-        {generate_image_gallery_section("Comfort Highlights", comparison_data, "comfort", "comfort-section")}
-        {generate_image_gallery_section("Safety Highlights", comparison_data, "safety", "safety-section")}
+        {generate_image_gallery_section("Exterior Highlights", comparison_data, "exterior", "exterior-section", with_ai_notes=True)}
+        {generate_image_gallery_section("Interior Highlights", comparison_data, "interior", "interior-section", with_ai_notes=True)}
+        {generate_image_gallery_section("Technology Highlights", comparison_data, "technology", "technology-section", with_ai_notes=True)}
+        {generate_image_gallery_section("Comfort Highlights", comparison_data, "comfort", "comfort-section", with_ai_notes=True)}
+        {generate_image_gallery_section("Safety Highlights", comparison_data, "safety", "safety-section", with_ai_notes=True)}
         <div class="content">
             <div class="section-header">
                 <div class="icon-wrapper">
@@ -3506,21 +3725,8 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str, 
             <div class="price-ladder-section animate-on-scroll">{generate_price_ladder_section(comparison_data)}</div>
         </div>
         <div class="content">
-            <div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z"></path></svg></div><h2 id="summary-section">YouTube Pros & Cons Analysis</h2></div>
+            <div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg></div><h2 id="summary-section">YouTube Pros & Cons Analysis</h2></div>
             <div class="proscons-section animate-on-scroll">{proscons_html}</div>
-        </div>
-         <div class="content">
-            <div class="section-header">
-                <div class="icon-wrapper">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
-                    </svg>
-                </div>
-                <h2 id="review-section">AI-Powered Analysis Summary</h2>
-            </div>
-            <div class="summary animate-on-scroll">
-                <p>{formatted_summary}</p>
-            </div>
         </div>
         <div class="content" id="citations-section" style="display: none;"><div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><line x1="10" y1="9" x2="8" y2="9"></line></svg></div><h2>Data Source Citations</h2></div><div class="citations-grid">{citations_html}</div></div>
     </div>

@@ -111,22 +111,22 @@ def _generate_ai_notes_for_gallery(
 
         image_list_text = "\n\n".join(image_entries)
 
-        prompt = f"""You are writing 1-2 line notes for a car benchmarking report.
+        prompt = f"""You are writing detailed notes for a car benchmarking report.
 
 For each image below, write a factual note based ONLY on the scraped spec data provided.
 
 RULES:
 1. Use ONLY the "Scraped specs" data - don't make up information
-2. Keep it to 1-2 lines (max 15 words)
-3. Be specific and highlight key numbers/features
-4. If no specs available, write a generic placeholder
-5. Professional, factual tone
+2. MUST be 2-3 lines (25-35 words minimum) - never less than 2 sentences
+3. Be specific and highlight key numbers/features with context
+4. If no specs available, write a descriptive placeholder with general observations
+5. Professional, factual tone with comparative insights where possible
 
 Examples of good notes:
-- "Features LED projector headlamps with DRL signature lighting"
-- "10.25-inch touchscreen with wireless Apple CarPlay and Android Auto"
-- "Dual-tone leatherette seats with ventilation and lumbar support"
-- "6 airbags including side and curtain for comprehensive protection"
+- "Features LED projector headlamps with DRL signature lighting. The lighting package offers excellent visibility and a premium appearance that matches the segment leaders."
+- "10.25-inch touchscreen with wireless Apple CarPlay and Android Auto connectivity. The responsive display provides intuitive controls for navigation and entertainment functions."
+- "Dual-tone leatherette seats with ventilation and lumbar support for long-distance comfort. The cushioning and bolstering are designed for extended drives."
+- "6 airbags including side and curtain for comprehensive protection. This safety configuration meets global standards and provides occupant protection in various collision scenarios."
 
 Images to caption:
 {image_list_text}
@@ -486,18 +486,48 @@ def generate_technical_spec_section(comparison_data: Dict[str, Any], page_start:
             (k.replace('_', ' ').title(), k) for k in sorted(all_data_keys)
         ]
 
-    # Generate table rows
+    # Generate table rows with collapsible groups
     rows_html = ""
+    group_index = 0
+    num_cars = len(car_names)
 
-    def _render_rows(category, specs):
+    def _render_rows(category, specs, grp_idx):
         nonlocal rows_html
-        category_printed = False
+        # Check if this group has any non-empty rows
+        has_data = False
         for label, key in specs:
             values = []
             for car_name in car_names:
                 car_data = comparison_data.get(car_name, {})
                 value = car_data.get(key, "-")
-                # Guard against dict/list values (e.g. from PDF extraction)
+                if isinstance(value, (dict, list)):
+                    value = "-"
+                elif value in EMPTY_VALUES:
+                    value = "-"
+                values.append(value)
+            if not all(v == "-" for v in values):
+                has_data = True
+                break
+
+        if not has_data:
+            return
+
+        # Group header row with toggle button
+        collapsed_class = "" if grp_idx == 0 else "collapsed"
+        toggle_icon = "−" if grp_idx == 0 else "+"
+        rows_html += f'''<tr class="spec-group-header {collapsed_class}" data-group="spec-group-{grp_idx}" onclick="toggleSpecGroup(this)">
+            <td colspan="{num_cars + 2}">
+                <span class="group-toggle-btn">{toggle_icon}</span>
+                <span class="group-title">{category}</span>
+            </td>
+        </tr>'''
+
+        # Data rows for this group
+        for label, key in specs:
+            values = []
+            for car_name in car_names:
+                car_data = comparison_data.get(car_name, {})
+                value = car_data.get(key, "-")
                 if isinstance(value, (dict, list)):
                     value = "-"
                 elif value in EMPTY_VALUES:
@@ -507,28 +537,25 @@ def generate_technical_spec_section(comparison_data: Dict[str, Any], page_start:
             if all(v == "-" for v in values):
                 continue
 
-            cat_display = category if not category_printed else ""
-            category_printed = True
-
+            hidden_class = "" if grp_idx == 0 else "group-row-hidden"
             ref_val = values[0] if values else "-"
-            rows_html += f'<tr><td class="cat-cell">{cat_display}</td><td class="param-cell">{label}</td>'
+            rows_html += f'<tr class="spec-data-row {hidden_class}" data-group="spec-group-{grp_idx}"><td class="cat-cell"></td><td class="param-cell">{label}</td>'
             for i, value in enumerate(values):
                 if i == 0:
-                    # Reference car — always white/neutral
                     rows_html += f'<td>{value}</td>'
                 else:
-                    # Competitor car — color based on presence vs reference
                     if ref_val != "-" and value == "-":
-                        cell_class = "inferior-cell"   # competitor is missing this spec
+                        cell_class = "inferior-cell"
                     elif ref_val == "-" and value != "-":
-                        cell_class = "superior-cell"   # competitor has it, reference doesn't
+                        cell_class = "superior-cell"
                     else:
                         cell_class = ""
                     rows_html += f'<td class="{cell_class}">{value}</td>'
             rows_html += '</tr>'
 
     for category, specs in tech_spec_groups.items():
-        _render_rows(category, specs)
+        _render_rows(category, specs, group_index)
+        group_index += 1
 
     # Build the page
     cars_header = "".join([f'<th colspan="1">{name}</th>' for name in car_names])
@@ -560,6 +587,87 @@ def generate_technical_spec_section(comparison_data: Dict[str, Any], page_start:
         <div class="spec-page-footer">
         </div>
     </div>
+    <style>
+        .spec-group-header {{
+            background: #f8f9fa;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s ease;
+        }}
+        .spec-group-header:hover {{
+            background: #e9ecef;
+        }}
+        .spec-group-header td {{
+            padding: 14px 16px !important;
+            font-weight: 700;
+            color: #1c2a39;
+            border-bottom: 2px solid #dee2e6 !important;
+        }}
+        .group-toggle-btn {{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            background: #dd032b;
+            color: #fff;
+            border-radius: 4px;
+            font-size: 18px;
+            font-weight: 700;
+            margin-right: 12px;
+            line-height: 1;
+            transition: transform 0.2s ease;
+        }}
+        .spec-group-header.collapsed .group-toggle-btn {{
+            background: #dd032b;
+        }}
+        .group-title {{
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }}
+        .spec-data-row {{
+            transition: all 0.2s ease;
+        }}
+        .group-row-hidden {{
+            display: none;
+        }}
+        @media print {{
+            .spec-group-header {{
+                background: #f8f9fa !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }}
+            .group-toggle-btn {{
+                display: none;
+            }}
+            .group-row-hidden {{
+                display: table-row !important;
+            }}
+        }}
+    </style>
+    <script>
+        function toggleSpecGroup(headerRow) {{
+            var groupId = headerRow.getAttribute('data-group');
+            var isCollapsed = headerRow.classList.contains('collapsed');
+            var toggleBtn = headerRow.querySelector('.group-toggle-btn');
+            var rows = document.querySelectorAll('tr[data-group="' + groupId + '"]:not(.spec-group-header)');
+
+            if (isCollapsed) {{
+                headerRow.classList.remove('collapsed');
+                toggleBtn.textContent = '−';
+                rows.forEach(function(row) {{
+                    row.classList.remove('group-row-hidden');
+                }});
+            }} else {{
+                headerRow.classList.add('collapsed');
+                toggleBtn.textContent = '+';
+                rows.forEach(function(row) {{
+                    row.classList.add('group-row-hidden');
+                }});
+            }}
+        }}
+    </script>
     '''
 
     return html
@@ -1217,13 +1325,51 @@ def generate_feature_list_section(comparison_data: Dict[str, Any], page_start: i
         return [""] * n
 
     rows_html = ""
+    num_cars = len(car_names)
+    total_cols = num_cars + 3  # Category + Description + Features + car columns
+
+    cat_index = 0
     for cat_obj in categories:
         cat_name = cat_obj.get("category", "")
-        first_cat = True
-        for desc_obj in cat_obj.get("descriptions", []):
+        descriptions = cat_obj.get("descriptions", [])
+
+        if not descriptions:
+            continue
+
+        # Category header row with toggle
+        cat_collapsed = "" if cat_index == 0 else "collapsed"
+        cat_toggle = "−" if cat_index == 0 else "+"
+        rows_html += f'''
+        <tr class="feat-cat-header {cat_collapsed}" data-cat="feat-cat-{cat_index}" onclick="toggleFeatCategory(this)">
+            <td colspan="{total_cols}">
+                <span class="group-toggle-btn">{cat_toggle}</span>
+                <span class="group-title">{cat_name}</span>
+            </td>
+        </tr>'''
+
+        desc_index = 0
+        for desc_obj in descriptions:
             desc_name = desc_obj.get("description", "")
-            first_desc = True
-            for feat in desc_obj.get("features", []):
+            features = desc_obj.get("features", [])
+
+            if not features:
+                continue
+
+            # Description sub-header row with toggle
+            cat_hidden = "" if cat_index == 0 else "cat-row-hidden"
+            desc_collapsed = "" if (cat_index == 0 and desc_index == 0) else "collapsed"
+            desc_toggle = "−" if (cat_index == 0 and desc_index == 0) else "+"
+            rows_html += f'''
+            <tr class="feat-desc-header {cat_hidden} {desc_collapsed}" data-cat="feat-cat-{cat_index}" data-desc="feat-desc-{cat_index}-{desc_index}" onclick="toggleFeatDescription(event, this)">
+                <td></td>
+                <td colspan="{total_cols - 1}">
+                    <span class="subgroup-toggle-btn">{desc_toggle}</span>
+                    <span class="subgroup-title">{desc_name}</span>
+                </td>
+            </tr>'''
+
+            # Feature rows
+            for feat in features:
                 feat_name = feat.get("name", "")
                 vals = [feat.get(cn) for cn in car_names]
                 cc_list = _cell_classes(feat_name, vals)
@@ -1231,15 +1377,19 @@ def generate_feature_list_section(comparison_data: Dict[str, Any], page_start: i
                     f'<td class="car-value-cell {cc}">{_render_cell(v)}</td>'
                     for v, cc in zip(vals, cc_list)
                 )
+                feat_hidden = "" if (cat_index == 0 and desc_index == 0) else "desc-row-hidden"
+                if cat_index != 0:
+                    feat_hidden += " cat-row-hidden"
                 rows_html += f'''
-                <tr>
-                    <td class="cat-cell">{cat_name if first_cat else ""}</td>
-                    <td class="desc-cell">{desc_name if first_desc else ""}</td>
+                <tr class="feat-data-row {feat_hidden}" data-cat="feat-cat-{cat_index}" data-desc="feat-desc-{cat_index}-{desc_index}">
+                    <td class="cat-cell"></td>
+                    <td class="desc-cell"></td>
                     <td class="feature-cell">{feat_name}</td>
                     {cells}
                 </tr>'''
-                first_cat = False
-                first_desc = False
+
+            desc_index += 1
+        cat_index += 1
 
     car_names_title = " | ".join(n.upper() for n in car_names)
     car_headers = "".join(f'<th class="car-value-header">{n}</th>' for n in car_names)
@@ -1248,7 +1398,7 @@ def generate_feature_list_section(comparison_data: Dict[str, Any], page_start: i
     return f'''
     <div class="feature-page" id="feature-list-section">
         <div class="feature-page-header">
-            <h1 class="feature-page-title">FEATURE LIST COMPARISON | <span class="highlight">BENCHMARKING {car_names_title}</span></h1>
+            <h1 class="feature-page-title">FEATURE FACE-OFF | <span class="highlight">BENCHMARKING {car_names_title}</span></h1>
             <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Mahindra_logo.svg/1920px-Mahindra_logo.svg.png?_=20231128143513" alt="Mahindra" class="feature-page-logo">
         </div>
         <div class="feature-legend">
@@ -1273,6 +1423,131 @@ def generate_feature_list_section(comparison_data: Dict[str, Any], page_start: i
         <div class="feature-page-footer">
         </div>
     </div>
+    <style>
+        .feat-cat-header, .feat-desc-header {{
+            background: #f8f9fa;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s ease;
+        }}
+        .feat-cat-header:hover, .feat-desc-header:hover {{
+            background: #e9ecef;
+        }}
+        .feat-cat-header td {{
+            padding: 14px 16px !important;
+            font-weight: 700;
+            color: #1c2a39;
+            border-bottom: 2px solid #dee2e6 !important;
+        }}
+        .feat-desc-header td {{
+            padding: 10px 16px !important;
+            font-weight: 600;
+            color: #495057;
+            border-bottom: 1px solid #dee2e6 !important;
+            background: #fff;
+        }}
+        .group-toggle-btn, .subgroup-toggle-btn {{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            background: #dd032b;
+            color: #fff;
+            border-radius: 4px;
+            font-size: 18px;
+            font-weight: 700;
+            margin-right: 12px;
+            line-height: 1;
+        }}
+        .subgroup-toggle-btn {{
+            width: 20px;
+            height: 20px;
+            font-size: 16px;
+            background: #6c757d;
+            margin-right: 10px;
+        }}
+        .group-title {{
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }}
+        .subgroup-title {{
+            font-size: 13px;
+            letter-spacing: 0.3px;
+        }}
+        .feat-data-row {{
+            transition: all 0.2s ease;
+        }}
+        .cat-row-hidden, .desc-row-hidden {{
+            display: none;
+        }}
+        @media print {{
+            .feat-cat-header, .feat-desc-header {{
+                background: #f8f9fa !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }}
+            .group-toggle-btn, .subgroup-toggle-btn {{
+                display: none;
+            }}
+            .cat-row-hidden, .desc-row-hidden {{
+                display: table-row !important;
+            }}
+        }}
+    </style>
+    <script>
+        function toggleFeatCategory(headerRow) {{
+            var catId = headerRow.getAttribute('data-cat');
+            var isCollapsed = headerRow.classList.contains('collapsed');
+            var toggleBtn = headerRow.querySelector('.group-toggle-btn');
+            var childRows = document.querySelectorAll('tr[data-cat="' + catId + '"]:not(.feat-cat-header)');
+
+            if (isCollapsed) {{
+                headerRow.classList.remove('collapsed');
+                toggleBtn.textContent = '−';
+                childRows.forEach(function(row) {{
+                    row.classList.remove('cat-row-hidden');
+                    // If it's a desc header that's not collapsed, show its feature rows
+                    if (row.classList.contains('feat-desc-header') && !row.classList.contains('collapsed')) {{
+                        var descId = row.getAttribute('data-desc');
+                        var featRows = document.querySelectorAll('tr.feat-data-row[data-desc="' + descId + '"]');
+                        featRows.forEach(function(fr) {{
+                            fr.classList.remove('desc-row-hidden');
+                        }});
+                    }}
+                }});
+            }} else {{
+                headerRow.classList.add('collapsed');
+                toggleBtn.textContent = '+';
+                childRows.forEach(function(row) {{
+                    row.classList.add('cat-row-hidden');
+                }});
+            }}
+        }}
+
+        function toggleFeatDescription(event, headerRow) {{
+            event.stopPropagation();
+            var descId = headerRow.getAttribute('data-desc');
+            var isCollapsed = headerRow.classList.contains('collapsed');
+            var toggleBtn = headerRow.querySelector('.subgroup-toggle-btn');
+            var featRows = document.querySelectorAll('tr.feat-data-row[data-desc="' + descId + '"]');
+
+            if (isCollapsed) {{
+                headerRow.classList.remove('collapsed');
+                toggleBtn.textContent = '−';
+                featRows.forEach(function(row) {{
+                    row.classList.remove('desc-row-hidden');
+                }});
+            }} else {{
+                headerRow.classList.add('collapsed');
+                toggleBtn.textContent = '+';
+                featRows.forEach(function(row) {{
+                    row.classList.add('desc-row-hidden');
+                }});
+            }}
+        }}
+    </script>
     '''
 
 
@@ -3538,7 +3813,7 @@ def generate_venn_diagram_section(
                     <circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/>
                 </svg>
             </div>
-            <h2>Feature Venn Diagram{"s" if len(windows) > 1 else ""}</h2>
+            <h2>Feature Overlap Analysis</h2>
         </div>
         {diagrams_html}
         <div class="venn-note">
@@ -4501,7 +4776,8 @@ def _get_val(car_data: Dict[str, Any], key: str) -> str:
 
 def generate_vehicle_highlights_section(comparison_data: Dict[str, Any]) -> str:
     """
-    Generate an 'Overall Highlights' section with one card per vehicle.
+    Generate a 'Vehicle Highlights' section in tabular format.
+    Rows are metrics/features, columns are vehicles.
     Uses already-scraped data — no additional API calls.
     """
     if not comparison_data:
@@ -4514,130 +4790,84 @@ def generate_vehicle_highlights_section(comparison_data: Dict[str, Any]) -> str:
     if not car_entries:
         return ""
 
-    # --- build one card per car ---
-    cards_html = ""
+    # Define highlight groups and their metrics
+    highlight_groups = [
+        ("Overview", [
+            ("Price Range", "price_range"),
+            ("User Rating", "user_rating"),
+            ("Monthly Sales", "monthly_sales"),
+            ("Seating Capacity", "seating_capacity"),
+        ]),
+        ("Performance", [
+            ("Acceleration", "acceleration"),
+            ("Torque", "torque"),
+            ("Mileage", "mileage"),
+            ("City Performance", "city_performance"),
+            ("Highway Performance", "highway_performance"),
+        ]),
+        ("Safety", [
+            ("NCAP Rating", "ncap_rating"),
+            ("Airbags", "airbags"),
+            ("ADAS", "adas"),
+            ("Safety Features", "vehicle_safety_features"),
+        ]),
+        ("Comfort & Technology", [
+            ("Climate Control", "climate_control"),
+            ("Infotainment Screen", "infotainment_screen"),
+            ("Connectivity", "apple_carplay"),
+            ("Sunroof", "sunroof"),
+            ("Ventilated Seats", "ventilated_seats"),
+            ("Audio System", "audio_system"),
+        ]),
+        ("Ride & Handling", [
+            ("Ride Quality", "ride_quality"),
+            ("Stability", "stability"),
+            ("NVH", "nvh"),
+        ]),
+    ]
+
+    # Build table header with car names
+    header_cells = '<th class="vh-feature-col">Feature</th>'
     for car_name, cd in car_entries:
-        # Hero image
-        hero_url = ""
-        images = cd.get("images") or {}
-        hero_list = images.get("hero", [])
-        if hero_list:
-            first = hero_list[0]
-            if isinstance(first, (list, tuple)) and first:
-                hero_url = first[0]
-            elif isinstance(first, str):
-                hero_url = first
+        header_cells += f'<th class="vh-car-col">{car_name}</th>'
 
-        img_html = (
-            f'<img class="vh-hero-img" src="{hero_url}" alt="{car_name}" '
-            f'onerror="this.parentElement.style.display=\'none\'">'
-            if hero_url else ""
-        )
+    # Build table rows grouped by category
+    rows_html = ""
+    for group_name, metrics in highlight_groups:
+        # Group header row
+        colspan = len(car_entries) + 1
+        rows_html += f'''
+        <tr class="vh-group-header">
+            <td colspan="{colspan}">{group_name}</td>
+        </tr>'''
 
-        # ---- grouped stat rows ----
-        def row(icon, label, value):
-            if not value:
-                return ""
-            TRUNC = 90
-            if len(value) <= TRUNC:
-                val_html = f'<span class="vh-stat-value">{value}</span>'
-            else:
-                uid = abs(hash(car_name + label)) % 9999999
-                short = value[:TRUNC]
-                rest  = value[TRUNC:]
-                val_html = (
-                    f'<span class="vh-stat-value">'
-                    f'{short}'
-                    f'<span class="vh-val-rest" id="vh-rest-{uid}" style="display:none;">{rest}</span>'
-                    f'<button class="vh-read-more" '
-                    f'onclick="var r=document.getElementById(\'vh-rest-{uid}\');'
-                    f'var show=r.style.display===\'none\';'
-                    f'r.style.display=show?\'inline\':\'none\';'
-                    f'this.textContent=show?\' read less\':\'… read more\';">'
-                    f'… read more</button>'
-                    f'</span>'
-                )
-            return f'''
-            <div class="vh-stat-row">
-                <span class="vh-stat-icon">{icon}</span>
-                <span class="vh-stat-label">{label}</span>
-                {val_html}
-            </div>'''
-
-        def group(title, rows_html):
-            if not rows_html.strip():
-                return ""
-            return f'''
-            <div class="vh-group">
-                <div class="vh-group-title">{title}</div>
-                {rows_html}
-            </div>'''
-
-        # Overview
-        ov = (
-            row("₹", "Price Range", _get_val(cd, "price_range")) +
-            row("⭐", "User Rating", _get_val(cd, "user_rating")) +
-            row("📦", "Monthly Sales", _get_val(cd, "monthly_sales")) +
-            row("🪑", "Seating", _get_val(cd, "seating_capacity"))
-        )
-
-        # Performance
-        accel = _get_val(cd, "acceleration")
-        torque = _get_val(cd, "torque")
-        # shorten torque (first sentence / first clause)
-        if torque and len(torque) > 60:
-            torque = torque.split("(")[0].split(",")[0].strip()
-        pf = (
-            row("⚡", "Acceleration", accel) +
-            row("🔩", "Torque", torque) +
-            row("⛽", "Mileage", _get_val(cd, "mileage")) +
-            row("🏙️", "City Performance", _get_val(cd, "city_performance")) +
-            row("🛣️", "Highway Performance", _get_val(cd, "highway_performance"))
-        )
-
-        # Safety
-        sf = (
-            row("🛡️", "NCAP Rating", _get_val(cd, "ncap_rating")) +
-            row("💥", "Airbags", _get_val(cd, "airbags")) +
-            row("🤖", "ADAS", _get_val(cd, "adas")) +
-            row("🔒", "Safety Features", _get_val(cd, "vehicle_safety_features"))
-        )
-
-        # Comfort & Tech
-        ct = (
-            row("🌡️", "Climate Control", _get_val(cd, "climate_control")) +
-            row("📱", "Infotainment", _get_val(cd, "infotainment_screen")) +
-            row("🔗", "Connectivity", _get_val(cd, "apple_carplay")) +
-            row("🔆", "Sunroof", _get_val(cd, "sunroof")) +
-            row("💺", "Ventilated Seats", _get_val(cd, "ventilated_seats")) +
-            row("🎵", "Audio", _get_val(cd, "audio_system"))
-        )
-
-        # Ride & Handling
-        rh = (
-            row("🛤️", "Ride Quality", _get_val(cd, "ride_quality")) +
-            row("⚖️", "Stability", _get_val(cd, "stability")) +
-            row("🔈", "NVH", _get_val(cd, "nvh"))
-        )
-
-        body_html = (
-            group("Overview", ov) +
-            group("Performance", pf) +
-            group("Safety", sf) +
-            group("Comfort & Technology", ct) +
-            group("Ride & Handling", rh)
-        )
-
-        cards_html += f'''
-        <div class="vh-card">
-            <div class="vh-card-header">
-                {img_html}
-                <div class="vh-car-title">{car_name}</div>
-            </div>
-            <div class="vh-card-body">
-                {body_html}
-            </div>
-        </div>'''
+        # Metric rows
+        for label, field_key in metrics:
+            rows_html += f'<tr class="vh-data-row"><td class="vh-feature-name">{label}</td>'
+            for car_name, cd in car_entries:
+                value = _get_val(cd, field_key)
+                if not value:
+                    value = "—"
+                # Truncate long values with read more
+                TRUNC = 100
+                if len(str(value)) > TRUNC:
+                    uid = abs(hash(car_name + label)) % 9999999
+                    short = str(value)[:TRUNC]
+                    rest = str(value)[TRUNC:]
+                    cell_html = (
+                        f'{short}'
+                        f'<span class="vh-val-rest" id="vh-rest-{uid}" style="display:none;">{rest}</span>'
+                        f'<button class="vh-read-more" '
+                        f'onclick="var r=document.getElementById(\'vh-rest-{uid}\');'
+                        f'var show=r.style.display===\'none\';'
+                        f'r.style.display=show?\'inline\':\'none\';'
+                        f'this.textContent=show?\' read less\':\'… read more\';">'
+                        f'… read more</button>'
+                    )
+                else:
+                    cell_html = value
+                rows_html += f'<td class="vh-car-value">{cell_html}</td>'
+            rows_html += '</tr>'
 
     html = f'''
     <div class="content vh-section" id="vehicle-highlights">
@@ -4652,14 +4882,23 @@ def generate_vehicle_highlights_section(comparison_data: Dict[str, Any]) -> str:
             </div>
             <h2>Vehicle Highlights</h2>
         </div>
-        <p class="vh-subtitle">Key metrics and features for each vehicle at a glance</p>
-        <div class="vh-cards-grid">
-            {cards_html}
+        <p class="vh-subtitle">Key metrics and features comparison across all vehicles</p>
+        <div class="vh-table-container">
+            <table class="vh-table">
+                <thead>
+                    <tr>{header_cells}</tr>
+                </thead>
+                <tbody>
+                    {rows_html}
+                </tbody>
+            </table>
         </div>
     </div>
 
     <style>
-        .vh-section {{ margin-top: 40px; }}
+        .vh-section {{
+            margin-top: 40px;
+        }}
 
         .vh-subtitle {{
             font-size: 13px;
@@ -4667,105 +4906,74 @@ def generate_vehicle_highlights_section(comparison_data: Dict[str, Any]) -> str:
             margin: -8px 0 24px 0;
         }}
 
-        .vh-cards-grid {{
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 28px;
-            align-items: start;
-        }}
-
-        .vh-card {{
-            background: #fff;
-            border-radius: 14px;
-            overflow: hidden;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        .vh-table-container {{
+            overflow-x: auto;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
             border: 1px solid #e9ecef;
-            transition: box-shadow 0.3s;
+            background: #fff;
         }}
 
-        .vh-card:hover {{
-            box-shadow: 0 8px 32px rgba(0,0,0,0.13);
-        }}
-
-        .vh-card-header {{
-            position: relative;
-            background: linear-gradient(135deg, #1c2a39 0%, #2E3B4E 100%);
-        }}
-
-        .vh-hero-img {{
+        .vh-table {{
             width: 100%;
-            height: 180px;
-            object-fit: cover;
-            display: block;
-            opacity: 0.85;
+            border-collapse: collapse;
+            font-size: 13px;
         }}
 
-        .vh-car-title {{
-            padding: 14px 18px;
-            font-size: 17px;
-            font-weight: 700;
-            color: #fff;
-            letter-spacing: 0.5px;
+        .vh-table thead tr {{
             background: linear-gradient(135deg, #1c2a39 0%, #2E3B4E 100%);
         }}
 
-        .vh-card-body {{
-            padding: 18px;
-        }}
-
-        .vh-group {{
-            margin-bottom: 18px;
-        }}
-
-        .vh-group:last-child {{
-            margin-bottom: 0;
-        }}
-
-        .vh-group-title {{
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            color: #dd032b;
-            border-bottom: 1px solid #f0f0f0;
-            padding-bottom: 6px;
-            margin-bottom: 10px;
-        }}
-
-        .vh-stat-row {{
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-            padding: 6px 0;
-            border-bottom: 1px solid #f8f8f8;
-        }}
-
-        .vh-stat-row:last-child {{
-            border-bottom: none;
-        }}
-
-        .vh-stat-icon {{
-            font-size: 14px;
-            flex-shrink: 0;
-            width: 22px;
-            text-align: center;
-            margin-top: 1px;
-        }}
-
-        .vh-stat-label {{
-            font-size: 11px;
+        .vh-table thead th {{
+            padding: 16px 14px;
             font-weight: 600;
-            color: #495057;
-            min-width: 110px;
-            flex-shrink: 0;
-            padding-top: 1px;
+            color: #fff;
+            text-align: center;
+            border-bottom: 2px solid #dee2e6;
+            white-space: nowrap;
         }}
 
-        .vh-stat-value {{
+        .vh-table thead th.vh-feature-col {{
+            text-align: left;
+            background: #dd032b;
+            min-width: 160px;
+        }}
+
+        .vh-table thead th.vh-car-col {{
+            min-width: 200px;
+        }}
+
+        .vh-group-header td {{
+            background: #f8f9fa;
+            font-weight: 700;
             font-size: 12px;
-            color: #212529;
-            line-height: 1.5;
-            flex: 1;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #dd032b;
+            padding: 12px 14px;
+            border-bottom: 2px solid #dee2e6;
+        }}
+
+        .vh-data-row td {{
+            padding: 12px 14px;
+            border-bottom: 1px solid #e9ecef;
+            vertical-align: top;
+            line-height: 1.6;
+        }}
+
+        .vh-data-row:hover td {{
+            background: #f8f9fa;
+        }}
+
+        .vh-feature-name {{
+            font-weight: 600;
+            color: #1c2a39;
+            background: #fafafa;
+        }}
+
+        .vh-car-value {{
+            text-align: left;
+            color: #495057;
         }}
 
         .vh-read-more {{
@@ -4787,27 +4995,33 @@ def generate_vehicle_highlights_section(comparison_data: Dict[str, Any]) -> str:
         }}
 
         @media print {{
-            .vh-val-rest {{ display: inline !important; }}
-            .vh-read-more {{ display: none !important; }}
+            .vh-val-rest {{
+                display: inline !important;
+            }}
+            .vh-read-more {{
+                display: none !important;
+            }}
+            .vh-table-container {{
+                box-shadow: none;
+            }}
+            .vh-table {{
+                page-break-inside: avoid;
+            }}
         }}
 
         @media (max-width: 768px) {{
-            .vh-cards-grid {{
-                grid-template-columns: 1fr;
+            .vh-table {{
+                font-size: 12px;
             }}
-        }}
-
-        @media print {{
-            .vh-card {{
-                page-break-inside: avoid;
-                break-inside: avoid;
-                box-shadow: none;
-                border: 1px solid #dee2e6;
+            .vh-table thead th,
+            .vh-table td {{
+                padding: 10px 8px;
             }}
-            .vh-hero-img {{
-                height: 140px;
-                object-fit: contain;
-                background: #f8f9fa;
+            .vh-table thead th.vh-feature-col {{
+                min-width: 120px;
+            }}
+            .vh-table thead th.vh-car-col {{
+                min-width: 150px;
             }}
         }}
     </style>

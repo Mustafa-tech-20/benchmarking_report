@@ -283,7 +283,7 @@ def extract_autocar_images(car_name: str) -> Dict[str, List[Tuple[str, str]]]:
     used_urls = set()
 
     # Get hero image first (main exterior shot) - simple, no scoring
-    for attempt in range(3):
+    for attempt in range(5):  # Increased retries for hero images
         try:
             params = {
                 "key": GOOGLE_API_KEY,
@@ -307,8 +307,8 @@ def extract_autocar_images(car_name: str) -> Dict[str, List[Tuple[str, str]]]:
                         break
                 break  # Success, exit retry loop
             elif response.status_code == 429:
-                print(f"    Hero image rate limited for {car_name}, retry {attempt + 1}/3")
-                time.sleep(1 + attempt)
+                print(f"    Hero image rate limited for {car_name}, retry {attempt + 1}/5")
+                time.sleep(3 + attempt * 2)  # Longer backoff: 3s, 5s, 7s, 9s, 11s
             else:
                 print(f"    Hero image status {response.status_code} for {car_name}")
                 break

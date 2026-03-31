@@ -740,6 +740,34 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
                 results["comparison_data"][car_name]['variant_walk'] = variant_data
                 results["comparison_data"][car_name]['generation_comparison'] = gen_data
 
+    # --- IMAGE EXTRACTION (after variant walk to avoid CSE rate limits) ---
+    print(f"\n{'=' * 60}")
+    print(f"IMAGE EXTRACTION (deferred for rate limit protection)")
+    print(f"{'=' * 60}\n")
+
+    from benchmarking_agent.extraction.images import extract_autocar_images
+
+    def _extract_images_for_car(car_name: str):
+        """Extract images for a single car."""
+        try:
+            images = extract_autocar_images(car_name)
+            img_count = sum(len(v) for v in images.values())
+            print(f"  [{car_name}] {img_count} images extracted")
+            return car_name, images
+        except Exception as e:
+            print(f"  [{car_name}] Image extraction failed - {e}")
+            return car_name, {
+                "hero": [], "exterior": [], "interior": [],
+                "technology": [], "comfort": [], "safety": []
+            }
+
+    # Extract images in parallel for non-code cars
+    if non_code_cars:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(non_code_cars), 5)) as img_executor:
+            for car_name, images in img_executor.map(_extract_images_for_car, non_code_cars):
+                if car_name in results["comparison_data"]:
+                    results["comparison_data"][car_name]['images'] = images
+
     # Print data quality summary
     print("\n" + "=" * 60)
     print("DATA EXTRACTION SUMMARY")
@@ -780,28 +808,44 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
         print("  [STEP 4.6] Generating AI-powered analysis summary...")
         return generate_ai_analysis_summary(results["comparison_data"])
 
-    # Run Steps 2, 3, 4.5, 4.6 in parallel
-    with ThreadPoolExecutor(max_workers=4) as executor:
+    def run_step_4_7():
+        print("  [STEP 4.7] Extracting attribute pros/cons from YouTube + Gemini...")
+        from product_planning_agent.extraction.attribute_proscons import get_multiple_cars_attribute_proscons
+        analysis_car_names = [
+            car for car in car_list
+            if not results["comparison_data"].get(car, {}).get('is_code_car')
+        ]
+        if analysis_car_names:
+            return get_multiple_cars_attribute_proscons(analysis_car_names)
+        return None
+
+    # Run Steps 2, 3, 4.5, 4.6, 4.7 in parallel
+    with ThreadPoolExecutor(max_workers=5) as executor:
         future_summary = executor.submit(run_step_2)
         future_reviews = executor.submit(run_step_3)
         future_dynamics = executor.submit(run_step_4_5)
         future_ai_analysis = executor.submit(run_step_4_6)
+        future_attr_proscons = executor.submit(run_step_4_7)
 
         # Collect results as they complete
         summary_data = future_summary.result()
         detailed_reviews = future_reviews.result()
         dynamics_ratings = future_dynamics.result()
         ai_analysis_summary = future_ai_analysis.result()
+        attribute_proscons = future_attr_proscons.result()
 
     results["summary_data"] = summary_data
     results["detailed_reviews"] = detailed_reviews
     results["dynamics_ratings"] = dynamics_ratings
     results["ai_analysis_summary"] = ai_analysis_summary
+    if attribute_proscons:
+        results["attribute_proscons"] = attribute_proscons
 
     print("  [STEP 2] ✓ Summary complete")
     print("  [STEP 3] ✓ Reviews complete")
     print("  [STEP 4.5] ✓ Dynamics ratings complete")
     print("  [STEP 4.6] ✓ AI analysis complete")
+    print("  [STEP 4.7] ✓ Attribute pros/cons complete")
 
     # Step 4 runs after Step 3 (needs detailed_reviews)
     print("  [STEP 4] Extracting comparative graphs data with overall ratings...")
@@ -817,7 +861,8 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
         detailed_reviews,
         summary_data,
         ai_analysis_summary,
-        dynamics_ratings
+        dynamics_ratings,
+        attribute_proscons
     )
 
     # Upload HTML and JSON to GCS in parallel

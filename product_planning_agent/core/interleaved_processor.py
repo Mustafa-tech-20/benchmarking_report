@@ -952,29 +952,19 @@ class InterleavedCarProcessor:
             worker.cancel()
         await asyncio.gather(*workers, return_exceptions=True)
 
-        # Phase 3: Extract images for all cars in parallel
+        # Phase 3: Skip image extraction here - will be done after variant walk step
+        # This avoids CSE rate limits by spacing out CSE-heavy operations
         print(f"\n{'=' * 60}")
-        print(f"IMAGE EXTRACTION")
+        print(f"IMAGE EXTRACTION: Deferred to after variant walk (rate limit protection)")
         print(f"{'=' * 60}\n")
 
-        async def extract_images_for_car(car: Dict) -> None:
+        # Initialize empty image placeholders - images will be extracted later in the pipeline
+        for car in cars:
             car_id = self._create_car_id(car)
-            car_name = self._create_car_name(car)
-            try:
-                from product_planning_agent.extraction.images import extract_autocar_images
-                loop = asyncio.get_event_loop()
-                images = await loop.run_in_executor(None, extract_autocar_images, car_name)
-                self.results[car_id].images = images
-                img_count = sum(len(v) for v in images.values())
-                print(f"  {car_name}: {img_count} images extracted")
-            except Exception as e:
-                print(f"  {car_name}: Image extraction failed - {e}")
-                self.results[car_id].images = {
-                    "hero": [], "exterior": [], "interior": [],
-                    "technology": [], "comfort": [], "safety": []
-                }
-
-        await asyncio.gather(*[extract_images_for_car(car) for car in cars], return_exceptions=True)
+            self.results[car_id].images = {
+                "hero": [], "exterior": [], "interior": [],
+                "technology": [], "comfort": [], "safety": []
+            }
 
         # Complete metrics
         for car in cars:

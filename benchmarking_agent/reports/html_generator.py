@@ -10,7 +10,6 @@ from benchmarking_agent.reports.image_sections import (
     generate_technical_spec_section,
     generate_feature_list_section,
     generate_drivetrain_comparison_section,
-    generate_summary_comparison_section,
     generate_venn_diagram_section,
     generate_variant_walk_section,
     generate_price_ladder_section,
@@ -385,113 +384,324 @@ def _generate_citations_html(comparison_data: Dict[str, Any]) -> str:
     return citations_html
 
 
+def _strip_html_tags(text: str) -> str:
+    """Remove all HTML tags from text."""
+    if not text:
+        return text
+    text = re.sub(r':\s*\w+\s*>', '', text)
+    text = re.sub(r'<\s*/?\s*\w+\s*/?>', '', text)
+    text = re.sub(r'<[^>]+>', '', text)
+    text = re.sub(r'\w+\s*>', '', text)
+    return text.strip()
+
 
 def _generate_consolidated_review_html(comparison_data: Dict[str, Any]) -> str:
     """
-    Generate consolidated review summary table from scraped spec data.
-    Combines multiple related specs into review categories.
-    Includes expandable "Read more" feature for long reviews.
+    Generate Functional Image Review table with 0-10 ratings and spider chart.
+    Based on FI (Functional Image) attribute categories.
     """
+    import random
 
-    # Extract car names from comparison data
-    car_names = list(comparison_data.keys())
+    car_names = [n for n, d in comparison_data.items() if isinstance(d, dict) and "error" not in d]
+    if not car_names:
+        return ""
 
-    # Define review categories mapped to actual spec fields we extract
-    # Each category maps to a list of related specs to combine
-    review_categories = [
-        ("Ride & Handling", ["ride", "ride_quality", "bumps", "stiff_on_pot_holes", "shocks"]),
-        ("Steering", ["steering", "telescopic_steering", "turning_radius"]),
-        ("Braking", ["braking", "brakes", "brake_performance", "grabby", "spongy"]),
-        ("Performance & Drivability", ["performance", "driveability", "performance_feel", "acceleration", "torque"]),
-        ("4x4 Operation", ["off_road", "manoeuvring"]),
-        ("NVH", ["nvh", "powertrain_nvh", "road_nvh", "wind_nvh", "wind_noise", "tire_noise"]),
-        ("GSQ", ["gear_shift", "gear_selection", "manual_transmission_performance", "automatic_transmission_performance", "transmission"])
-    ]
+    # FI (Functional Image) attribute categories from the reference images
+    fi_categories = {
+        "Comfort": [
+            ("Ride", ["ride", "ride_quality", "bumps", "stiff_on_pot_holes", "shocks"]),
+            ("Climate Control", ["climate_control", "ac_performance", "hvac"]),
+            ("Seats", ["seats", "seat_cushion", "seat_comfort", "seat_material"]),
+        ],
+        "Dynamics": [
+            ("Customer Handling", ["stability", "straight_ahead_stability", "corner_stability", "handling"]),
+            ("Steering", ["steering", "telescopic_steering", "turning_radius", "sensitivity"]),
+        ],
+        "Performance": [
+            ("Performance Feel", ["performance_feel", "performance", "acceleration", "response"]),
+            ("Driveability", ["driveability", "city_performance", "highway_performance"]),
+            ("Manual Transmission Operation", ["manual_transmission_performance", "gear_shift"]),
+            ("Clutch Operation", ["clutch", "pedal_operation", "clutch_feel"]),
+            ("Automatic Transmission Operation", ["automatic_transmission_performance", "gear_selection"]),
+        ],
+        "Safety": [
+            ("Braking", ["braking", "brakes", "brake_performance", "abs"]),
+            ("Restraints", ["seats_restraint", "seatbelt_features", "airbags"]),
+        ],
+        "Space & Versatility": [
+            ("Visibility", ["visibility", "irvm", "orvm"]),
+            ("Package", ["boot_space", "wheelbase", "dimensions"]),
+            ("Usability", ["usability", "ingress", "egress", "convenience"]),
+            ("Functional Hardware", ["door_effort", "window", "wiper_control", "keyless_entry"]),
+        ],
+        "NVH": [
+            ("PT-NVH", ["powertrain_nvh", "engine_noise", "turbo_noise"]),
+            ("Road NVH", ["road_nvh", "tire_noise", "road_noise"]),
+            ("Wind NVH", ["wind_nvh", "wind_noise"]),
+            ("Electro Mech NVH", ["blower_noise", "rattle", "squeak"]),
+        ],
+        "All Terrain Capability": [
+            ("4X4 Operation", ["off_road", "crawl", "ground_clearance", "hill_descent_control", "traction_control"]),
+        ],
+        "Features": [
+            ("Infotainment System", ["infotainment_screen", "resolution", "touch_response", "audio_system"]),
+            ("Night Operation", ["led", "drl", "auto_headlamps", "ambient_lighting"]),
+        ],
+    }
 
     def get_combined_review(car_data: Dict, spec_fields: list) -> str:
-        """Combine multiple spec values into a single review text."""
         parts = []
         for field in spec_fields:
             value = car_data.get(field, "")
             if value and value not in ["Not Available", "Not found", "N/A", "Error", ""]:
-                # Clean and add the value
-                clean_value = str(value).strip()
+                clean_value = _strip_html_tags(str(value).strip())
                 if clean_value and len(clean_value) > 3:
-                    # Add field name as context
                     field_name = field.replace("_", " ").title()
-                    parts.append(f"{field_name}: {clean_value}")
+                    parts.append(f"<strong>{field_name}:</strong> {clean_value}")
+        return " | ".join(parts) if parts else ""
 
-        if parts:
-            return " | ".join(parts)
-        return ""
-    
-    # Helper function to count words
-    def count_words(text: str) -> int:
-        return len(str(text).split())
-    
-    # Helper function to count characters
-    def count_chars(text: str) -> int:
-        return len(str(text))
-    
-    WORD_THRESHOLD = 50  
-    CHAR_THRESHOLD = 200  
-    
-    
+    def extract_rating(car_data: Dict, spec_fields: list) -> float:
+        """Extract or derive a 0-10 rating from available data."""
+        for field in spec_fields:
+            value = car_data.get(field, "")
+            if value and value not in ["Not Available", "Not found", "N/A", "Error", ""]:
+                text = str(value).lower()
+                rating_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:/\s*10|out\s*of\s*10)', text)
+                if rating_match:
+                    return min(10, float(rating_match.group(1)))
+                positive_words = ['excellent', 'great', 'good', 'impressive', 'smooth', 'comfortable', 'premium', 'best']
+                negative_words = ['poor', 'bad', 'harsh', 'noisy', 'uncomfortable', 'disappointing', 'average', 'mediocre']
+                pos_count = sum(1 for w in positive_words if w in text)
+                neg_count = sum(1 for w in negative_words if w in text)
+                if pos_count > neg_count:
+                    return round(7 + pos_count * 0.5, 1)
+                elif neg_count > pos_count:
+                    return round(5 - neg_count * 0.5, 1)
+                elif pos_count > 0 or neg_count > 0:
+                    return 6.0
+        return 0
+
+    # Collect ratings for spider chart
+    all_ratings = {car: {} for car in car_names}
+    all_attributes = []
+
+    for category, attributes in fi_categories.items():
+        for attr_name, spec_fields in attributes:
+            all_attributes.append(attr_name)
+            for car_name in car_names:
+                car_data = comparison_data.get(car_name) or {}
+                rating = extract_rating(car_data, spec_fields)
+                all_ratings[car_name][attr_name] = rating
+
+    # Generate spider chart
     num_cars = len(car_names)
-    category_width = 20  # 20% for category column
-    car_column_width = (100 - category_width) / num_cars
+    car_colors = ['rgba(204, 0, 0, 0.7)', 'rgba(0, 102, 204, 0.7)', 'rgba(0, 153, 76, 0.7)', 'rgba(153, 51, 255, 0.7)']
+    car_bg_colors = ['rgba(204, 0, 0, 0.2)', 'rgba(0, 102, 204, 0.2)', 'rgba(0, 153, 76, 0.2)', 'rgba(153, 51, 255, 0.2)']
+
+    datasets_js = []
+    for i, car_name in enumerate(car_names):
+        data_values = [all_ratings[car_name].get(attr, 0) for attr in all_attributes]
+        datasets_js.append(f"""{{
+            label: '{car_name}',
+            data: {data_values},
+            borderColor: '{car_colors[i % len(car_colors)]}',
+            backgroundColor: '{car_bg_colors[i % len(car_bg_colors)]}',
+            borderWidth: 2,
+            pointRadius: 4,
+            pointBackgroundColor: '{car_colors[i % len(car_colors)]}'
+        }}""")
+
+    spider_chart_id = f"fiSpiderChart_{random.randint(1000, 9999)}"
+    labels_js = json.dumps(all_attributes)
+
+    spider_html = f"""
+    <div class="fi-spider-chart-container" style="margin-bottom: 30px;">
+        <h4 style="text-align: center; margin-bottom: 15px; color: #1a1a1a; font-size: 16px;">Functional Image Radar Overview</h4>
+        <div style="max-width: 700px; margin: 0 auto;">
+            <canvas id="{spider_chart_id}"></canvas>
+        </div>
+    </div>
+    <script>
+    (function() {{
+        const ctx = document.getElementById('{spider_chart_id}');
+        if (ctx) {{
+            new Chart(ctx, {{
+                type: 'radar',
+                data: {{
+                    labels: {labels_js},
+                    datasets: [{', '.join(datasets_js)}]
+                }},
+                options: {{
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {{
+                        r: {{
+                            beginAtZero: true,
+                            max: 10,
+                            ticks: {{
+                                stepSize: 2,
+                                font: {{ size: 10 }}
+                            }},
+                            pointLabels: {{
+                                font: {{ size: 9 }},
+                                callback: function(label) {{
+                                    if (label.length > 12) {{
+                                        return label.substring(0, 12) + '...';
+                                    }}
+                                    return label;
+                                }}
+                            }}
+                        }}
+                    }},
+                    plugins: {{
+                        legend: {{
+                            position: 'bottom',
+                            labels: {{ font: {{ size: 11 }} }}
+                        }}
+                    }}
+                }}
+            }});
+        }}
+    }})();
+    </script>
+    """
+
+    # Generate table with ratings
+    category_width = 12
+    attr_width = 15
+    remaining = 100 - category_width - attr_width
+    car_col_width = remaining / (num_cars * 2)
 
     review_html = f"""
-    <div class="review-table-container animate-on-scroll">
-        <table class="review-table">
+    <style>
+        .fi-review-table {{
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }}
+        .fi-review-table th {{
+            background: #1a1a1a;
+            color: white;
+            padding: 10px 8px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 11px;
+        }}
+        .fi-review-table th.category-header {{
+            background: #003366;
+        }}
+        .fi-review-table td {{
+            padding: 8px;
+            border: 1px solid #e0e0e0;
+            vertical-align: top;
+        }}
+        .fi-category-cell {{
+            background: #003366;
+            color: white;
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 11px;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            text-align: center;
+            min-width: 40px;
+        }}
+        .fi-attr-cell {{
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }}
+        .fi-rating-cell {{
+            text-align: center;
+            font-weight: 700;
+            font-size: 13px;
+        }}
+        .fi-rating-excellent {{ background: #d4edda; color: #155724; }}
+        .fi-rating-good {{ background: #fff3cd; color: #856404; }}
+        .fi-rating-average {{ background: #ffeeba; color: #856404; }}
+        .fi-rating-poor {{ background: #f8d7da; color: #721c24; }}
+        .fi-rating-na {{ background: #e9ecef; color: #6c757d; font-style: italic; }}
+        .fi-comment-cell {{
+            font-size: 11px;
+            line-height: 1.4;
+            max-width: 200px;
+        }}
+        .fi-comment-cell .expandable-content {{
+            max-height: 60px;
+            overflow: hidden;
+        }}
+        .fi-comment-cell .expandable-content.expanded {{
+            max-height: none;
+        }}
+    </style>
+    {spider_html}
+    <div class="review-table-container animate-on-scroll" style="overflow-x: auto;">
+        <table class="fi-review-table">
             <thead>
                 <tr>
                     <th style="width: {category_width}%;">Category</th>
+                    <th style="width: {attr_width}%;">Attribute</th>
     """
 
-    # Add column headers for each car with equal widths
     for car_name in car_names:
-        review_html += f'<th style="width: {car_column_width}%;">{car_name.upper()}</th>'
-    
+        review_html += f'<th style="width: {car_col_width}%;">Rating</th>'
+        review_html += f'<th style="width: {car_col_width}%;">{car_name}</th>'
+
     review_html += """
                 </tr>
             </thead>
             <tbody>
     """
-    
-    # Add rows for each review category
-    for category_name, spec_fields in review_categories:
-        review_html += f"""
-            <tr>
-                <td class="review-category">{category_name}:</td>
-        """
 
-        for car_name in car_names:
-            car_data = comparison_data.get(car_name) or {}
+    for category, attributes in fi_categories.items():
+        first_in_category = True
+        num_attrs = len(attributes)
 
-            # Get combined review from multiple spec fields
-            combined_review = get_combined_review(car_data, spec_fields)
+        for attr_name, spec_fields in attributes:
+            review_html += "<tr>"
 
-            if combined_review:
-                display_value = combined_review
-                word_count = count_words(display_value)
-                char_count = count_chars(display_value)
+            if first_in_category:
+                review_html += f'<td class="fi-category-cell" rowspan="{num_attrs}">{category}</td>'
+                first_in_category = False
 
-                review_html += "<td>"
+            review_html += f'<td class="fi-attr-cell">{attr_name}</td>'
 
-                # Apply expandable content if text is long
-                if word_count > WORD_THRESHOLD or char_count > CHAR_THRESHOLD:
-                    review_html += f'<div class="expandable-content">{display_value}</div>'
-                    review_html += '<button onclick="toggleExpand(this)" class="read-more-btn">Read more</button>'
+            for car_name in car_names:
+                car_data = comparison_data.get(car_name) or {}
+                rating = all_ratings[car_name].get(attr_name, 0)
+                comment = get_combined_review(car_data, spec_fields)
+
+                if rating == 0:
+                    rating_class = "fi-rating-na"
+                    rating_display = "N/A"
+                elif rating >= 8:
+                    rating_class = "fi-rating-excellent"
+                    rating_display = f"{rating:.1f}"
+                elif rating >= 6:
+                    rating_class = "fi-rating-good"
+                    rating_display = f"{rating:.1f}"
+                elif rating >= 4:
+                    rating_class = "fi-rating-average"
+                    rating_display = f"{rating:.1f}"
                 else:
-                    review_html += display_value
+                    rating_class = "fi-rating-poor"
+                    rating_display = f"{rating:.1f}"
 
-                review_html += "</td>"
-            else:
-                review_html += '<td style="color: #6c757d; font-style: italic;">Review not available</td>'
+                review_html += f'<td class="fi-rating-cell {rating_class}">{rating_display}</td>'
 
-        review_html += '</tr>\n'
-    
+                if comment:
+                    if len(comment) > 150:
+                        review_html += f'''<td class="fi-comment-cell">
+                            <div class="expandable-content">{comment}</div>
+                            <button onclick="toggleExpand(this)" class="read-more-btn" style="font-size:10px;padding:2px 6px;">More</button>
+                        </td>'''
+                    else:
+                        review_html += f'<td class="fi-comment-cell">{comment}</td>'
+                else:
+                    review_html += '<td class="fi-comment-cell" style="color:#adb5bd;font-style:italic;">—</td>'
+
+            review_html += "</tr>\n"
+
     review_html += """
             </tbody>
         </table>
@@ -550,7 +760,8 @@ def create_comparison_chart_html(
             sales_volumes.append(extract_sales(car_data.get("monthly_sales", "")))
 
     citations_html = _generate_citations_html(comparison_data)
-    
+    consolidated_review_html = _generate_consolidated_review_html(comparison_data)
+
 
     def count_words(text: str) -> int:
         return len(str(text).split())
@@ -2405,7 +2616,7 @@ def create_comparison_chart_html(
         <div class="header-actions">
             <nav class="main-nav">
                 <a href="#tech-spec-section">Tech Specs</a>
-                <a href="#feature-list-section">Features</a>
+                <a href="#venn-section">Feature Face-Off</a>
                 <div class="nav-sep"></div>
                 <div class="nav-dropdown">
                     <button class="nav-dropdown-toggle">Gallery</button>
@@ -2420,7 +2631,6 @@ def create_comparison_chart_html(
                 </div>
                 <div class="nav-sep"></div>
                 <a href="#drivetrain-section">Drivetrain</a>
-                <a href="#venn-section">Venn Diagram</a>
                 <div class="nav-dropdown">
                     <button class="nav-dropdown-toggle">Variants</button>
                     <div class="nav-dropdown-menu">
@@ -2429,7 +2639,7 @@ def create_comparison_chart_html(
                     </div>
                 </div>
                 <div class="nav-sep"></div>
-                <a href="#summary-section">Summary</a>
+                <a href="#fi-review-section">FI Review</a>
                 <a href="#" id="citations-toggle" onclick="toggleCitations(event)">Citations</a>
             </nav>
             <button class="print-btn" onclick="printReport()">Save as PDF</button>
@@ -2438,6 +2648,7 @@ def create_comparison_chart_html(
     {generate_hero_section(comparison_data)}
     {generate_vehicle_highlights_section(comparison_data)}
     {generate_technical_spec_section(comparison_data)}
+    {generate_venn_diagram_section(comparison_data, summary_data)}
     {generate_feature_list_section(comparison_data)}
     <div class="container">
         {generate_image_gallery_section("Exterior Highlights", comparison_data, "exterior", "exterior-section", with_ai_notes=True)}
@@ -2446,10 +2657,19 @@ def create_comparison_chart_html(
         {generate_image_gallery_section("Comfort Highlights", comparison_data, "comfort", "comfort-section", with_ai_notes=True)}
         {generate_image_gallery_section("Safety Highlights", comparison_data, "safety", "safety-section", with_ai_notes=True)}
         {generate_drivetrain_comparison_section(comparison_data)}
-        {generate_venn_diagram_section(comparison_data, summary_data)}
         {generate_variant_walk_section(comparison_data)}
         {generate_price_ladder_section(comparison_data)}
-        {generate_summary_comparison_section(summary_data, cars, 20) if summary_data else ''}
+        <div class="content" id="fi-review-section">
+            <div class="section-header">
+                <div class="icon-wrapper">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2l10 5v3L12 5 2 10V7l10-5zM2 10v3l10 5 10-5v-3l-10 5-10-5z"/>
+                    </svg>
+                </div>
+                <h2>Functional Image Review</h2>
+            </div>
+            <div class="consolidated-review-section animate-on-scroll">{consolidated_review_html}</div>
+        </div>
     </div>
     <div class="content" id="citations-section" style="display: none;"><div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><line x1="10" y1="9" x2="8" y2="9"></line></svg></div><h2>Data Source Citations</h2></div><div class="citations-grid">{citations_html}</div></div>
     <footer class="footer"><span>Copyright© 2026 Mahindra&Mahindra Ltd. All Rights Reserved.</span></footer>
