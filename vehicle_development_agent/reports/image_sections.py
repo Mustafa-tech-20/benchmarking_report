@@ -2011,7 +2011,8 @@ def generate_image_gallery_section(
     with_ai_notes: bool = False,
 ) -> str:
     """
-    Generate an image gallery section for a specific category.
+    Generate an image gallery section with 1:1 comparison layout.
+    Groups same-feature images from all cars in horizontal rows for easy comparison.
 
     Args:
         title: Section title (e.g., "Exterior Highlights")
@@ -2021,68 +2022,126 @@ def generate_image_gallery_section(
         with_ai_notes: If True, generate AI analytical notes below each image
 
     Returns:
-        HTML string for image gallery section
+        HTML string for image gallery section with comparison layout
     """
-    # Collect all images from all cars for this category
-    all_images = []
+    # Get car names in consistent order
+    car_names = [name for name, data in comparison_data.items()
+                 if isinstance(data, dict) and "error" not in data]
 
-    for car_name, car_data in comparison_data.items():
-        if isinstance(car_data, dict) and "error" not in car_data:
-            images = car_data.get("images") or {}
-            category_images = images.get(image_category, [])
+    if not car_names:
+        return ""
 
-            # Handle multiple formats: list, tuple, or string
-            for img_item in category_images:
-                img_url = None
-                feature_caption = image_category.title()
+    num_cars = len(car_names)
 
-                if isinstance(img_item, (list, tuple)) and len(img_item) >= 1:
-                    # Format: [url, caption] or (url, caption)
-                    img_url = img_item[0]
-                    if len(img_item) >= 2:
-                        feature_caption = img_item[1]
-                elif isinstance(img_item, str):
-                    # Fallback for simple URL format
-                    img_url = img_item
+    # Collect images per car with their features
+    car_images: Dict[str, List[Dict]] = {name: [] for name in car_names}
 
-                # Add all valid image URLs
-                if img_url and isinstance(img_url, str):
-                    all_images.append({
-                        "url": img_url,
-                        "feature": feature_caption,  # e.g., "Headlights"
-                        "car_name": car_name,        # e.g., "Mahindra Thar"
-                        "alt": f"{car_name} {feature_caption}"
-                    })
+    for car_name in car_names:
+        car_data = comparison_data.get(car_name, {})
+        images = car_data.get("images") or {}
+        category_images = images.get(image_category, [])
 
-    if not all_images:
-        return ""  # Don't show section if no images
+        for idx, img_item in enumerate(category_images):
+            img_url = None
+            feature_caption = f"{image_category.title()} {idx + 1}"
 
-    display_images = all_images[:12]  # Max 12 images per section
+            if isinstance(img_item, (list, tuple)) and len(img_item) >= 1:
+                img_url = img_item[0]
+                if len(img_item) >= 2:
+                    feature_caption = img_item[1]
+            elif isinstance(img_item, str):
+                img_url = img_item
+
+            if img_url and isinstance(img_url, str):
+                car_images[car_name].append({
+                    "url": img_url,
+                    "feature": feature_caption,
+                    "index": idx
+                })
+
+    # Find max images per car to create comparison rows
+    max_images = max(len(imgs) for imgs in car_images.values()) if car_images else 0
+
+    if max_images == 0:
+        return ""
+
+    # Limit to 6 comparison rows max
+    max_images = min(max_images, 6)
 
     # Generate AI notes if requested
-    ai_notes: List[str] = []
-    if with_ai_notes:
-        ai_notes = _generate_ai_notes_for_gallery(display_images, image_category, comparison_data)
+    all_display_images = []
+    for row_idx in range(max_images):
+        for car_name in car_names:
+            imgs = car_images.get(car_name, [])
+            if row_idx < len(imgs):
+                all_display_images.append({
+                    "url": imgs[row_idx]["url"],
+                    "feature": imgs[row_idx]["feature"],
+                    "car_name": car_name,
+                    "alt": f"{car_name} {imgs[row_idx]['feature']}"
+                })
 
-    # Generate image grid
-    images_html = ""
-    for idx, img_data in enumerate(display_images):
-        note = ai_notes[idx] if ai_notes and idx < len(ai_notes) else ""
-        note_html = f'<div class="gallery-ai-note"><span class="ai-note-label">AI Note:</span> {note}</div>' if note else ""
-        images_html += f'''
-        <div class="gallery-item">
-            <img src="{img_data['url']}" alt="{img_data['alt']}"
-                 onerror="this.parentElement.style.display='none'">
-            <div class="gallery-feature">{img_data['feature']}</div>
-            <div class="gallery-car-name">{img_data['car_name']}</div>
-            {note_html}
+    ai_notes: List[str] = []
+    if with_ai_notes and all_display_images:
+        ai_notes = _generate_ai_notes_for_gallery(all_display_images, image_category, comparison_data)
+
+    # Build comparison rows HTML
+    rows_html = ""
+    note_idx = 0
+
+    for row_idx in range(max_images):
+        # Get feature name from first car that has this image
+        feature_name = f"{image_category.title()} {row_idx + 1}"
+        for car_name in car_names:
+            imgs = car_images.get(car_name, [])
+            if row_idx < len(imgs):
+                feature_name = imgs[row_idx]["feature"]
+                break
+
+        # Build cells for each car in this row
+        cells_html = ""
+        for car_name in car_names:
+            imgs = car_images.get(car_name, [])
+            if row_idx < len(imgs):
+                img_data = imgs[row_idx]
+                note = ai_notes[note_idx] if ai_notes and note_idx < len(ai_notes) else ""
+                note_html = f'<div class="comparison-ai-note"><span class="ai-note-label">AI Note:</span> {note}</div>' if note else ""
+                note_idx += 1
+
+                cells_html += f'''
+                <div class="comparison-cell">
+                    <div class="comparison-car-label">{car_name}</div>
+                    <div class="comparison-image-wrapper">
+                        <img src="{img_data['url']}" alt="{car_name} {img_data['feature']}"
+                             onerror="this.parentElement.innerHTML='<div class=\\'no-image\\'>No Image</div>'">
+                    </div>
+                    {note_html}
+                </div>
+                '''
+            else:
+                # No image for this car at this position
+                cells_html += f'''
+                <div class="comparison-cell no-image-cell">
+                    <div class="comparison-car-label">{car_name}</div>
+                    <div class="comparison-image-wrapper">
+                        <div class="no-image">No Image Available</div>
+                    </div>
+                </div>
+                '''
+
+        rows_html += f'''
+        <div class="comparison-row">
+            <div class="comparison-feature-label">{feature_name}</div>
+            <div class="comparison-cells" style="--num-cars: {num_cars};">
+                {cells_html}
+            </div>
         </div>
         '''
 
     id_attr = f'id="{section_id}"' if section_id else ""
 
     html = f'''
-    <div class="content image-gallery-section" {id_attr}>
+    <div class="content image-gallery-section comparison-gallery" {id_attr}>
         <div class="section-header">
             <div class="icon-wrapper">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
@@ -2092,9 +2151,12 @@ def generate_image_gallery_section(
                 </svg>
             </div>
             <h2>{title}</h2>
+            <div class="comparison-legend">
+                {"".join(f'<span class="legend-car">{name}</span>' for name in car_names)}
+            </div>
         </div>
-        <div class="image-gallery">
-            {images_html}
+        <div class="comparison-gallery-grid">
+            {rows_html}
         </div>
     </div>
     '''
