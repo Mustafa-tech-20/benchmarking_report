@@ -241,7 +241,7 @@ def generate_hero_section(comparison_data: Dict[str, Any]) -> str:
         </div>
         <div class="cover-content">
             <h1 class="cover-title">{title}</h1>
-            <h2 class="cover-subtitle">BENCHMARKING VEHICLES<br>SOFT REPORT</h2>
+            <h2 class="cover-subtitle">VEHICLE DEVELOPMENT<br>SOFT REPORT</h2>
             <p class="cover-date">{current_date}</p>
         </div>
     </div>

@@ -631,126 +631,112 @@ Return ONLY a JSON object with ratings:
                 rating = extract_rating(car_name, attr_name, car_data, spec_fields)
                 all_ratings[car_name][attr_name] = rating
 
-    # Generate separate spider charts for each category
+    # Generate ONE mega spider chart with ALL attributes
     num_cars = len(car_names)
-    car_colors = ['rgba(204, 0, 0, 0.7)', 'rgba(0, 102, 204, 0.7)', 'rgba(0, 153, 76, 0.7)', 'rgba(153, 51, 255, 0.7)']
-    car_bg_colors = ['rgba(204, 0, 0, 0.2)', 'rgba(0, 102, 204, 0.2)', 'rgba(0, 153, 76, 0.2)', 'rgba(153, 51, 255, 0.2)']
+    car_colors = ['rgba(204, 0, 0, 0.8)', 'rgba(0, 102, 204, 0.8)', 'rgba(0, 153, 76, 0.8)', 'rgba(153, 51, 255, 0.8)']
+    car_bg_colors = ['rgba(204, 0, 0, 0.15)', 'rgba(0, 102, 204, 0.15)', 'rgba(0, 153, 76, 0.15)', 'rgba(153, 51, 255, 0.15)']
 
-    spider_html = """
+    chart_id = f"fiMegaChart_{random.randint(1000, 9999)}"
+    labels_js = json.dumps(all_attributes)
+
+    # Build datasets for mega radar chart
+    datasets_js = []
+    for i, car_name in enumerate(car_names):
+        data_values = [all_ratings[car_name].get(attr, 0) for attr in all_attributes]
+        datasets_js.append(f"""{{
+            label: '{car_name}',
+            data: {data_values},
+            borderColor: '{car_colors[i % len(car_colors)]}',
+            backgroundColor: '{car_bg_colors[i % len(car_bg_colors)]}',
+            borderWidth: 2,
+            pointRadius: 4,
+            pointBackgroundColor: '{car_colors[i % len(car_colors)]}'
+        }}""")
+
+    spider_html = f"""
     <style>
-        .fi-spider-charts-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 25px;
-            margin-bottom: 35px;
-        }
-        .fi-spider-chart-card {
+        .fi-mega-spider-container {{
             background: #ffffff;
             border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            padding: 25px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
             border: 1px solid #e9ecef;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-        .fi-spider-chart-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.12);
-            border-color: #cc0000;
-        }
-        .fi-spider-chart-title {
+            margin-bottom: 35px;
+        }}
+        .fi-mega-spider-title {{
             text-align: center;
-            font-size: 15px;
+            font-size: 18px;
             font-weight: 700;
             color: #1c2a39;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 2px solid #cc0000;
-            padding-bottom: 8px;
-        }
+            letter-spacing: 1px;
+            border-bottom: 3px solid #cc0000;
+            padding-bottom: 12px;
+        }}
+        .fi-mega-chart-wrapper {{
+            max-width: 800px;
+            margin: 0 auto;
+            height: 600px;
+        }}
     </style>
-    <div class="fi-spider-charts-grid">
-    """
-
-    for category, attributes in fi_categories.items():
-        # Get attribute names for this category
-        category_attrs = [attr_name for attr_name, _ in attributes]
-        chart_id = f"fiChart_{category.replace(' ', '').replace('&', '')}_{random.randint(1000, 9999)}"
-
-        # Pad to minimum 3 attributes for proper radar chart shape
-        display_attrs = category_attrs.copy()
-        if len(display_attrs) == 1:
-            # Single attribute: repeat 3 times to form triangle
-            display_attrs = [display_attrs[0], display_attrs[0], display_attrs[0]]
-        elif len(display_attrs) == 2:
-            # Two attributes: add a third by repeating first
-            display_attrs = [display_attrs[0], display_attrs[1], display_attrs[0]]
-
-        labels_js = json.dumps(display_attrs)
-
-        # Build datasets for radar chart
-        datasets_js = []
-        for i, car_name in enumerate(car_names):
-            # Get values matching the padded display_attrs
-            data_values = []
-            for attr in display_attrs:
-                data_values.append(all_ratings[car_name].get(attr, 0))
-            datasets_js.append(f"""{{
-                label: '{car_name}',
-                data: {data_values},
-                borderColor: '{car_colors[i % len(car_colors)]}',
-                backgroundColor: '{car_bg_colors[i % len(car_bg_colors)]}',
-                borderWidth: 2,
-                pointRadius: 5,
-                pointBackgroundColor: '{car_colors[i % len(car_colors)]}'
-            }}""")
-
-        spider_html += f"""
-        <div class="fi-spider-chart-card">
-            <div class="fi-spider-chart-title">{category}</div>
+    <div class="fi-mega-spider-container">
+        <div class="fi-mega-spider-title">Functional Image Spider Map</div>
+        <div class="fi-mega-chart-wrapper">
             <canvas id="{chart_id}"></canvas>
-            <script>
-            (function() {{
-                const ctx = document.getElementById('{chart_id}');
-                if (ctx) {{
-                    new Chart(ctx, {{
-                        type: 'radar',
-                        data: {{
-                            labels: {labels_js},
-                            datasets: [{', '.join(datasets_js)}]
-                        }},
-                        options: {{
-                            responsive: true,
-                            maintainAspectRatio: true,
-                            scales: {{
-                                r: {{
-                                    beginAtZero: true,
-                                    max: 10,
-                                    ticks: {{
-                                        stepSize: 2,
-                                        font: {{ size: 10 }}
-                                    }},
-                                    pointLabels: {{
-                                        font: {{ size: 11, weight: '600' }},
-                                        color: '#333'
-                                    }}
+        </div>
+        <script>
+        (function() {{
+            const ctx = document.getElementById('{chart_id}');
+            if (ctx) {{
+                new Chart(ctx, {{
+                    type: 'radar',
+                    data: {{
+                        labels: {labels_js},
+                        datasets: [{', '.join(datasets_js)}]
+                    }},
+                    options: {{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {{
+                            r: {{
+                                beginAtZero: true,
+                                max: 10,
+                                ticks: {{
+                                    stepSize: 2,
+                                    font: {{ size: 9 }},
+                                    backdropColor: 'transparent'
+                                }},
+                                pointLabels: {{
+                                    font: {{ size: 10, weight: '600' }},
+                                    color: '#333'
+                                }},
+                                grid: {{
+                                    color: 'rgba(0,0,0,0.1)'
+                                }},
+                                angleLines: {{
+                                    color: 'rgba(0,0,0,0.1)'
                                 }}
-                            }},
-                            plugins: {{
-                                legend: {{
-                                    position: 'bottom',
-                                    labels: {{ font: {{ size: 11 }}, padding: 10 }}
+                            }}
+                        }},
+                        plugins: {{
+                            legend: {{
+                                position: 'top',
+                                labels: {{
+                                    font: {{ size: 12, weight: '600' }},
+                                    padding: 20,
+                                    usePointStyle: true,
+                                    pointStyle: 'rect'
                                 }}
                             }}
                         }}
-                    }});
-                }}
-            }})();
-            </script>
-        </div>
-        """
-
-    spider_html += "</div>"
+                    }}
+                }});
+            }}
+        }})();
+        </script>
+    </div>
+    """
 
     # Generate table with ratings
     category_width = 12
