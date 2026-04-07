@@ -564,43 +564,44 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
     from product_planning_agent.extraction.generation_comparison import extract_old_generation_data
 
     def _fetch_variant_and_generation(car_name: str):
-        """Fetch both variant walk and generation comparison data in parallel."""
+        """Fetch variant walk first, then generation comparison (which needs variant data)."""
         car_data = results["comparison_data"].get(car_name, {})
         if car_data.get('is_code_car') or "error" in car_data:
             return car_name, None, None
 
-        print(f"[{car_name}] Extracting variant walk and generation comparison in parallel...")
+        print(f"[{car_name}] Extracting variant walk and generation comparison...")
 
-        def extract_variant():
-            return extract_variant_walk(car_name)
-
-        def extract_generation():
-            return extract_old_generation_data(car_name, {})
+        variant_data = None
+        gen_data = None
 
         try:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-                variant_future = executor.submit(extract_variant)
-                gen_future = executor.submit(extract_generation)
-
-                variant_data = variant_future.result()
-                gen_data = gen_future.result()
-
-            # Log variant results
-            if variant_data and variant_data.get('variants'):
-                print(f"[{car_name}] ✓ Extracted {len(variant_data.get('variants', {}))} variants")
-            else:
-                print(f"[{car_name}] ✗ Variant walk: No variants found")
+            # Step 1: Extract variant walk first
+            try:
+                variant_data = extract_variant_walk(car_name)
+                if variant_data and variant_data.get('variants'):
+                    print(f"[{car_name}] ✓ Extracted {len(variant_data.get('variants', {}))} variants")
+                else:
+                    print(f"[{car_name}] ✗ Variant walk: No variants found")
+                    variant_data = None
+            except Exception as ve:
+                print(f"[{car_name}] Variant extraction error: {ve}")
                 variant_data = None
 
-            # Log generation comparison results
-            if gen_data and gen_data.get('has_old_generation'):
-                old_gen_name = gen_data.get('old_generation', {}).get('name', 'previous generation')
-                print(f"[{car_name}] ✓ Old vs new comparison (vs {old_gen_name})")
-            else:
-                if gen_data and gen_data.get('error'):
-                    print(f"[{car_name}] ✗ Generation comparison error: {gen_data.get('error')}")
+            # Step 2: Extract generation comparison (needs variant data)
+            try:
+                # Pass variant data to generation comparison
+                new_gen_variants = variant_data.get('variants', {}) if variant_data else {}
+                gen_data = extract_old_generation_data(car_name, new_gen_variants)
+                if gen_data and gen_data.get('has_old_generation'):
+                    old_gen_name = gen_data.get('old_generation', {}).get('name', 'previous generation')
+                    print(f"[{car_name}] ✓ Old vs new comparison (vs {old_gen_name})")
                 else:
-                    print(f"[{car_name}] ℹ No previous generation for comparison")
+                    if gen_data and gen_data.get('error'):
+                        print(f"[{car_name}] ✗ Generation comparison error: {gen_data.get('error')}")
+                    else:
+                        print(f"[{car_name}] ℹ No previous generation for comparison")
+            except Exception as ge:
+                print(f"[{car_name}] Generation comparison error: {ge}")
                 gen_data = None
 
             return car_name, variant_data, gen_data

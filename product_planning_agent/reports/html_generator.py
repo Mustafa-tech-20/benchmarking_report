@@ -204,7 +204,7 @@ def generate_adas_comparison_section(comparison_data: Dict[str, Any]) -> str:
                 '''
 
         car_cards_html += f'''
-            <div class="adas-car-card" style="width: calc({card_width}% - 15px);">
+            <div class="adas-car-card">
                 <div class="adas-car-header">
                     <h3 class="adas-car-name">{car_name}</h3>
                     <span class="adas-level-badge">{adas_level}</span>
@@ -222,14 +222,20 @@ def generate_adas_comparison_section(comparison_data: Dict[str, Any]) -> str:
     html = f'''
     <style>
         .adas-comparison-section {{
-            padding: 15px;
+            padding: 0;
             background: #f8f9fa;
+            width: 100%;
         }}
         .adas-cards-container {{
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
             width: 100%;
+            max-width: 100%;
+        }}
+        /* For 3 cars, use 3 columns */
+        .adas-cards-container.three-cars {{
+            grid-template-columns: repeat(3, 1fr);
         }}
         .adas-car-card {{
             background: white;
@@ -240,6 +246,7 @@ def generate_adas_comparison_section(comparison_data: Dict[str, Any]) -> str:
             flex-direction: column;
             width: 100%;
             min-width: 0;
+            flex: 1;
         }}
         .adas-car-header {{
             background: linear-gradient(135deg, #1c2a39 0%, #2c3e50 100%);
@@ -353,15 +360,17 @@ def generate_adas_comparison_section(comparison_data: Dict[str, Any]) -> str:
             color: #666;
             margin-top: 2px;
         }}
-        @media (max-width: 768px) {{
-            .adas-car-card {{
-                width: 100% !important;
-                min-width: unset;
+        @media (max-width: 1024px) {{
+            .adas-cards-container {{
+                grid-template-columns: 1fr !important;
+            }}
+            .adas-cards-container.three-cars {{
+                grid-template-columns: 1fr !important;
             }}
         }}
     </style>
     <div class="adas-comparison-section">
-        <div class="adas-cards-container">
+        <div class="adas-cards-container{' three-cars' if num_cars >= 3 else ''}">
             {car_cards_html}
         </div>
     </div>
@@ -2114,7 +2123,12 @@ def generate_attribute_proscons_section(attribute_proscons_data: Dict[str, Dict[
 
             for car_name in car_names:
                 car_data = attribute_proscons_data.get(car_name, {})
+                # Handle case where car_data is a list (wrong format) instead of dict
+                if not isinstance(car_data, dict):
+                    car_data = {}
                 cat_data = car_data.get(category, {})
+                if not isinstance(cat_data, dict):
+                    cat_data = {}
                 attr_data = cat_data.get(attr, {"pros": [], "cons": []})
 
                 pros = attr_data.get("pros", [])

@@ -487,38 +487,65 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
                     print(f"[{original_name}] FAILED: {e}")
                     results["comparison_data"][original_name] = {"car_name": original_name, "error": str(e)}
 
-    # --- Parallel variant walk extraction (after all specs are done) ---
+    # --- Parallel variant walk and generation comparison extraction (after all specs are done) ---
     from product_planning_agent.extraction.variant_walk import extract_variant_walk
+    from benchmarking_agent.extraction.generation_comparison import extract_old_generation_data
 
-    def _fetch_variant_walk(car_name: str):
-        """Fetch variant walk data for a car."""
+    def _fetch_variant_and_generation(car_name: str):
+        """Fetch variant walk first, then generation comparison (which needs variant data)."""
         car_data = results["comparison_data"].get(car_name, {})
         if car_data.get('is_code_car') or "error" in car_data:
-            return car_name, None
+            return car_name, None, None
 
-        print(f"[{car_name}] Extracting variant walk...")
+        print(f"[{car_name}] Extracting variant walk and generation comparison...")
+
+        variant_data = None
+        gen_data = None
 
         try:
-            variant_data = extract_variant_walk(car_name)
-
-            if variant_data and variant_data.get('variants'):
-                print(f"[{car_name}] ✓ Extracted {len(variant_data.get('variants', {}))} variants")
-            else:
-                print(f"[{car_name}] ✗ Variant walk: No variants found")
+            # Step 1: Extract variant walk first
+            try:
+                variant_data = extract_variant_walk(car_name)
+                if variant_data and variant_data.get('variants'):
+                    print(f"[{car_name}] ✓ Extracted {len(variant_data.get('variants', {}))} variants")
+                else:
+                    print(f"[{car_name}] ✗ Variant walk: No variants found")
+                    variant_data = None
+            except Exception as ve:
+                print(f"[{car_name}] Variant extraction error: {ve}")
                 variant_data = None
 
-            return car_name, variant_data
+            # Step 2: Extract generation comparison (needs variant data)
+            try:
+                # Pass variant data to generation comparison
+                new_gen_variants = variant_data.get('variants', {}) if variant_data else {}
+                gen_data = extract_old_generation_data(car_name, new_gen_variants)
+                if gen_data and gen_data.get('has_old_generation'):
+                    old_gen_name = gen_data.get('old_generation', {}).get('name', 'previous generation')
+                    print(f"[{car_name}] ✓ Old vs new comparison (vs {old_gen_name})")
+                else:
+                    if gen_data and gen_data.get('error'):
+                        print(f"[{car_name}] ✗ Generation comparison error: {gen_data.get('error')}")
+                    else:
+                        print(f"[{car_name}] ℹ No previous generation found")
+            except Exception as ge:
+                print(f"[{car_name}] Generation comparison error: {ge}")
+                gen_data = None
+
+            return car_name, variant_data, gen_data
 
         except Exception as err:
-            print(f"[{car_name}] Error during variant extraction: {err}")
-            return car_name, None
+            print(f"[{car_name}] Error during extraction: {err}")
+            return car_name, None, None
 
     non_code_cars = [c for c in results["comparison_data"] if not results["comparison_data"][c].get('is_code_car')]
     if non_code_cars:
-        print(f"\nFetching variant walk for {len(non_code_cars)} cars in parallel...")
+        print(f"\nFetching variant walk and generation comparison for {len(non_code_cars)} cars in parallel...")
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(non_code_cars)) as vex:
-            for car_name, variant_data in vex.map(_fetch_variant_walk, non_code_cars):
-                results["comparison_data"][car_name]['variant_walk'] = variant_data
+            for car_name, variant_data, gen_data in vex.map(_fetch_variant_and_generation, non_code_cars):
+                if car_name in results["comparison_data"]:
+                    results["comparison_data"][car_name]['variant_walk'] = variant_data
+                    results["comparison_data"][car_name]['generation_comparison'] = gen_data
 
     # --- IMAGE EXTRACTION (after variant walk to avoid CSE rate limits) ---
     print(f"\n{'=' * 60}")
