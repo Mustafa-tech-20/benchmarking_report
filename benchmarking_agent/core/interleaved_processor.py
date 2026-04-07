@@ -809,30 +809,27 @@ class InterleavedCarProcessor:
         print(f"    {car_name}: Phase {phase} done - {found} specs total")
         return found
 
-    async def _run_car_pipeline(self, car: Dict, car_index: int) -> None:
+    async def _run_gemini_phases(self, car: Dict, car_index: int) -> None:
         """
-        Run the full pipeline for a single car independently.
-        This enables TRUE parallelism - each car runs at its own pace.
-
-        Pipeline: Official Site -> Search + Extract -> CarDekho Fallback
+        Run Gemini-only phases for a car (Official Site + CardDekho fallback).
+        These phases use Gemini and can run in parallel for all cars without rate limits.
         """
         car_id = self._create_car_id(car)
         car_name = self._create_car_name(car)
         car_result = self.results[car_id]
 
-        # Add a small stagger to avoid all cars hitting the same API simultaneously
+        # Small stagger for Gemini phases (0.5s is enough - no CSE rate limits)
         if car_index > 0:
-            await asyncio.sleep(car_index * 0.5)  # Stagger by 0.5s per car
+            await asyncio.sleep(car_index * 0.5)
 
-        print(f"  [{car_name}] Starting pipeline...")
+        print(f"  [{car_name}] Starting Gemini phases...")
 
-        # === PHASE 0: Official Site ===
+        # === PHASE 0: Official Site (Gemini) ===
         phase0_tasks = await self.generate_tasks_for_car(car, phase=0)
         if phase0_tasks:
             await self.scheduler.submit_tasks(phase0_tasks)
-            print(f"  [{car_name}] Phase 0: {len(phase0_tasks)} official site tasks submitted")
+            print(f"  [{car_name}] Phase 0: {len(phase0_tasks)} official site tasks")
 
-            # Wait for phase 0 with timeout
             start = time.monotonic()
             while self.scheduler.get_pending_count(car_id) > 0:
                 if time.monotonic() - start > 60:
@@ -843,35 +840,68 @@ class InterleavedCarProcessor:
             found = car_result.get_found_count()
             print(f"  [{car_name}] Phase 0 complete: {found} specs from official site")
 
-        # === PHASE 1: Search + Extract ===
-        # Generate search tasks
+        # === PHASE 1: CardDekho/Autocar Fallback (Gemini) ===
+        fallback_tasks = await self.generate_tasks_for_car(car, phase=2, existing_specs=car_result.specs)
+        if fallback_tasks:
+            await self.scheduler.submit_tasks(fallback_tasks)
+            print(f"  [{car_name}] Phase 1 (Autocar fallback): {len(fallback_tasks)} tasks")
+
+            start = time.monotonic()
+            while self.scheduler.get_pending_count(car_id) > 0:
+                if time.monotonic() - start > 90:
+                    break
+                await asyncio.sleep(0.5)
+
+        found_after_fallback = car_result.get_found_count()
+        print(f"  [{car_name}] Gemini phases complete: {found_after_fallback}/{len(CAR_SPECS)} specs")
+
+    async def _run_cse_phase_sequential(self, car: Dict) -> None:
+        """
+        Run CSE search phase for a car SEQUENTIALLY (one car at a time).
+        Only searches for specs not found in Gemini phases.
+        Called AFTER all cars complete their Gemini phases.
+        """
+        car_id = self._create_car_id(car)
+        car_name = self._create_car_name(car)
+        car_result = self.results[car_id]
+
+        # Get missing specs after Gemini phases
+        missing_specs = [
+            s for s in CAR_SPECS
+            if s not in car_result.specs or car_result.specs.get(s) in ["Not found", "Not Available", ""]
+        ]
+
+        if not missing_specs:
+            print(f"  [{car_name}] CSE: No missing specs, skipping")
+            return
+
+        print(f"  [{car_name}] CSE Phase: {len(missing_specs)} missing specs to search")
+
+        # Generate search tasks for missing specs only
         search_tasks = await self.generate_tasks_for_car(car, phase=1, existing_specs=car_result.specs)
         if search_tasks:
             await self.scheduler.submit_tasks(search_tasks)
             total_searches = len(search_tasks)
-            print(f"  [{car_name}] Phase 1: {total_searches} search tasks submitted")
 
-            # Wait for searches (but not too long - process what we get)
+            # Wait for searches with progress updates
             start = time.monotonic()
             last_cached = 0
             while self.scheduler.get_pending_count(car_id) > 0:
                 cached_count = len(self._search_results_cache.get(car_id, {}))
 
-                # Progress update every 20 searches
                 if cached_count >= last_cached + 20:
-                    print(f"  [{car_name}] Searches: {cached_count}/{total_searches}")
+                    print(f"  [{car_name}] CSE: {cached_count}/{total_searches} searches done")
                     last_cached = cached_count
 
-                # Move on when 80% done or after 90s
-                if cached_count >= total_searches * 0.8:
+                if cached_count >= total_searches * 0.9:
                     break
-                if time.monotonic() - start > 90:
-                    print(f"  [{car_name}] Search phase timeout, got {cached_count}/{total_searches}")
+                if time.monotonic() - start > 180:
+                    print(f"  [{car_name}] CSE timeout, got {cached_count}/{total_searches}")
                     break
 
                 await asyncio.sleep(0.5)
 
-            # Generate extraction tasks from cached search results
+            # Extract specs from search results
             cached = self._search_results_cache.get(car_id, {})
             spec_names = list(cached.keys())
             if spec_names:
@@ -890,47 +920,35 @@ class InterleavedCarProcessor:
                     ))
 
                 await self.scheduler.submit_tasks(extraction_tasks)
-                print(f"  [{car_name}] Extraction: {len(extraction_tasks)} batches submitted")
+                print(f"  [{car_name}] CSE Extraction: {len(extraction_tasks)} batches")
 
-                # Wait for extraction
                 start = time.monotonic()
                 while self.scheduler.get_pending_count(car_id) > 0:
                     if time.monotonic() - start > 120:
                         break
                     await asyncio.sleep(0.5)
 
-        found_after_phase1 = car_result.get_found_count()
-        print(f"  [{car_name}] Phase 1 complete: {found_after_phase1} specs total")
-
-        # === PHASE 2: CarDekho Fallback ===
-        fallback_tasks = await self.generate_tasks_for_car(car, phase=2, existing_specs=car_result.specs)
-        if fallback_tasks:
-            await self.scheduler.submit_tasks(fallback_tasks)
-            print(f"  [{car_name}] Phase 2: {len(fallback_tasks)} fallback tasks submitted")
-
-            start = time.monotonic()
-            while self.scheduler.get_pending_count(car_id) > 0:
-                if time.monotonic() - start > 90:
-                    break
-                await asyncio.sleep(0.5)
-
         final_count = car_result.get_found_count()
-        print(f"  [{car_name}] Pipeline complete: {final_count}/{len(CAR_SPECS)} specs")
+        print(f"  [{car_name}] CSE Phase complete: {final_count}/{len(CAR_SPECS)} specs total")
 
     async def process_cars_interleaved(self, cars: List[Dict]) -> Dict[str, Any]:
         """
-        Main entry point - processes multiple cars with TRUE PARALLEL PIPELINES.
+        Main entry point - processes multiple cars with PHASED APPROACH:
 
-        Each car runs its own complete pipeline (Official -> Search -> Extract -> Fallback)
-        independently. This enables:
-        - Car A doing official extraction while Car B does search
-        - Car A doing extraction while Car B does official site
-        - Maximum parallelism with different API types
+        PHASE 1 (PARALLEL): Gemini-only phases for ALL cars simultaneously
+          - Official site extraction
+          - CardDekho/Autocar fallback
+          - No CSE = no rate limits
+
+        PHASE 2 (SEQUENTIAL): CSE searches one car at a time
+          - Only for specs still missing after Gemini phases
+          - Sequential = no rate limit issues
         """
         start_time = time.monotonic()
 
         print(f"\n{'#' * 60}")
-        print(f"TRUE PARALLEL PIPELINE PROCESSING: {len(cars)} cars")
+        print(f"PHASED PROCESSING: {len(cars)} cars")
+        print(f"Phase 1: Gemini (parallel) | Phase 2: CSE (sequential)")
         print(f"{'#' * 60}\n")
 
         # Initialize results for each car
@@ -941,22 +959,40 @@ class InterleavedCarProcessor:
             self.metrics.start_car(car_id, car_name)
             self._search_results_cache[car_id] = {}
 
-        # Start workers - scale with number of cars
+        # Start workers
         worker_count = max(interleaved_config.worker_count, len(cars) * 10)
         workers = [asyncio.create_task(self._worker(i)) for i in range(worker_count)]
         self._workers_started = True
-        print(f"Started {worker_count} workers for parallel processing\n")
+        print(f"Started {worker_count} workers\n")
 
-        # Run all car pipelines in parallel - TRUE INTERLEAVING
+        # === PHASE 1: Gemini phases in PARALLEL for all cars ===
         print(f"{'=' * 60}")
-        print(f"PARALLEL PIPELINES: All cars processing simultaneously")
+        print(f"PHASE 1: Gemini phases (Official + Autocar) - PARALLEL")
         print(f"{'=' * 60}\n")
 
-        car_pipelines = [
-            self._run_car_pipeline(car, i)
+        gemini_tasks = [
+            self._run_gemini_phases(car, i)
             for i, car in enumerate(cars)
         ]
-        await asyncio.gather(*car_pipelines, return_exceptions=True)
+        await asyncio.gather(*gemini_tasks, return_exceptions=True)
+
+        # Print Gemini phase summary
+        print(f"\n{'=' * 60}")
+        print(f"PHASE 1 COMPLETE - Gemini phases done for all cars")
+        for car in cars:
+            car_id = self._create_car_id(car)
+            car_name = self._create_car_name(car)
+            found = self.results[car_id].get_found_count()
+            print(f"  {car_name}: {found}/{len(CAR_SPECS)} specs from Gemini")
+        print(f"{'=' * 60}\n")
+
+        # === PHASE 2: CSE searches SEQUENTIALLY (one car at a time) ===
+        print(f"{'=' * 60}")
+        print(f"PHASE 2: CSE searches - SEQUENTIAL (avoids rate limits)")
+        print(f"{'=' * 60}\n")
+
+        for car in cars:
+            await self._run_cse_phase_sequential(car)
 
         # Shutdown workers
         self._shutdown = True

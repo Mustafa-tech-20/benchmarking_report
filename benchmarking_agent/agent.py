@@ -155,6 +155,50 @@ def save_pdf_car_specs_tool(car_name: str, specs_json: str) -> str:
     }, indent=2)
 
 
+def save_excel_car_specs_tool(car_name: str, specs_json: str) -> str:
+    """
+    Save specs extracted from an uploaded Excel file for a specific car.
+
+    Call this BEFORE scrape_cars_tool when an Excel file has been uploaded and you've extracted
+    car specs from it. The scraper will use these specs directly and only search for
+    specs NOT found in the Excel. Citations for Excel-sourced specs will be "Excel uploaded by user".
+
+    Args:
+        car_name: Exact car name as it will be passed to scrape_cars_tool (e.g., "CODE:PROTO1")
+        specs_json: JSON string mapping spec field names to their extracted values.
+                   Use the same spec names as the 87-spec schema where possible.
+                   Example: '{"price_range": "₹35-45 Lakh", "seating_capacity": "7 Seater",
+                              "performance": "174 bhp", "torque": "380 Nm"}'
+
+    Returns:
+        JSON with status and count of saved specs
+    """
+    try:
+        specs = safe_json_parse(specs_json, fallback={})
+    except Exception as e:
+        return json.dumps({"status": "error", "error": f"Invalid JSON: {str(e)}"})
+
+    if not isinstance(specs, dict):
+        return json.dumps({"status": "error", "error": "specs_json must be a JSON object"})
+
+    if not hasattr(save_excel_car_specs_tool, 'excel_specs'):
+        save_excel_car_specs_tool.excel_specs = {}
+
+    save_excel_car_specs_tool.excel_specs[car_name] = specs
+    spec_count = len([v for v in specs.values() if v and str(v).strip() not in ("", "N/A", "Not Available")])
+
+    return json.dumps({
+        "status": "success",
+        "car_name": car_name,
+        "specs_saved": spec_count,
+        "message": (
+            f"Saved {spec_count} specs for '{car_name}' from Excel. "
+            f"Now call scrape_cars_tool — only the {87 - spec_count} missing specs will be searched online. "
+            f"Excel specs will have citation: 'Excel uploaded by user'."
+        )
+    }, indent=2)
+
+
 def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_custom_search: bool = True) -> str:
     """
     Tool to scrape car data using Custom Search API OR Gemini's direct URL analysis with ALL 87 specifications.
@@ -185,8 +229,12 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
     ---
 
     Args:
-        car_names: Comma-separated list of car names (minimum 1, maximum 10)
-                   Example: "Mahindra Thar" or "CODE:PROTO1, Mahindra Thar, Maruti Jimny"
+        car_names: Comma-separated list of FULL car names (Brand + Model together). Minimum 1, maximum 10.
+                   IMPORTANT: Each car name must include the COMPLETE name (brand + model + variant if any).
+                   Do NOT split a single car's name - "Mahindra Thar Roxx" is ONE car, not two.
+                   Example: "Mahindra Thar Roxx, Jetour T2" (2 cars)
+                   Example: "CODE:PROTO1, Mahindra Thar Roxx, Maruti Jimny" (3 cars)
+                   WRONG: "Mahindra Thar, Roxx" - this incorrectly treats Roxx as separate car
         user_decision: User's choice for code cars: 'rag'
         use_custom_search: If True (default), use Custom Search API; if False, use Gemini URL parsing
 
@@ -212,12 +260,13 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
     code_cars = [car for car in car_list if is_code_car(car)]
 
     if code_cars:
-        # Check if specs were already collected (manual/RAG) or pre-filled via PDF upload
+        # Check if specs were already collected (manual/RAG) or pre-filled via PDF/Excel upload
         collected_specs = getattr(add_code_car_specs_tool, 'collected_specs', {})
         pdf_specs_available = getattr(save_pdf_car_specs_tool, 'pdf_specs', {})
+        excel_specs_available = getattr(save_excel_car_specs_tool, 'excel_specs', {})
         uncollected_code_cars = [
             car for car in code_cars
-            if car not in collected_specs and car not in pdf_specs_available
+            if car not in collected_specs and car not in pdf_specs_available and car not in excel_specs_available
         ]
 
         if uncollected_code_cars and not user_decision:
@@ -235,7 +284,13 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
                     f"2. Then say exactly:\n"
                     f"   `compare {example_car} from uploaded PDF with <external car name>`\n"
                     f"   (e.g. `compare {example_car} from uploaded PDF with Hyundai Creta`)\n"
-                    f"The internal car specs will be extracted from the PDF and pre-filled; "
+                    f"The internal car specs will be extracted from the PDF and pre-filled.\n\n"
+                    f"**Option 3 — Upload Excel**\n"
+                    f"1. Attach the specification Excel file (.xlsx) to your next message.\n"
+                    f"2. Then say exactly:\n"
+                    f"   `compare {example_car} from uploaded Excel with <external car name>`\n"
+                    f"   (e.g. `compare {example_car} from uploaded Excel with Hyundai Creta`)\n"
+                    f"The internal car specs will be extracted from the Excel file and pre-filled; "
                     f"external cars will be sourced normally via web search."
                 ),
                 "code_cars_detected": code_cars,
@@ -321,12 +376,14 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
     # --- Interleaved Parallel Car Processing ---
     # Separate code cars from web-scrape cars
     pdf_specs_store = getattr(save_pdf_car_specs_tool, 'pdf_specs', {})
+    excel_specs_store = getattr(save_excel_car_specs_tool, 'excel_specs', {})
     code_cars_list = []
     web_scrape_cars = []
 
     for car in car_list:
         manual_specs = manual_specs_dict.get(car)
         pdf_specs = pdf_specs_store.get(car)
+        excel_specs = excel_specs_store.get(car)
 
         if is_code_car(car):
             # CODE: internal cars must NEVER be web-scraped
@@ -352,6 +409,26 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
                         car_data[f"{field}_citation"] = {
                             "source_url": "PDF uploaded by user",
                             "citation_text": "Extracted from PDF uploaded by user"
+                        }
+            elif excel_specs:
+                print(f"[{car}] Using Excel-uploaded specs (no web search)")
+                car_data = create_blank_specs_for_code_car(car)
+                car_data['left_blank'] = False
+                car_data['manual_entry'] = False
+                car_data['source_urls'] = ["Excel uploaded by user"]
+                car_data['images'] = {}
+                for field, value in excel_specs.items():
+                    if field.endswith("_citation"):
+                        continue
+                    if isinstance(value, dict):
+                        value = value.get("value") or value.get("text") or str(value)
+                    elif isinstance(value, list):
+                        value = ", ".join(str(v) for v in value)
+                    if value and str(value).strip() not in ("", "N/A", "Not Available"):
+                        car_data[field] = str(value).strip()
+                        car_data[f"{field}_citation"] = {
+                            "source_url": "Excel uploaded by user",
+                            "citation_text": "Extracted from Excel uploaded by user"
                         }
             else:
                 print(f"[{car}] No specs available for CODE car, using blank")
@@ -412,63 +489,36 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
 
     # --- Parallel variant walk extraction (after all specs are done) ---
     from product_planning_agent.extraction.variant_walk import extract_variant_walk
-    from benchmarking_agent.extraction.generation_comparison import extract_old_generation_data
-    import concurrent.futures as cf_local  # Local import to avoid scoping issues
 
-    def _fetch_variant_and_generation(car_name: str):
-        """Fetch both variant walk and generation comparison data in parallel."""
+    def _fetch_variant_walk(car_name: str):
+        """Fetch variant walk data for a car."""
         car_data = results["comparison_data"].get(car_name, {})
         if car_data.get('is_code_car') or "error" in car_data:
-            return car_name, None, None
+            return car_name, None
 
-        print(f"[{car_name}] Extracting variant walk and generation comparison in parallel...")
-
-        def extract_variant():
-            return extract_variant_walk(car_name)
-
-        def extract_generation():
-            return extract_old_generation_data(car_name, {})
+        print(f"[{car_name}] Extracting variant walk...")
 
         try:
-            # Run both extractions in parallel
-            with cf_local.ThreadPoolExecutor(max_workers=2) as executor:
-                variant_future = executor.submit(extract_variant)
-                gen_future = executor.submit(extract_generation)
+            variant_data = extract_variant_walk(car_name)
 
-                variant_data = variant_future.result()
-                gen_data = gen_future.result()
-
-            # Log variant results
             if variant_data and variant_data.get('variants'):
                 print(f"[{car_name}] ✓ Extracted {len(variant_data.get('variants', {}))} variants")
             else:
                 print(f"[{car_name}] ✗ Variant walk: No variants found")
                 variant_data = None
 
-            # Log generation comparison results
-            if gen_data and gen_data.get('has_old_generation'):
-                old_gen_name = gen_data.get('old_generation', {}).get('name', 'previous generation')
-                print(f"[{car_name}] ✓ Old vs new comparison (vs {old_gen_name})")
-            else:
-                if gen_data and gen_data.get('error'):
-                    print(f"[{car_name}] ✗ Generation comparison error: {gen_data.get('error')}")
-                else:
-                    print(f"[{car_name}] ℹ No previous generation for comparison")
-                gen_data = None
-
-            return car_name, variant_data, gen_data
+            return car_name, variant_data
 
         except Exception as err:
-            print(f"[{car_name}] Error during extraction: {err}")
-            return car_name, None, None
+            print(f"[{car_name}] Error during variant extraction: {err}")
+            return car_name, None
 
     non_code_cars = [c for c in results["comparison_data"] if not results["comparison_data"][c].get('is_code_car')]
     if non_code_cars:
-        print(f"\nFetching variant walk and generation comparison for {len(non_code_cars)} cars in parallel...")
+        print(f"\nFetching variant walk for {len(non_code_cars)} cars in parallel...")
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(non_code_cars)) as vex:
-            for car_name, variant_data, gen_data in vex.map(_fetch_variant_and_generation, non_code_cars):
+            for car_name, variant_data in vex.map(_fetch_variant_walk, non_code_cars):
                 results["comparison_data"][car_name]['variant_walk'] = variant_data
-                results["comparison_data"][car_name]['generation_comparison'] = gen_data
 
     # --- IMAGE EXTRACTION (after variant walk to avoid CSE rate limits) ---
     print(f"\n{'=' * 60}")
@@ -498,11 +548,13 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
                 if car_name in results["comparison_data"]:
                     results["comparison_data"][car_name]['images'] = images
 
-    # Clear collected specs and PDF specs for next comparison
+    # Clear collected specs and PDF/Excel specs for next comparison
     if hasattr(add_code_car_specs_tool, 'collected_specs'):
         add_code_car_specs_tool.collected_specs = {}
     if hasattr(save_pdf_car_specs_tool, 'pdf_specs'):
         save_pdf_car_specs_tool.pdf_specs = {}
+    if hasattr(save_excel_car_specs_tool, 'excel_specs'):
+        save_excel_car_specs_tool.excel_specs = {}
 
     # Print data quality summary
     print("\n" + "=" * 60)
@@ -631,19 +683,32 @@ infotainment_screen, apple_carplay, sunroof, boot_space, wheelbase, parking, off
 
 **2. Code Cars (Prototypes/Internal)**
 - Detected by: "CODE:" prefix
-- Two options for specs:
+- Three options for specs:
   a) RAG: Set `user_decision="rag"` to query Vertex corpus automatically
   b) PDF: User uploads PDF and says "compare CODE:[name] from uploaded PDF with [external car]"
      - Read the PDF, extract CODE car specs, call `save_pdf_car_specs_tool(car_name="CODE:X", specs_json='{...}')`
      - Then call `scrape_cars_tool(car_names="CODE:X, ExternalCar")` — no user_decision needed
      - Internal car specs pre-filled from PDF; external cars sourced via web search
+  c) Excel: User uploads Excel and says "compare CODE:[name] from uploaded Excel with [external car]"
+     - Read the Excel, extract CODE car specs, call `save_excel_car_specs_tool(car_name="CODE:X", specs_json='{...}')`
+     - Then call `scrape_cars_tool(car_names="CODE:X, ExternalCar")` — no user_decision needed
+     - Internal car specs pre-filled from Excel; external cars sourced via web search
 
-**PDF Mode D — Internal CODE Car from PDF (new):**
+**PDF Mode D — Internal CODE Car from PDF:**
 - Triggered when user uploads PDF and says "compare CODE:[name] from uploaded PDF with [external car]"
 - Steps:
   1. Read the PDF — find all specs for the CODE car inside it
   2. Map specs to the 87-spec field names (price_range, mileage, performance, torque, etc.)
   3. Call: `save_pdf_car_specs_tool(car_name="CODE:PROTO1", specs_json='{...}')`
+  4. Call: `scrape_cars_tool(car_names="CODE:PROTO1, ExternalCar1, ExternalCar2")`
+  5. Return the HTML report URL
+
+**Excel Mode — Internal CODE Car from Excel:**
+- Triggered when user uploads Excel and says "compare CODE:[name] from uploaded Excel with [external car]"
+- Steps:
+  1. Read the Excel — find all specs for the CODE car inside it
+  2. Map specs to the 87-spec field names (price_range, mileage, performance, torque, etc.)
+  3. Call: `save_excel_car_specs_tool(car_name="CODE:PROTO1", specs_json='{...}')`
   4. Call: `scrape_cars_tool(car_names="CODE:PROTO1, ExternalCar1, ExternalCar2")`
   5. Return the HTML report URL
 
@@ -654,7 +719,7 @@ infotainment_screen, apple_carplay, sunroof, boot_space, wheelbase, parking, off
 1. **"status": "awaiting_code_car_specs"**
    - Meaning: CODE car detected, need user decision
    - Action: Display the "message" field to user and wait for their response
-   - Next: User will reply 'rag' OR upload a PDF and say "compare CODE:[name] from uploaded PDF with [external car]"
+   - Next: User will reply 'rag' OR upload a PDF/Excel and say "compare CODE:[name] from uploaded PDF/Excel with [external car]"
 
 2. **"status": "success"**
    - Meaning: Comparison complete
@@ -742,6 +807,7 @@ For follow-up questions (CODE car handling), keep responses brief and focused.""
     tools=[
         scrape_cars_tool,
         save_pdf_car_specs_tool,
+        save_excel_car_specs_tool,
         add_code_car_specs_tool,
         add_code_car_specs_bulk_tool,
     ]

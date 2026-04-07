@@ -1,17 +1,26 @@
 """
 Variant Walk Extraction for Product Planning Agent
-Extracts variant information including features and pricing using Gemini.
+Extracts variant information including features and pricing using Gemini with Google Search.
 """
 import json
+import os
 from typing import Dict, Any
-from vertexai.generative_models import GenerativeModel
 from json_repair import repair_json
-from product_planning_agent.config import GEMINI_MAIN_MODEL
+from google import genai
+from google.genai import types
+
+# Initialize Gemini client with Google Search grounding
+_gemini_search_client = genai.Client(
+    vertexai=True,
+    project=os.environ.get("GOOGLE_CLOUD_PROJECT", "srv-ad-nvoc-dev-445421"),
+    location=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
+)
+GEMINI_SEARCH_MODEL = "gemini-2.5-flash"
 
 
 def extract_variant_walk(car_name: str) -> Dict[str, Any]:
     """
-    Extract variant walk data using Gemini directly.
+    Extract variant walk data using Gemini with Google Search grounding.
 
     Args:
         car_name: Name of the car
@@ -22,10 +31,9 @@ def extract_variant_walk(car_name: str) -> Dict[str, Any]:
         - price_ladder: Organized pricing by fuel type and transmission
     """
     try:
-        # Use Gemini to extract variant structure directly
-        model = GenerativeModel(GEMINI_MAIN_MODEL)
+        print(f"  Extracting variant walk for {car_name} (with Google Search)...")
 
-        prompt = f"""Extract all variant names, features, and pricing for {car_name} from your knowledge.
+        prompt = f"""Search for all variant names, features, and pricing for {car_name} car in India.
 
 TASK:
 Provide the variant walk data showing how features are added AND removed across trim levels, along with petrol and diesel prices.
@@ -119,9 +127,24 @@ IMPORTANT:
 - Prices should be in Indian lakhs (e.g., "10.5 lakh", "12.89 lakh")
 - If features_deleted is truly empty, use [] but DO look for replacements/removals
 - If no variant data found, return {{"variants": {{}}, "price_ladder": {{"petrol": {{}}, "diesel": {{}}}}}}
-"""
 
-        response = model.generate_content(prompt)
+Return ONLY valid JSON, no markdown or explanation."""
+
+        # Use Google Search grounding for up-to-date variant data
+        response = _gemini_search_client.models.generate_content(
+            model=GEMINI_SEARCH_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                tools=[types.Tool(google_search=types.GoogleSearch())],
+                response_modalities=["TEXT"],
+                temperature=0.1,
+            )
+        )
+
+        if not response or not response.text:
+            print(f"  Variant walk: No response from Gemini")
+            return {"variants": {}, "price_ladder": {"petrol": {}, "diesel": {}}}
+
         response_text = response.text.strip()
 
         # Clean response
@@ -143,7 +166,10 @@ IMPORTANT:
             # Fallback to standard JSON parsing
             variant_data = json.loads(response_text)
 
-        if not variant_data.get('variants'):
+        if variant_data.get('variants'):
+            num_variants = len(variant_data['variants'])
+            print(f"  ✓ Variant walk: Found {num_variants} variants")
+        else:
             print(f"  Variant walk: Gemini returned empty — raw snippet: {response_text[:200]}")
 
         return variant_data

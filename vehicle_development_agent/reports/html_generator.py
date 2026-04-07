@@ -3,20 +3,373 @@ from typing import Dict, Any, Optional
 
 import json
 import re
+import os
 
+from google import genai
+from google.genai import types
+
+from vehicle_development_agent.config import GEMINI_MAIN_MODEL
 from vehicle_development_agent.reports.image_sections import (
     generate_hero_section,
     generate_image_gallery_section,
     generate_technical_spec_section,
     generate_feature_list_section,
     generate_drivetrain_comparison_section,
-    generate_summary_comparison_section,
     generate_spider_chart_section,
     generate_venn_diagram_section,
     generate_variant_walk_section,
     generate_vehicle_highlights_section,
     get_image_section_styles
 )
+
+
+# ============================================================================
+# ADAS COMPARISON SECTION
+# ============================================================================
+
+# Initialize Gemini client for Google Search grounding
+_PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT")
+_GROUNDING_LOCATION = "us-central1"
+_adas_gemini_client = genai.Client(vertexai=True, project=_PROJECT_ID, location=_GROUNDING_LOCATION)
+
+
+def fetch_adas_comparison_data(car_names: list) -> Dict[str, Any]:
+    """
+    Fetch comprehensive ADAS features for all cars using Gemini with Google Search.
+    Returns a dict with car names as keys and ADAS data as values.
+    """
+    adas_data = {}
+
+    for car_name in car_names:
+        try:
+            prompt = f"""Search for the latest and most comprehensive ADAS (Advanced Driver Assistance Systems) features for the {car_name} car in India.
+
+Provide a detailed breakdown of ALL available ADAS features in the following categories:
+
+1. **Collision Prevention**
+   - Autonomous Emergency Braking (AEB)
+   - Forward Collision Warning (FCW)
+   - Rear Cross Traffic Alert
+   - Pre-collision assist
+
+2. **Lane Management**
+   - Lane Departure Warning (LDW)
+   - Lane Keep Assist (LKA)
+   - Lane Centering
+   - Blind Spot Detection/Monitoring
+
+3. **Cruise & Speed Control**
+   - Adaptive Cruise Control (ACC)
+   - Traffic Jam Assist
+   - Intelligent Speed Limiter
+   - Stop & Go functionality
+
+4. **Parking Assistance**
+   - 360-degree Camera
+   - Front/Rear Parking Sensors
+   - Automatic Parking Assist
+   - Rear View Camera with guidelines
+
+5. **Driver Monitoring**
+   - Driver Attention Warning
+   - Drowsiness Detection
+   - Driver fatigue alert
+
+6. **Visibility & Lighting**
+   - Auto High Beam
+   - Adaptive Headlights
+   - Night Vision
+   - Rain sensing wipers
+
+7. **Other Safety Tech**
+   - Traction Control
+   - Electronic Stability Control (ESC)
+   - Hill Start Assist
+   - Hill Descent Control
+
+Return as JSON with this structure:
+{{
+    "car_name": "{car_name}",
+    "adas_level": "Level 1/2 (describe capability)",
+    "categories": {{
+        "Collision Prevention": [
+            {{"feature": "Feature Name", "available": true/false, "details": "brief description"}}
+        ],
+        "Lane Management": [...],
+        "Cruise & Speed Control": [...],
+        "Parking Assistance": [...],
+        "Driver Monitoring": [...],
+        "Visibility & Lighting": [...],
+        "Other Safety Tech": [...]
+    }},
+    "highlights": ["Key ADAS highlight 1", "Key ADAS highlight 2", "Key ADAS highlight 3"],
+    "source_urls": ["url1", "url2"]
+}}
+
+Return ONLY valid JSON, no markdown or explanation."""
+
+            response = _adas_gemini_client.models.generate_content(
+                model=GEMINI_MAIN_MODEL,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    tools=[types.Tool(google_search=types.GoogleSearch())],
+                    response_modalities=["TEXT"],
+                    temperature=0.1,
+                    max_output_tokens=4096,
+                ),
+            )
+
+            if response and response.text:
+                import json_repair
+                text = response.text.strip()
+                if "```json" in text:
+                    text = text.split("```json")[1].split("```")[0]
+                elif "```" in text:
+                    text = text.split("```")[1].split("```")[0]
+                text = text.strip()
+                if "{" in text and "}" in text:
+                    text = text[text.index("{"):text.rindex("}") + 1]
+                adas_data[car_name] = json_repair.loads(text)
+        except Exception as e:
+            print(f"Error fetching ADAS data for {car_name}: {e}")
+            adas_data[car_name] = {"error": str(e), "car_name": car_name}
+
+    return adas_data
+
+
+def generate_adas_comparison_section(comparison_data: Dict[str, Any]) -> str:
+    """
+    Generate ADAS comparison section with side-by-side feature comparison.
+    """
+    car_names = [n for n, d in comparison_data.items() if isinstance(d, dict) and "error" not in d]
+    if not car_names:
+        return ""
+
+    # Fetch ADAS data for all cars
+    adas_data = fetch_adas_comparison_data(car_names)
+
+    num_cars = len(car_names)
+    card_width = 100 // num_cars if num_cars > 0 else 100
+
+    # Define category icons
+    category_icons = {
+        "Collision Prevention": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+        "Lane Management": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19h16M4 15h16M4 11h16M4 7h16"/></svg>',
+        "Cruise & Speed Control": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>',
+        "Parking Assistance": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/></svg>',
+        "Driver Monitoring": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
+        "Visibility & Lighting": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>',
+        "Other Safety Tech": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+    }
+
+    # Generate car cards HTML
+    car_cards_html = ""
+    for car_name in car_names:
+        car_adas = adas_data.get(car_name, {})
+        adas_level = car_adas.get("adas_level", "N/A")
+        highlights = car_adas.get("highlights", [])
+        categories = car_adas.get("categories", {})
+
+        highlights_html = "".join([f'<li>{h}</li>' for h in highlights[:3]]) if highlights else "<li>No highlights available</li>"
+
+        # Generate categories HTML
+        categories_html = ""
+        for cat_name, cat_icon in category_icons.items():
+            features = categories.get(cat_name, [])
+            features_html = ""
+            for feat in features:
+                if isinstance(feat, dict):
+                    available = feat.get("available", False)
+                    feature_name = feat.get("feature", "Unknown")
+                    details = feat.get("details", "")
+                    icon_class = "adas-available" if available else "adas-unavailable"
+                    icon = "✓" if available else "✗"
+                    features_html += f'''
+                        <div class="adas-feature-item {icon_class}">
+                            <span class="adas-feature-icon">{icon}</span>
+                            <span class="adas-feature-name">{feature_name}</span>
+                            {f'<span class="adas-feature-details">{details}</span>' if details else ''}
+                        </div>
+                    '''
+
+            if features_html:
+                categories_html += f'''
+                    <div class="adas-category">
+                        <div class="adas-category-header">
+                            <span class="adas-category-icon">{cat_icon}</span>
+                            <span class="adas-category-name">{cat_name}</span>
+                        </div>
+                        <div class="adas-features-list">
+                            {features_html}
+                        </div>
+                    </div>
+                '''
+
+        car_cards_html += f'''
+            <div class="adas-car-card" style="width: calc({card_width}% - 15px);">
+                <div class="adas-car-header">
+                    <h3 class="adas-car-name">{car_name}</h3>
+                    <span class="adas-level-badge">{adas_level}</span>
+                </div>
+                <div class="adas-highlights">
+                    <h4>Key Highlights</h4>
+                    <ul>{highlights_html}</ul>
+                </div>
+                <div class="adas-categories-container">
+                    {categories_html}
+                </div>
+            </div>
+        '''
+
+    html = f'''
+    <style>
+        .adas-comparison-section {{
+            padding: 15px;
+            background: #f8f9fa;
+        }}
+        .adas-cards-container {{
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            width: 100%;
+        }}
+        .adas-car-card {{
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            min-width: 0;
+        }}
+        .adas-car-header {{
+            background: linear-gradient(135deg, #1c2a39 0%, #2c3e50 100%);
+            color: white;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 10px;
+        }}
+        .adas-car-name {{
+            margin: 0;
+            font-size: 18px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }}
+        .adas-level-badge {{
+            background: #cc0000;
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            line-height: 1.4;
+            text-align: right;
+        }}
+        .adas-highlights {{
+            padding: 15px 20px;
+            background: #fff8f0;
+            border-bottom: 1px solid #e0e0e0;
+        }}
+        .adas-highlights h4 {{
+            margin: 0 0 10px 0;
+            font-size: 13px;
+            color: #cc0000;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }}
+        .adas-highlights ul {{
+            margin: 0;
+            padding-left: 18px;
+            font-size: 13px;
+            color: #333;
+        }}
+        .adas-highlights li {{
+            margin-bottom: 5px;
+        }}
+        .adas-categories-container {{
+            padding: 15px;
+            max-height: 500px;
+            overflow-y: auto;
+        }}
+        .adas-category {{
+            margin-bottom: 15px;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            overflow: hidden;
+        }}
+        .adas-category-header {{
+            background: #f1f3f5;
+            padding: 10px 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            font-size: 13px;
+            color: #1c2a39;
+        }}
+        .adas-category-icon {{
+            width: 18px;
+            height: 18px;
+        }}
+        .adas-category-icon svg {{
+            width: 100%;
+            height: 100%;
+        }}
+        .adas-features-list {{
+            padding: 10px 15px;
+        }}
+        .adas-feature-item {{
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 6px 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 12px;
+        }}
+        .adas-feature-item:last-child {{
+            border-bottom: none;
+        }}
+        .adas-feature-icon {{
+            font-weight: 700;
+            font-size: 14px;
+            min-width: 18px;
+        }}
+        .adas-available .adas-feature-icon {{
+            color: #27ae60;
+        }}
+        .adas-unavailable .adas-feature-icon {{
+            color: #e74c3c;
+        }}
+        .adas-unavailable {{
+            opacity: 0.6;
+        }}
+        .adas-feature-name {{
+            font-weight: 500;
+            color: #333;
+        }}
+        .adas-feature-details {{
+            display: block;
+            font-size: 11px;
+            color: #666;
+            margin-top: 2px;
+        }}
+        @media (max-width: 768px) {{
+            .adas-car-card {{
+                width: 100% !important;
+                min-width: unset;
+            }}
+        }}
+    </style>
+    <div class="adas-comparison-section">
+        <div class="adas-cards-container">
+            {car_cards_html}
+        </div>
+    </div>
+    '''
+
+    return html
 
 
 # ============================================================================
@@ -251,103 +604,248 @@ def _generate_citations_html(comparison_data: Dict[str, Any]) -> str:
             <div class="citation-items">
         """
         
-        # Get all citation fields
+        # Get all citation fields - matching tech_spec_groups from image_sections.py
         citation_fields = [
-            # Original 19 specs
-            ("price_range", "Price Range"),
-            ("mileage", "Mileage"),
-            ("user_rating", "User Rating"),
-            ("seating_capacity", "Seating Capacity"),
-            ("braking", "Braking"),
-            ("steering", "Steering"),
-            ("climate_control", "Climate Control"),
-            ("battery", "Battery"),
+            # ===== Powertrain =====
+            ("engine", "Engine"),
+            ("engine_displacement", "Engine CC"),
+            ("max_power_kw", "Max Power (kW)"),
+            ("torque", "Max Torque (Nm)"),
+            # ===== Fuel =====
+            ("fuel_type", "Fuel Type"),
+            ("fuel_tank_capacity", "Tank Capacity"),
+            # ===== Transmission =====
             ("transmission", "Transmission"),
-            ("brakes", "Brakes"),
-            ("wheels", "Wheels"),
-            ("performance", "Performance"),
-            ("body", "Body Type"),
-            ("vehicle_safety_features", "Vehicle Safety Features"),
-            ("lighting", "Lighting"),
-            ("audio_system", "Audio System"),
-            ("off_road", "Off-Road"),
-            ("interior", "Interior"),
-            ("seat", "Seat"),
-            ("monthly_sales", "Monthly Sales"),
-            
-            # NEW: 72 Additional specs
-            ("ride", "Ride"),
-            ("performance_feel", "Performance Feel"),
-            ("driveability", "Driveability"),
-            ("manual_transmission_performance", "Manual Transmission Performance"),
-            ("pedal_operation", "Pedal Operation"),
-            ("automatic_transmission_performance", "Automatic Transmission Performance"),
-            ("powertrain_nvh", "Powertrain NVH"),
-            ("wind_nvh", "Wind NVH"),
-            ("road_nvh", "Road NVH"),
-            ("visibility", "Visibility"),
-            ("seats_restraint", "Seats Restraint"),
-            ("impact", "Impact"),
-            ("seat_cushion", "Seat Cushion"),
-            ("turning_radius", "Turning Radius"),
-            ("epb", "Electronic Parking Brake"),
-            ("brake_performance", "Brake Performance"),
-            ("stiff_on_pot_holes", "Stiff on Pot Holes"),
-            ("bumps", "Bumps"),
-            ("jerks", "Jerks"),
-            ("pulsation", "Pulsation"),
-            ("stability", "Stability"),
-            ("shakes", "Shakes"),
-            ("shudder", "Shudder"),
-            ("shocks", "Shocks"),
-            ("grabby", "Grabby"),
-            ("spongy", "Spongy"),
-            ("telescopic_steering", "Telescopic Steering"),
-            ("torque", "Torque"),
-            ("nvh", "NVH"),
-            ("wind_noise", "Wind Noise"),
-            ("tire_noise", "Tire Noise"),
-            ("crawl", "Crawl"),
-            ("gear_shift", "Gear Shift"),
-            ("pedal_travel", "Pedal Travel"),
-            ("gear_selection", "Gear Selection"),
-            ("turbo_noise", "Turbo Noise"),
-            ("resolution", "Resolution"),
-            ("touch_response", "Touch Response"),
-            ("button", "Button"),
-            ("apple_carplay", "Apple CarPlay"),
-            ("digital_display", "Digital Display"),
-            ("blower_noise", "Blower Noise"),
-            ("soft_trims", "Soft Trims"),
-            ("armrest", "Armrest"),
-            ("sunroof", "Sunroof"),
-            ("irvm", "IRVM"),
+            # ===== Drive =====
+            ("drive", "Drive"),
+            ("drive_mode", "Drive Mode"),
+            # ===== Top Speed =====
+            ("top_speed", "Top Speed (km/h)"),
+            # ===== Dimension =====
+            ("length", "Length (mm)"),
+            ("width", "Width (mm)"),
+            ("height", "Height (mm)"),
+            ("wheelbase", "Wheelbase (mm)"),
+            ("wheel_track", "WheelTrack F/R"),
+            ("ground_clearance", "Ground clearance"),
+            ("kerb_weight", "Kerb weight (kg)"),
+            # ===== Steering =====
+            ("steering", "Steering Type"),
+            # ===== Seat =====
+            ("seating_capacity", "Seating Capacity"),
+            # ===== Brakes =====
+            ("front_brakes", "Front Brakes"),
+            ("rear_brakes", "Rear Brakes"),
+            # ===== Suspension =====
+            ("front_suspension", "Front Suspension"),
+            ("rear_suspension", "Rear Suspension"),
+            # ===== Wheel & Tyre =====
+            ("front_tyre_size", "Front - Tyre size"),
+            ("rear_tyre_size", "Rear - Tyre size"),
+            ("spare_tyres", "Spare Tyres"),
+            # ===== Boot =====
+            ("boot_space", "Boot Space (L)"),
+            # ===== Exterior =====
+            ("full_led", "Full LED"),
+            ("wheel_arch_claddings", "Wheel arch Ext. Claddings"),
+            ("front_bumper_grille", "Front Bumper & Grille"),
+            ("antenna_type", "Antenna Type"),
+            ("foot_step", "Foot step"),
+            # ===== Interior =====
+            ("console_switches", "Console Switches"),
+            ("upholstery", "Upholstery"),
+            ("ip_dashboard", "IP/ Dashboard"),
+            ("glove_box", "Glove Box"),
+            # ===== Sunvisor =====
+            ("sunvisor_driver", "Sunvisor Driver"),
+            ("sunvisor_co_driver", "Sunvisor Co Driver"),
+            # ===== Grab Handle =====
+            ("grab_handle_driver", "Grab Handle Driver"),
+            ("grab_handle_co_driver", "Grab Handle Co Driver"),
+            ("grab_handle_2nd_row", "Grab Handle 2nd Row"),
+            # ===== Sun Roof =====
+            ("panoramic_sunroof", "Panoramic Sun Roof"),
+            ("roller_blind_sunblind", "Roller Blind/ Sunblind"),
+            # ===== Luggage rack =====
+            ("luggage_rack", "Luggage rack"),
+            # ===== Wipers & Demister =====
+            ("front_wiper", "Front Wiper"),
+            ("defogging", "Defogging"),
+            ("rain_sensing_wipers", "Rain Sensing Wipers"),
+            ("rear_wiper", "Rear Wiper"),
+            # ===== Door =====
+            ("door_front", "Door Front"),
+            ("door_rear", "Door Rear"),
+            # ===== Tailgate =====
+            ("tailgate_type", "Tailgate Type"),
+            ("power_tailgate", "Power operated tail gate"),
+            # ===== ORVM =====
             ("orvm", "ORVM"),
-            ("window", "Window"),
-            ("alloy_wheel", "Alloy Wheel"),
+            # ===== Steering Wheel =====
+            ("steering_wheel", "Steering Wheel"),
+            # ===== Bonnet =====
+            ("bonnet_gas_strut", "Bonnet Gas Strut"),
+            # ===== Door Trim =====
+            ("bottle_holder", "Bottle Holder"),
+            ("door_arm_rest", "Door arm Rest"),
+            # ===== Boot/Trunk =====
+            ("boot_organizer", "Boot Organizer"),
+            ("boot_lamp", "Boot Lamp"),
+            # ===== Power Window =====
+            ("power_window_all_doors", "Power Window All Doors"),
+            ("power_window_driver_door", "Power Window Driver Door"),
+            ("window_one_key_lift", "Window one key lift"),
+            ("window_anti_clamping", "Window anti-clamping"),
+            ("multilayer_silencing_glass", "Multilayer silencing glass"),
+            ("front_windshield_mute_glass", "Front windshield mute glass"),
+            # ===== Steering Column =====
+            ("steering_column", "Steering Column"),
+            ("steering_column_lock", "Steering Column Lock"),
+            # ===== Floor Console =====
+            ("floor_console_armrest", "Floor Console Arm Rest"),
+            ("cup_holders", "Cup Holders"),
+            # ===== Wireless charging =====
+            ("wireless_charging", "Wireless charging"),
+            ("no_of_wireless_charging", "No of wireless charging"),
+            # ===== Door Inner Scuff =====
+            ("door_inner_scuff_front", "Door Inner Scuff Front"),
+            ("door_inner_scuff_rear", "Door Inner Scuff Rear"),
+            # ===== Voice Recognition =====
+            ("voice_recognition_steering", "Voice Recognition Steering"),
+            # ===== Seats =====
+            ("seats", "Seats"),
+            ("ventilated_seats", "Seat Ventilation"),
+            ("seat_ventilation_front_passenger", "Seat Ventilation Front Passenger"),
+            # ===== Safety =====
+            ("airbags", "Airbags"),
+            ("pab_deactivation_switch", "PAB deactivation switch"),
+            ("driver_seat_belt", "Driver Seat Belt"),
+            ("front_passenger_seat_belt", "Front Passenger Seat Belt"),
+            ("seat_belt_2nd_row", "2nd Row Seat Belt"),
+            ("child_anchor", "Child Anchor"),
+            ("child_lock", "Child Lock"),
+            ("seat_belt_reminder", "Seat Belt Reminder"),
+            ("seat_belt_holder_2nd_row", "Seat Belt Holder 2nd Row"),
+            ("crash_sensors", "Crash Sensors"),
+            # ===== Technology =====
+            ("infotainment_screen", "Infotainment"),
+            ("smartphone_connectivity", "Smart Phone Connectivity"),
+            ("bluetooth", "Bluetooth"),
+            # ===== Radio =====
+            ("am_fm_radio", "AM / FM Radio"),
+            ("digital_radio", "Digital Radio"),
+            # ===== ConnectedDrive =====
+            ("connected_drive_wireless", "ConnectedDrive Wireless"),
+            # ===== Branded Audio =====
+            ("immersive_sound_3d", "3D Immersive Sound"),
+            ("no_of_speakers", "No of speakers"),
+            ("audio_brand", "Audio Brand"),
+            ("dolby_atmos", "Dolby Atmos"),
+            ("audio_adjustable", "Audio Adjustable"),
+            # ===== Lighting =====
+            ("headlamp", "Headlamp"),
+            ("high_beam", "High beam"),
+            ("low_beam", "Low beam"),
+            ("auto_high_beam", "Auto High Beam"),
+            ("headlamp_leveling", "Headlamp Leveling"),
+            ("projector_led", "Projector LED"),
+            ("front_fog_lamp", "Front Fog Lamp"),
             ("tail_lamp", "Tail Lamp"),
-            ("boot_space", "Boot Space"),
-            ("led", "LED"),
-            ("drl", "DRL"),
-            ("ride_quality", "Ride Quality"),
-            ("infotainment_screen", "Infotainment Screen"),
-            ("chasis", "Chassis"),
-            ("straight_ahead_stability", "Straight Ahead Stability"),
-            ("wheelbase", "Wheelbase"),
-            ("egress", "Egress"),
-            ("ingress", "Ingress"),
-            ("corner_stability", "Corner Stability"),
-            ("parking", "Parking"),
-            ("manoeuvring", "Manoeuvring"),
-            ("city_performance", "City Performance"),
-            ("highway_performance", "Highway Performance"),
-            ("wiper_control", "Wiper Control"),
-            ("sensitivity", "Sensitivity"),
-            ("rattle", "Rattle"),
-            ("headrest", "Headrest"),
-            ("acceleration", "Acceleration"),
-            ("response", "Response"),
-            ("door_effort", "Door Effort"),
+            ("welcome_lighting", "Welcome Lighting"),
+            ("ambient_lighting", "Ambient Lighting"),
+            ("cabin_lamps", "Cabin Lamps"),
+            ("high_mounted_stop_lamp", "High Mounted Stop Lamp"),
+            ("hazard_lamp", "Hazard Lamp"),
+            # ===== Locking =====
+            ("central_locking", "Central Locking"),
+            ("door_lock", "Door Lock"),
+            ("speed_sensing_door_lock", "Speed Sensing Door Lock"),
+            ("panic_alarm", "Panic Alarm"),
+            ("remote_lock_unlock", "Remote Lock/Unlock"),
+            ("digital_key_plus", "Digital Key Plus"),
+            # ===== Horn =====
+            ("horn", "Electronic Horn"),
+            # ===== Over speeding Bell =====
+            ("over_speeding_bell", "Over speeding Bell"),
+            # ===== ADAS =====
+            ("active_cruise_control", "Active Cruise Control"),
+            ("lane_departure_warning", "Lane Departure Warning"),
+            ("automatic_emergency_braking", "Automatic Emergency Braking"),
+            ("lane_keep_assist", "Lane Keep Assist"),
+            ("blind_spot_detection", "Blind Spot Detection"),
+            ("blind_spot_collision_warning", "Blind Spot Collision warning"),
+            ("forward_collision_warning", "Forward Collision warning"),
+            ("rear_collision_warning", "Rear Collision Warning"),
+            ("door_open_alert", "Door Open Alert"),
+            ("high_beam_assist", "High beam Assist"),
+            ("traffic_sign_recognition", "Traffic Sign Recognition"),
+            ("rear_cross_traffic_alert", "Rear Cross Traffic Alert"),
+            ("traffic_jam_alert", "Traffic jam alert"),
+            ("safe_exit_braking", "Safe Exit Braking"),
+            ("surround_view_monitor", "Surround View Monitor"),
+            ("smart_pilot_assist", "Smart Pilot Assist"),
+            # ===== Climate =====
+            ("auto_defogging", "Auto Defogging"),
+            ("no_of_zone_climate", "Climate Zone"),
+            ("rear_vent_ac", "Rear Vent AC"),
+            ("active_carbon_filter", "Active Carbon filter"),
+            ("temp_diff_control", "Temp diff control"),
+            ("bottle_opener", "Bottle Opener"),
+            # ===== Capabilities =====
+            ("terrain_modes", "Terrain Modes"),
+            ("crawl_smart", "Crawl Smart"),
+            ("intelli_turn", "Intelli Turn"),
+            ("off_road_info_display", "Off-road info display"),
+            ("central_differential", "Central Differential"),
+            ("limited_slip_differential", "Limited Slip Differential"),
+            ("wading_sensing_system", "Wading sensing system"),
+            ("electronic_gear_shift", "Electronic gear shift"),
+            ("electric_driveline_disconnect", "Electric Driveline disconnect"),
+            ("tpms", "TPMS"),
+            ("hhc_uphill_start_assist", "HHC Uphill Start Assist"),
+            ("engine_electronic_security", "Engine electronic security"),
+            # ===== Power outlet / Charging Points =====
+            ("usb_type_c_front_row", "USB Type C Front Row"),
+            ("usb_type_c_front_row_count", "USB Type C Front Count"),
+            ("usb_type_c_rear_row", "USB Type C Rear Row"),
+            ("socket_12v", "12V Socket"),
+            # ===== Brakes Detailed =====
+            ("auto_hold", "Auto Hold"),
+            ("rollover_mitigation", "Rollover Mitigation"),
+            ("rmi_anti_rollover", "RMI Anti-rollover"),
+            ("vdc_vehicle_dynamic", "VDC"),
+            ("csc_corner_stability", "CSC"),
+            ("epb", "EPB"),
+            ("avh_auto_vehicle_hold", "AVH"),
+            ("hac_hill_ascend", "HAC-HHC"),
+            ("hba_hydraulic_brake", "HBA"),
+            ("dbc_downhill_brake", "DBC"),
+            ("ebp_electronic_brake_prefill", "EBP"),
+            ("bdw_brake_disc_wiping", "BDW"),
+            ("edtc_engine_drag_torque", "EDTC"),
+            ("tcs_traction_control", "TCS"),
+            ("ebd_electronic_brake", "EBD"),
+            ("abs_antilock", "ABS"),
+            ("dst_dynamic_steering", "DST"),
+            ("eba_brake_assist", "EBA"),
+            ("cbc_cornering_brake", "CBC"),
+            ("hdc_hill_descent", "HDC"),
+            # ===== Others =====
+            ("active_noise_reduction", "Active noise reduction"),
+            ("intelligent_voice_control", "Intelligent voice control"),
+            ("transparent_car_bottom", "Transparent car bottom"),
+            ("intellectual_dodge", "Intellectual dodge"),
+            ("car_picnic_table", "Car picnic table"),
+            ("trunk_subwoofer", "Trunk subwoofer"),
+            ("dashcam_provision", "Dashcam Provision"),
+            ("cup_holder_tail_door", "Cup Holder Tail door"),
+            ("hooks_tail_door", "Hooks Tail door"),
+            ("warning_triangle_tail_door", "Warning Triangle"),
+            ("door_magnetic_strap", "Door magnetic Strap"),
+            # ===== Market =====
+            ("price_range", "Price Range"),
+            ("monthly_sales", "Monthly Sales"),
+            ("user_rating", "User Rating"),
         ]
         
         for field, field_display in citation_fields:
@@ -653,6 +1151,20 @@ Return ONLY a JSON object with ratings:
             pointBackgroundColor: '{car_colors[i % len(car_colors)]}'
         }}""")
 
+    # Build category to attributes mapping for filter UI
+    category_attrs = {json.dumps({cat: [attr[0] for attr in attrs] for cat, attrs in fi_categories.items()})}
+
+    # Build vehicle checkboxes
+    vehicle_checkboxes = "".join([f'<label class="fi-filter-checkbox"><input type="checkbox" value="{car}" checked onchange="updateFiChart_{chart_id}()">{car}</label>' for car in car_names])
+
+    # Build attribute checkboxes grouped by category
+    attr_checkboxes = ""
+    for cat, attrs in fi_categories.items():
+        attr_checkboxes += f'<div class="fi-filter-category"><div class="fi-filter-category-title">{cat}</div><div class="fi-filter-category-attrs">'
+        for attr_name, _ in attrs:
+            attr_checkboxes += f'<label class="fi-filter-checkbox"><input type="checkbox" value="{attr_name}" checked onchange="updateFiChart_{chart_id}()">{attr_name}</label>'
+        attr_checkboxes += '</div></div>'
+
     spider_html = f"""
     <style>
         .fi-mega-spider-container {{
@@ -679,21 +1191,131 @@ Return ONLY a JSON object with ratings:
             margin: 0 auto;
             height: 600px;
         }}
+        .fi-filter-controls {{
+            display: flex;
+            gap: 30px;
+            margin-bottom: 25px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 1px solid #e0e0e0;
+        }}
+        .fi-filter-section {{
+            flex: 1;
+        }}
+        .fi-filter-section-title {{
+            font-weight: 700;
+            font-size: 14px;
+            color: #1c2a39;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #cc0000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }}
+        .fi-filter-section-title button {{
+            font-size: 11px;
+            padding: 4px 10px;
+            background: #1c2a39;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }}
+        .fi-filter-section-title button:hover {{
+            background: #cc0000;
+        }}
+        .fi-filter-vehicles {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }}
+        .fi-filter-checkbox {{
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #333;
+            cursor: pointer;
+            padding: 5px 10px;
+            background: white;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            transition: all 0.2s;
+        }}
+        .fi-filter-checkbox:hover {{
+            border-color: #cc0000;
+        }}
+        .fi-filter-checkbox input {{
+            accent-color: #cc0000;
+        }}
+        .fi-filter-attrs-container {{
+            max-height: 200px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }}
+        .fi-filter-category {{
+            margin-bottom: 12px;
+        }}
+        .fi-filter-category-title {{
+            font-weight: 600;
+            font-size: 11px;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }}
+        .fi-filter-category-attrs {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }}
     </style>
     <div class="fi-mega-spider-container">
         <div class="fi-mega-spider-title">Functional Image Spider Map</div>
+        <div class="fi-filter-controls">
+            <div class="fi-filter-section">
+                <div class="fi-filter-section-title">
+                    Filter by Vehicle
+                    <span>
+                        <button onclick="toggleAllVehicles_{chart_id}(true)">All</button>
+                        <button onclick="toggleAllVehicles_{chart_id}(false)">None</button>
+                    </span>
+                </div>
+                <div class="fi-filter-vehicles" id="fi-vehicle-filters-{chart_id}">
+                    {vehicle_checkboxes}
+                </div>
+            </div>
+            <div class="fi-filter-section">
+                <div class="fi-filter-section-title">
+                    Filter by Attribute
+                    <span>
+                        <button onclick="toggleAllAttrs_{chart_id}(true)">All</button>
+                        <button onclick="toggleAllAttrs_{chart_id}(false)">None</button>
+                    </span>
+                </div>
+                <div class="fi-filter-attrs-container" id="fi-attr-filters-{chart_id}">
+                    {attr_checkboxes}
+                </div>
+            </div>
+        </div>
         <div class="fi-mega-chart-wrapper">
             <canvas id="{chart_id}"></canvas>
         </div>
         <script>
         (function() {{
+            // Store original data for filtering
+            const originalLabels_{chart_id} = {labels_js};
+            const originalDatasets_{chart_id} = [{', '.join(datasets_js)}];
+            let fiChart_{chart_id} = null;
+
             const ctx = document.getElementById('{chart_id}');
             if (ctx) {{
-                new Chart(ctx, {{
+                fiChart_{chart_id} = new Chart(ctx, {{
                     type: 'radar',
                     data: {{
-                        labels: {labels_js},
-                        datasets: [{', '.join(datasets_js)}]
+                        labels: originalLabels_{chart_id},
+                        datasets: originalDatasets_{chart_id}.map(d => ({{...d}}))
                     }},
                     options: {{
                         responsive: true,
@@ -733,6 +1355,54 @@ Return ONLY a JSON object with ratings:
                     }}
                 }});
             }}
+
+            // Make update function globally accessible
+            window.updateFiChart_{chart_id} = function() {{
+                if (!fiChart_{chart_id}) return;
+
+                // Get selected vehicles
+                const vehicleContainer = document.getElementById('fi-vehicle-filters-{chart_id}');
+                const selectedVehicles = Array.from(vehicleContainer.querySelectorAll('input:checked')).map(cb => cb.value);
+
+                // Get selected attributes
+                const attrContainer = document.getElementById('fi-attr-filters-{chart_id}');
+                const selectedAttrs = Array.from(attrContainer.querySelectorAll('input:checked')).map(cb => cb.value);
+
+                // Filter labels (attributes)
+                const filteredIndices = [];
+                const filteredLabels = [];
+                originalLabels_{chart_id}.forEach((label, idx) => {{
+                    if (selectedAttrs.includes(label)) {{
+                        filteredIndices.push(idx);
+                        filteredLabels.push(label);
+                    }}
+                }});
+
+                // Filter datasets (vehicles) and their data
+                const filteredDatasets = originalDatasets_{chart_id}
+                    .filter(ds => selectedVehicles.includes(ds.label))
+                    .map(ds => ({{
+                        ...ds,
+                        data: filteredIndices.map(idx => ds.data[idx])
+                    }}));
+
+                // Update chart
+                fiChart_{chart_id}.data.labels = filteredLabels;
+                fiChart_{chart_id}.data.datasets = filteredDatasets;
+                fiChart_{chart_id}.update();
+            }};
+
+            window.toggleAllVehicles_{chart_id} = function(checked) {{
+                const container = document.getElementById('fi-vehicle-filters-{chart_id}');
+                container.querySelectorAll('input').forEach(cb => cb.checked = checked);
+                updateFiChart_{chart_id}();
+            }};
+
+            window.toggleAllAttrs_{chart_id} = function(checked) {{
+                const container = document.getElementById('fi-attr-filters-{chart_id}');
+                container.querySelectorAll('input').forEach(cb => cb.checked = checked);
+                updateFiChart_{chart_id}();
+            }};
         }})();
         </script>
     </div>
@@ -1347,14 +2017,55 @@ def create_comparison_chart_html(
 
     def count_words(text: str) -> int:
         return len(str(text).split())
-    
+
     WORD_THRESHOLD = 12
 
-    # Build table with grouped accordion structure
-    features_table = "<table><thead><tr><th>Specification</th>"
+    # Specs that should show variant columns (one column per engine variant)
+    VARIANT_SPECS = {
+        "engine", "engine_displacement", "max_power_kw", "torque",
+        "transmission", "drive", "kerb_weight", "steering"
+    }
+
+    # Build variant info for each car
+    car_variants = {}
     for car_name in cars:
-        features_table += f"<th>{car_name.upper()}</th>"
-    features_table += "</tr></thead><tbody id=\"specifications-tbody\">"
+        car_data = comparison_data.get(car_name, {})
+        variants = car_data.get("engine_variants", [])
+        if variants and len(variants) > 0:
+            car_variants[car_name] = variants
+        else:
+            # No variants - use single column with existing data
+            car_variants[car_name] = [{"_single": True}]
+
+    # Build table with grouped accordion structure and variant columns
+    features_table = "<table><thead>"
+
+    # First header row: Car names spanning their variant columns
+    features_table += "<tr><th rowspan='2'>Specification</th>"
+    for car_name in cars:
+        num_variants = len(car_variants.get(car_name, [{"_single": True}]))
+        if num_variants > 1:
+            features_table += f"<th colspan='{num_variants}'>{car_name.upper()}</th>"
+        else:
+            features_table += f"<th rowspan='2'>{car_name.upper()}</th>"
+    features_table += "</tr>"
+
+    # Second header row: Variant names (only for cars with multiple variants)
+    has_multi_variant = any(len(car_variants.get(c, [])) > 1 for c in cars)
+    if has_multi_variant:
+        features_table += "<tr>"
+        for car_name in cars:
+            variants = car_variants.get(car_name, [{"_single": True}])
+            if len(variants) > 1:
+                for v in variants:
+                    variant_name = v.get("variant_name", v.get("engine", "Variant"))
+                    # Shorten variant name if too long
+                    if len(variant_name) > 20:
+                        variant_name = variant_name[:17] + "..."
+                    features_table += f"<th class='variant-subheader'>{variant_name}</th>"
+        features_table += "</tr>"
+
+    features_table += "</thead><tbody id=\"specifications-tbody\">"
 
     spec_groups = {
     "Key Specifications": {
@@ -1493,12 +2204,13 @@ def create_comparison_chart_html(
             <td>{main_group_title}</td>
         """
 
-        # Add empty cells for car columns
-        for _ in cars:
+        # Add empty cells for car columns (accounting for variants)
+        total_cols = sum(len(car_variants.get(c, [{"_single": True}])) for c in cars)
+        for _ in range(total_cols):
             features_table += "<td></td>"
 
         features_table += "</tr>\n"
-        
+
         for group_name, specifications in sub_groups.items():
             # Check if any car has a value for any spec in this sub-group
             group_has_data = any(
@@ -1524,23 +2236,45 @@ def create_comparison_chart_html(
                 for label, key in specifications:
                     kpi_html = _kpi_badge(key)
                     features_table += f"<tr class='spec-row'><td>{label}{kpi_html}</td>"
+                    is_variant_spec = key in VARIANT_SPECS
 
-                    for car_name, car_data in comparison_data.items():
-
+                    for car_name in cars:
+                        car_data = comparison_data.get(car_name, {})
                         if "error" not in car_data or car_data.get("price_range") != "Not Available":
-                            value = car_data.get(key, 'N/A')
-                            display_value = ", ".join(value) if isinstance(value, list) else str(value or 'N/A')
-                            word_count = count_words(display_value)
+                            variants = car_variants.get(car_name, [{"_single": True}])
+                            num_variants = len(variants)
 
-                            features_table += "<td>"
+                            if is_variant_spec and num_variants > 1:
+                                # Show one cell per variant
+                                for v in variants:
+                                    if v.get("_single"):
+                                        value = car_data.get(key, 'N/A')
+                                    else:
+                                        value = v.get(key, '-')
+                                    display_value = ", ".join(value) if isinstance(value, list) else str(value or 'N/A')
+                                    word_count = count_words(display_value)
 
-                            if word_count > WORD_THRESHOLD:
-                                features_table += f'<div class="expandable-content">{display_value}</div>'
-                                features_table += '<button onclick="toggleExpand(this)" class="read-more-btn">Read more</button>'
-
+                                    features_table += "<td>"
+                                    if word_count > WORD_THRESHOLD:
+                                        features_table += f'<div class="expandable-content">{display_value}</div>'
+                                        features_table += '<button onclick="toggleExpand(this)" class="read-more-btn">Read more</button>'
+                                    else:
+                                        features_table += display_value
+                                    features_table += "</td>"
                             else:
-                                features_table += display_value
-                            features_table += "</td>"
+                                # Non-variant spec: span all variant columns for this car
+                                value = car_data.get(key, 'N/A')
+                                display_value = ", ".join(value) if isinstance(value, list) else str(value or 'N/A')
+                                word_count = count_words(display_value)
+
+                                colspan = f" colspan='{num_variants}'" if num_variants > 1 else ""
+                                features_table += f"<td{colspan}>"
+                                if word_count > WORD_THRESHOLD:
+                                    features_table += f'<div class="expandable-content">{display_value}</div>'
+                                    features_table += '<button onclick="toggleExpand(this)" class="read-more-btn">Read more</button>'
+                                else:
+                                    features_table += display_value
+                                features_table += "</td>"
                     features_table += "</tr>"
 
             else:
@@ -1552,17 +2286,16 @@ def create_comparison_chart_html(
                     </td>
                 """
 
-                # Add empty cells for car columns (except the last one)
-                for i in range(len(cars)):
-
-                    if i == len(cars) - 1:
+                # Add empty cells for car columns (accounting for variants)
+                total_cols = sum(len(car_variants.get(c, [{"_single": True}])) for c in cars)
+                for i in range(total_cols):
+                    if i == total_cols - 1:
                         # Last column gets the arrow icon
                         features_table += """
                     <td class='accordion-empty-cell accordion-icon-cell'>
                         <span class="accordion-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/></svg></span>
                     </td>
                 """
-
                     else:
                         features_table += "<td class='accordion-empty-cell'></td>\n"
 
@@ -1571,21 +2304,45 @@ def create_comparison_chart_html(
                 for label, key in specifications:
                     kpi_html = _kpi_badge(key)
                     features_table += f"<tr class='spec-row hidden-spec'><td>{label}{kpi_html}</td>"
-                    
-                    for car_name, car_data in comparison_data.items():
-                        
+                    is_variant_spec = key in VARIANT_SPECS
+
+                    for car_name in cars:
+                        car_data = comparison_data.get(car_name, {})
                         if "error" not in car_data or car_data.get("price_range") != "Not Available":
-                            value = car_data.get(key, 'N/A')
-                            display_value = ", ".join(value) if isinstance(value, list) else str(value or 'N/A')
-                            word_count = count_words(display_value)
-                            
-                            features_table += "<td>"
-                            if word_count > WORD_THRESHOLD:
-                                features_table += f'<div class="expandable-content">{display_value}</div>'
-                                features_table += '<button onclick="toggleExpand(this)" class="read-more-btn">Read more</button>'
+                            variants = car_variants.get(car_name, [{"_single": True}])
+                            num_variants = len(variants)
+
+                            if is_variant_spec and num_variants > 1:
+                                # Show one cell per variant
+                                for v in variants:
+                                    if v.get("_single"):
+                                        value = car_data.get(key, 'N/A')
+                                    else:
+                                        value = v.get(key, '-')
+                                    display_value = ", ".join(value) if isinstance(value, list) else str(value or 'N/A')
+                                    word_count = count_words(display_value)
+
+                                    features_table += "<td>"
+                                    if word_count > WORD_THRESHOLD:
+                                        features_table += f'<div class="expandable-content">{display_value}</div>'
+                                        features_table += '<button onclick="toggleExpand(this)" class="read-more-btn">Read more</button>'
+                                    else:
+                                        features_table += display_value
+                                    features_table += "</td>"
                             else:
-                                features_table += display_value
-                            features_table += "</td>"
+                                # Non-variant spec: span all variant columns for this car
+                                value = car_data.get(key, 'N/A')
+                                display_value = ", ".join(value) if isinstance(value, list) else str(value or 'N/A')
+                                word_count = count_words(display_value)
+
+                                colspan = f" colspan='{num_variants}'" if num_variants > 1 else ""
+                                features_table += f"<td{colspan}>"
+                                if word_count > WORD_THRESHOLD:
+                                    features_table += f'<div class="expandable-content">{display_value}</div>'
+                                    features_table += '<button onclick="toggleExpand(this)" class="read-more-btn">Read more</button>'
+                                else:
+                                    features_table += display_value
+                                features_table += "</td>"
                     features_table += "</tr>"
 
     features_table += "</tbody></table>"
@@ -1707,6 +2464,7 @@ def create_comparison_chart_html(
         table th, table td {{ padding: 16px 14px; border-bottom: 1px solid #e9ecef; }}
         table th {{ background: #ffffff !important; color: #212529 !important; text-align: center; font-weight: 600; border-bottom: 2px solid #dee2e6; }}
         table th:first-child {{ text-align: left; }}
+        table th.variant-subheader {{ background: #f8f9fa !important; color: #495057 !important; font-size: 11px; font-weight: 500; padding: 8px 10px; border-bottom: 1px solid #dee2e6; }}
         tbody td {{ text-align: center; vertical-align: middle; }}
         tbody td:first-child {{ font-weight: 600; text-align: left; vertical-align: top; }}
         .read-more-btn {{ background: none; border: none; color: black; text-decoration: underline; cursor: pointer; padding: 4px 0; font-size: 12px; font-weight: 600; }}
@@ -3419,10 +4177,14 @@ def create_comparison_chart_html(
         <div class="header-actions">
             <nav class="main-nav">
                 <a href="#vehicle-highlights">Highlights</a>
-                <a href="#tech-spec-section">Tech Specs</a>
-                <a href="#venn-section">Feature Face-Off</a>
-                <a href="#feature-list-section">Feature Specs</a>
-                <div class="nav-sep"></div>
+                <div class="nav-dropdown">
+                    <button class="nav-dropdown-toggle">Specs</button>
+                    <div class="nav-dropdown-menu">
+                        <a href="#tech-spec-section">Tech Specs</a>
+                        <a href="#feature-list-section">Feature Specs</a>
+                        <a href="#venn-section">Feature Face-Off</a>
+                    </div>
+                </div>
                 <div class="nav-dropdown">
                     <button class="nav-dropdown-toggle">Gallery</button>
                     <div class="nav-dropdown-menu">
@@ -3433,26 +4195,24 @@ def create_comparison_chart_html(
                         <a href="#safety-section">Safety</a>
                     </div>
                 </div>
-                <a href="#drivetrain-section">Drivetrain</a>
-                <a href="#variant-walk-section">Variant Walk</a>
-                <div class="nav-sep"></div>
                 <div class="nav-dropdown">
-                    <button class="nav-dropdown-toggle">Reviews</button>
+                    <button class="nav-dropdown-toggle">Variants</button>
                     <div class="nav-dropdown-menu">
-                        <a href="#consolidated-review-section">Functional Image Review</a>
-                        <a href="#detailed-reviews-section">Pro Reviews</a>
+                        <a href="#drivetrain-section">Drivetrain</a>
+                        <a href="#variant-walk-section">Variant Walk</a>
                     </div>
                 </div>
                 <div class="nav-dropdown">
                     <button class="nav-dropdown-toggle">Analysis</button>
                     <div class="nav-dropdown-menu">
+                        <a href="#consolidated-review-section">Functional Image Review</a>
+                        <a href="#detailed-reviews-section">Pro Reviews</a>
                         <a href="#spider-charts-section">Radar Charts</a>
                         <a href="#ai-analysis-section">AI Analysis</a>
                         <a href="#attribute-proscons-section">Pros & Cons</a>
+                        <a href="#adas-section">ADAS Comparison</a>
                     </div>
                 </div>
-                <div class="nav-sep"></div>
-                <a href="#summary-section">Summary</a>
                 <a href="#" id="citations-toggle" onclick="toggleCitations(event)">Citations</a>
             </nav>
             <button class="print-btn" onclick="printReport()">Save as PDF</button>
@@ -3476,6 +4236,18 @@ def create_comparison_chart_html(
             <div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l10 5v3L12 5 2 10V7l10-5zM2 10v3l10 5 10-5v-3l-10 5-10-5z"/></svg></div><h2 id="consolidated-review-section">Functional Image Review</h2></div>
             <div class="consolidated-review-section animate-on-scroll">{consolidated_review_html}</div>
         </div>
+        <div class="content" id="adas-section">
+            <div class="section-header">
+                <div class="icon-wrapper">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        <path d="M12 8v4M12 16h.01"/>
+                    </svg>
+                </div>
+                <h2>ADAS Comparison</h2>
+            </div>
+            <div class="animate-on-scroll">{generate_adas_comparison_section(comparison_data)}</div>
+        </div>
         {detailed_reviews_html}
         <div class="content">
             <div class="section-header">
@@ -3491,7 +4263,6 @@ def create_comparison_chart_html(
             </div>
         </div>
         {attribute_proscons_html}
-        {generate_summary_comparison_section(summary_data, cars, 20) if summary_data else ''}
     </div>
     <div class="content" id="citations-section" style="display: none;"><div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><line x1="10" y1="9" x2="8" y2="9"></line></svg></div><h2>Data Source Citations</h2></div><div class="citations-grid">{citations_html}</div></div>
     <footer class="footer"><span>Copyright© 2026 Mahindra&Mahindra Ltd. All Rights Reserved.</span></footer>

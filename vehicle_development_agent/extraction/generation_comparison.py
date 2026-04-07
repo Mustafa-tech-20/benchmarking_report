@@ -2,17 +2,27 @@
 Generation Comparison Extraction for Vehicle Development Agent
 Extracts ONLY old generation data needed for comparison.
 New generation data is reused from existing variant_walk extraction.
+Uses Google Search grounding for up-to-date information.
 """
 import json
+import os
 from typing import Dict, Any
-from vertexai.generative_models import GenerativeModel
 from json_repair import repair_json
-from vehicle_development_agent.config import GEMINI_MAIN_MODEL
+from google import genai
+from google.genai import types
+
+# Initialize Gemini client with Google Search grounding
+_gemini_search_client = genai.Client(
+    vertexai=True,
+    project=os.environ.get("GOOGLE_CLOUD_PROJECT", "srv-ad-nvoc-dev-445421"),
+    location=os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
+)
+GEMINI_SEARCH_MODEL = "gemini-2.5-flash"
 
 
 def extract_old_generation_data(car_name: str, new_gen_variants: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Extract ONLY old generation data for comparison.
+    Extract ONLY old generation data for comparison using Google Search grounding.
     New generation data is already available from variant_walk.
 
     Args:
@@ -29,9 +39,9 @@ def extract_old_generation_data(car_name: str, new_gen_variants: Dict[str, Any])
         # Extract new generation variant names from variant_walk for context
         new_variant_names = list(new_gen_variants.get('variants', {}).keys()) if new_gen_variants else []
 
-        model = GenerativeModel(GEMINI_MAIN_MODEL)
+        print(f"  Extracting old generation data for {car_name} (with Google Search)...")
 
-        prompt = f"""Extract ONLY old generation (previous generation) data for {car_name}.
+        prompt = f"""Search for old generation (previous generation) data for {car_name} car in India.
 
 CONTEXT: We already have the NEW generation data. We ONLY need old generation info.
 
@@ -87,9 +97,24 @@ Return ONLY valid JSON:
 }}
 
 If no old generation: {{"status": "no_old_generation"}}
-"""
 
-        response = model.generate_content(prompt)
+Return ONLY valid JSON, no markdown or explanation."""
+
+        # Use Google Search grounding for up-to-date generation data
+        response = _gemini_search_client.models.generate_content(
+            model=GEMINI_SEARCH_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                tools=[types.Tool(google_search=types.GoogleSearch())],
+                response_modalities=["TEXT"],
+                temperature=0.1,
+            )
+        )
+
+        if not response or not response.text:
+            print(f"  Old generation: No response from Gemini")
+            return {"has_old_generation": False, "message": "No response"}
+
         response_text = response.text.strip()
 
         # Clean markdown code blocks
@@ -108,11 +133,14 @@ If no old generation: {{"status": "no_old_generation"}}
 
         # Validate
         if data.get("status") == "no_old_generation":
+            print(f"  ℹ No previous generation for {car_name}")
             return {
                 "has_old_generation": False,
                 "message": "No previous generation available"
             }
 
+        old_gen_name = data.get("old_generation", {}).get("name", "Unknown")
+        print(f"  ✓ Old generation found: {old_gen_name}")
         data["has_old_generation"] = True
         return data
 

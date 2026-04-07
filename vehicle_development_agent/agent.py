@@ -324,6 +324,50 @@ def save_pdf_car_specs_tool(car_name: str, specs_json: str) -> str:
     }, indent=2)
 
 
+def save_excel_car_specs_tool(car_name: str, specs_json: str) -> str:
+    """
+    Save specs extracted from an uploaded Excel file for a specific car.
+
+    Call this BEFORE scrape_cars_tool when an Excel file has been uploaded and you've extracted
+    car specs from it. The scraper will use these specs directly and only search for
+    specs NOT found in the Excel. Citations for Excel-sourced specs will be "Excel uploaded by user".
+
+    Args:
+        car_name: Exact car name as it will be passed to scrape_cars_tool (e.g., "CODE:PROTO1")
+        specs_json: JSON string mapping spec field names to their extracted values.
+                   Use the same spec names as the 87-spec schema where possible.
+                   Example: '{"price_range": "₹35-45 Lakh", "seating_capacity": "7 Seater",
+                              "performance": "174 bhp", "torque": "380 Nm"}'
+
+    Returns:
+        JSON with status and count of saved specs
+    """
+    try:
+        specs = safe_json_parse(specs_json, fallback={})
+    except Exception as e:
+        return json.dumps({"status": "error", "error": f"Invalid JSON: {str(e)}"})
+
+    if not isinstance(specs, dict):
+        return json.dumps({"status": "error", "error": "specs_json must be a JSON object"})
+
+    if not hasattr(save_excel_car_specs_tool, 'excel_specs'):
+        save_excel_car_specs_tool.excel_specs = {}
+
+    save_excel_car_specs_tool.excel_specs[car_name] = specs
+    spec_count = len([v for v in specs.values() if v and str(v).strip() not in ("", "N/A", "Not Available")])
+
+    return json.dumps({
+        "status": "success",
+        "car_name": car_name,
+        "specs_saved": spec_count,
+        "message": (
+            f"Saved {spec_count} specs for '{car_name}' from Excel. "
+            f"Now call scrape_cars_tool — only the {87 - spec_count} missing specs will be searched online. "
+            f"Excel specs will have citation: 'Excel uploaded by user'."
+        )
+    }, indent=2)
+
+
 def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_custom_search: bool = True) -> str:
     """
     Tool to scrape car data using Custom Search API OR Gemini's direct URL analysis with ALL 19 specifications.
@@ -333,7 +377,7 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
 
     STEP 1: Call 'scrape_cars_tool' FIRST to identify the code cars.
 
-    STEP 2: If the response status is "awaiting_code_car_specs", present the TWO options to the user.
+    STEP 2: If the response status is "awaiting_code_car_specs", present the THREE options to the user.
 
     ---
 
@@ -354,8 +398,12 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
     ---
 
     Args:
-        car_names: Comma-separated list of car names (minimum 1, maximum 10)
-                   Example: "Mahindra Thar" or "CODE:PROTO1, Mahindra Thar, Maruti Jimny"
+        car_names: Comma-separated list of FULL car names (Brand + Model together). Minimum 1, maximum 10.
+                   IMPORTANT: Each car name must include the COMPLETE name (brand + model + variant if any).
+                   Do NOT split a single car's name - "Mahindra Thar Roxx" is ONE car, not two.
+                   Example: "Mahindra Thar Roxx, Jetour T2" (2 cars)
+                   Example: "CODE:PROTO1, Mahindra Thar Roxx, Maruti Jimny" (3 cars)
+                   WRONG: "Mahindra Thar, Roxx" - this incorrectly treats Roxx as separate car
         user_decision: User's choice for code cars: 'rag'
         use_custom_search: If True (default), use Custom Search API; if False, use Gemini URL parsing
 
@@ -381,12 +429,13 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
     code_cars = [car for car in car_list if is_code_car(car)]
 
     if code_cars:
-        # Check if specs were already collected (RAG) or pre-filled via PDF upload
+        # Check if specs were already collected (RAG) or pre-filled via PDF/Excel upload
         collected_specs = getattr(add_code_car_specs_tool, 'collected_specs', {})
         pdf_specs_available = getattr(save_pdf_car_specs_tool, 'pdf_specs', {})
+        excel_specs_available = getattr(save_excel_car_specs_tool, 'excel_specs', {})
         uncollected_code_cars = [
             car for car in code_cars
-            if car not in collected_specs and car not in pdf_specs_available
+            if car not in collected_specs and car not in pdf_specs_available and car not in excel_specs_available
         ]
 
         if uncollected_code_cars and not user_decision:
@@ -493,9 +542,11 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
         """Scrape specs + sales for one car. Thread-safe: scrape_car_data() calls
         asyncio.run() internally so each thread owns its own event loop."""
         manual_specs = manual_specs_dict.get(car)
-        # Check if PDF specs were saved for this car
+        # Check if PDF/Excel specs were saved for this car
         pdf_specs_store = getattr(save_pdf_car_specs_tool, 'pdf_specs', {})
+        excel_specs_store = getattr(save_excel_car_specs_tool, 'excel_specs', {})
         pdf_specs = pdf_specs_store.get(car)
+        excel_specs = excel_specs_store.get(car)
 
         if is_code_car(car):
             # CODE: internal cars must NEVER be web-scraped
@@ -525,6 +576,27 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
                         car_data[f"{field}_citation"] = {
                             "source_url": "PDF uploaded by user",
                             "citation_text": "Extracted from PDF uploaded by user"
+                        }
+            elif excel_specs:
+                # Excel-uploaded specs — merge onto blank base
+                print(f"[{car}] Using Excel-uploaded specs (no web search)")
+                car_data = create_blank_specs_for_code_car(car)
+                car_data['left_blank'] = False
+                car_data['manual_entry'] = False
+                car_data['source_urls'] = ["Excel uploaded by user"]
+                car_data['images'] = {}
+                for field, value in excel_specs.items():
+                    if field.endswith("_citation"):
+                        continue
+                    if isinstance(value, dict):
+                        value = value.get("value") or value.get("text") or str(value)
+                    elif isinstance(value, list):
+                        value = ", ".join(str(v) for v in value)
+                    if value and str(value).strip() not in ("", "N/A", "Not Available"):
+                        car_data[field] = str(value).strip()
+                        car_data[f"{field}_citation"] = {
+                            "source_url": "Excel uploaded by user",
+                            "citation_text": "Extracted from Excel uploaded by user"
                         }
             else:
                 # No specs collected yet — use blank rather than web-scraping
@@ -674,11 +746,13 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
                     print(f"[{car}] FAILED: {exc}")
                     results["comparison_data"][car] = {"car_name": car, "error": str(exc)}
 
-    # Clear collected specs and PDF specs for next comparison
+    # Clear collected specs and PDF/Excel specs for next comparison
     if hasattr(add_code_car_specs_tool, 'collected_specs'):
         add_code_car_specs_tool.collected_specs = {}
     if hasattr(save_pdf_car_specs_tool, 'pdf_specs'):
         save_pdf_car_specs_tool.pdf_specs = {}
+    if hasattr(save_excel_car_specs_tool, 'excel_specs'):
+        save_excel_car_specs_tool.excel_specs = {}
 
     # Extract variant walk and generation comparison data in parallel
     from product_planning_agent.extraction.variant_walk import extract_variant_walk
@@ -1080,6 +1154,7 @@ For follow-up questions (CODE car handling), keep responses brief and focused.""
     tools=[
         scrape_cars_tool,
         save_pdf_car_specs_tool,
+        save_excel_car_specs_tool,
         add_code_car_specs_tool,
         add_code_car_specs_bulk_tool,
     ]

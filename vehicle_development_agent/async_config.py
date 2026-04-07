@@ -12,18 +12,19 @@ from typing import Dict
 
 @dataclass
 class RateLimitConfig:
-    """Configuration for API rate limiting - disabled, using exponential backoff instead."""
+    """Configuration for API rate limiting - CSE has strict limits, Gemini is more relaxed."""
 
-    # No rate limiting - rely on exponential backoff/retry on 429s
-    custom_search_max_concurrent: int = 500
-    custom_search_requests_per_second: float = 1000.0
-    custom_search_burst_limit: int = 500
+    # CSE rate limiting - Google CSE has strict per-second limits
+    # Even paid tier hits 429s at high concurrency
+    custom_search_max_concurrent: int = 5  # Only 5 concurrent CSE requests
+    custom_search_requests_per_second: float = 5.0  # Max 5 requests/second
+    custom_search_burst_limit: int = 10  # Small burst allowed
 
-    # No rate limiting - rely on exponential backoff/retry on 429s
-    gemini_flash_max_concurrent: int = 200
-    gemini_flash_requests_per_minute: float = 10000.0
-    gemini_pro_max_concurrent: int = 100
-    gemini_pro_requests_per_minute: float = 5000.0
+    # Gemini rate limiting - more relaxed
+    gemini_flash_max_concurrent: int = 50
+    gemini_flash_requests_per_minute: float = 1000.0
+    gemini_pro_max_concurrent: int = 20
+    gemini_pro_requests_per_minute: float = 200.0
 
     # HTTP client settings
     max_connections: int = 200
@@ -62,11 +63,11 @@ class InterleavedConfig:
     task_queue_size: int = 500  # Max tasks per resource queue
     worker_count: int = 30  # Concurrent asyncio workers (lightweight coroutines)
 
-    # Resource budgets (prevents starvation)
+    # Resource budgets (prevents starvation and rate limits)
     gemini_flash_max_pending: int = 25  # Max pending Gemini Flash tasks
     gemini_flash_priority_boost: int = 2  # Priority boost when queue is low
     gemini_pro_max_pending: int = 8  # Max pending Gemini Pro tasks
-    custom_search_max_pending: int = 100  # Max pending search tasks (increased)
+    custom_search_max_pending: int = 20  # Max pending search tasks (reduced to avoid rate limits)
     custom_search_priority_boost: int = 1  # Priority boost when queue is low
 
     # Batching settings

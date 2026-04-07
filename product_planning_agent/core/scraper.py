@@ -29,10 +29,11 @@ from benchmarking_agent.config import GOOGLE_API_KEY, SEARCH_ENGINE_ID, COMPANY_
 from product_planning_agent.config import GEMINI_MAIN_MODEL
 
 # Initialize Gemini client for Google Search grounding (requires Vertex AI)
-# Google Search grounding only works with Vertex AI, not API key
+# Google Search grounding requires us-central1 location
 import os
 _PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT")
-_gemini_search_client = genai.Client(vertexai=True, project=_PROJECT_ID, location="global")
+_GROUNDING_LOCATION = "us-central1"  # Required for Google Search grounding
+_gemini_search_client = genai.Client(vertexai=True, project=_PROJECT_ID, location=_GROUNDING_LOCATION)
 
 
 # ============================================================================
@@ -44,8 +45,8 @@ BASE_DELAY = 2.0  # Longer base delay
 MAX_DELAY = 30.0
 
 # Parallel workers (reduced to avoid rate limits)
-SEARCH_WORKERS = 15  # Reduced from 20
-GEMINI_WORKERS = 12  # Reduced from 15
+SEARCH_WORKERS = 6   # Reduced for ~255 specs to avoid rate limits
+GEMINI_WORKERS = 12  # Keep higher for Gemini (not hitting rate limits)
 
 # Dynamic current year (auto-updates, no hardcoding!)
 CURRENT_YEAR = datetime.now().year
@@ -165,59 +166,129 @@ BRAND_OFFICIAL_URLS = {
 }
 
 CAR_SPECS = [
-    # Top 5 Key Specs (for main table)
+    # ===== Top 5 Key Specs (for main table/charts) =====
     "price_range", "monthly_sales", "mileage", "user_rating", "seating_capacity",
 
-    # Performance & Driving (from image)
+    # ===== Professional Reviews / Functional Evaluation Specs =====
+    # Performance & Driving
     "performance_feel", "driveability", "acceleration", "torque", "response",
     "city_performance", "highway_performance", "off_road", "crawl",
-
-    # Transmission (from image)
+    # Transmission
     "manual_transmission_performance", "automatic_transmission_performance",
     "pedal_operation", "gear_shift", "gear_selection", "pedal_travel",
-
-    # Ride & Suspension (from image)
+    # Ride & Suspension
     "ride", "ride_quality", "stiff_on_pot_holes", "bumps", "shocks",
-
-    # NVH & Noise (from image)
+    # NVH & Noise
     "nvh", "powertrain_nvh", "wind_nvh", "road_nvh",
     "wind_noise", "tire_noise", "turbo_noise", "blower_noise",
-
-    # Vibration & Feel (from image)
+    # Vibration & Feel
     "jerks", "pulsation", "shakes", "shudder", "grabby", "spongy", "rattle",
-
-    # Steering & Handling (from image)
+    # Steering & Handling
     "steering", "telescopic_steering", "turning_radius", "manoeuvring",
     "stability", "corner_stability", "straight_ahead_stability",
-
-    # Braking (from image)
+    # Braking
     "braking", "brakes", "brake_performance", "epb",
-
-    # Safety & Airbags (for checklist + from image)
+    # Safety
     "airbags", "airbag_types_breakdown", "vehicle_safety_features",
     "adas", "ncap_rating", "impact", "seats_restraint",
-
-    # Interior & Comfort (from image + checklist)
+    # Interior & Comfort
     "interior", "climate_control", "seats", "seat_cushion", "seat_material",
     "seat_features_detailed", "rear_seat_features", "ventilated_seats",
     "visibility", "soft_trims", "armrest", "headrest", "egress", "ingress",
     "seatbelt_features",
-
-    # Technology & Infotainment (from image + checklist)
+    # Technology & Infotainment
     "infotainment_screen", "resolution", "touch_response", "digital_display",
     "apple_carplay", "button", "audio_system", "cruise_control",
     "parking_camera", "parking_sensors",
-
-    # Exterior & Lighting (from image + checklist)
+    # Exterior & Lighting
     "led", "drl", "tail_lamp", "alloy_wheel", "tyre_size", "wheel_size",
-
-    # Convenience (from image + checklist)
+    # Convenience
     "sunroof", "irvm", "orvm", "window", "wiper_control", "parking",
     "door_effort", "sensitivity",
-
-    # Dimensions & Specs (from image + checklist)
+    # Dimensions
     "wheelbase", "ground_clearance", "boot_space", "chasis",
     "fuel_type", "engine_displacement",
+
+    # ===== IMAGE 1: Technical Specifications =====
+    "engine", "max_power_kw", "fuel_tank_capacity", "transmission", "drive",
+    "drive_mode", "top_speed", "length", "width", "height", "wheel_track",
+    "kerb_weight", "front_brakes", "rear_brakes", "front_suspension",
+    "rear_suspension", "front_tyre_size", "rear_tyre_size", "spare_tyres",
+
+    # ===== IMAGE 2: Exterior =====
+    "full_led", "wheel_arch_claddings", "front_bumper_grille", "antenna_type", "foot_step",
+
+    # ===== IMAGE 2: Interior =====
+    "console_switches", "upholstery", "ip_dashboard", "glove_box",
+    "sunvisor_driver", "sunvisor_co_driver",
+
+    # ===== IMAGE 3: Grab Handle, Sun Roof, Wipers, Door, Tailgate, ORVM =====
+    "grab_handle_driver", "grab_handle_co_driver", "grab_handle_2nd_row",
+    "panoramic_sunroof", "roller_blind_sunblind", "luggage_rack",
+    "front_wiper", "defogging", "rain_sensing_wipers", "rear_wiper",
+    "door_front", "door_rear", "tailgate_type", "power_tailgate",
+
+    # ===== IMAGE 4-5: Steering, Bonnet, Door Trim, Boot, Power Window, Floor Console =====
+    "steering_wheel", "bonnet_gas_strut", "bottle_holder", "door_arm_rest",
+    "boot_organizer", "boot_lamp", "power_window_all_doors", "power_window_driver_door",
+    "window_one_key_lift", "window_anti_clamping", "multilayer_silencing_glass",
+    "front_windshield_mute_glass", "steering_column", "steering_column_lock",
+    "floor_console_armrest", "cup_holders", "wireless_charging", "no_of_wireless_charging",
+    "door_inner_scuff_front", "door_inner_scuff_rear", "voice_recognition_steering",
+
+    # ===== IMAGE 6: Seats, Safety =====
+    "seat_ventilation_driver", "seat_ventilation_front_passenger",
+    "pab_deactivation_switch", "driver_seat_belt", "front_passenger_seat_belt",
+    "seat_belt_2nd_row", "child_anchor", "child_lock", "seat_belt_reminder",
+    "seat_belt_holder_2nd_row", "crash_sensors",
+
+    # ===== IMAGE 8: Technology, Radio, ConnectedDrive, Branded Audio =====
+    "smartphone_connectivity", "bluetooth", "am_fm_radio", "digital_radio",
+    "connected_drive_wireless", "immersive_sound_3d", "no_of_speakers",
+    "audio_brand", "dolby_atmos", "audio_adjustable",
+
+    # ===== IMAGE 9: Lighting =====
+    "headlamp", "high_beam", "low_beam", "auto_high_beam", "headlamp_leveling",
+    "projector_led", "front_fog_lamp", "welcome_lighting", "ambient_lighting",
+    "cabin_lamps", "high_mounted_stop_lamp", "hazard_lamp",
+
+    # ===== IMAGE 9: Locking =====
+    "central_locking", "door_lock", "speed_sensing_door_lock", "panic_alarm",
+    "remote_lock_unlock", "digital_key_plus", "horn", "over_speeding_bell",
+
+    # ===== IMAGE 10: ADAS =====
+    "active_cruise_control", "lane_departure_warning", "automatic_emergency_braking",
+    "lane_keep_assist", "blind_spot_detection", "blind_spot_collision_warning",
+    "forward_collision_warning", "rear_collision_warning", "door_open_alert",
+    "high_beam_assist", "traffic_sign_recognition", "rear_cross_traffic_alert",
+    "traffic_jam_alert", "safe_exit_braking", "surround_view_monitor", "smart_pilot_assist",
+
+    # ===== IMAGE 11: Climate =====
+    "auto_defogging", "no_of_zone_climate", "rear_vent_ac", "active_carbon_filter",
+    "temp_diff_control", "bottle_opener",
+
+    # ===== IMAGE 11: Capabilities =====
+    "terrain_modes", "crawl_smart", "intelli_turn", "off_road_info_display",
+    "central_differential", "limited_slip_differential", "wading_sensing_system",
+    "electronic_gear_shift", "electric_driveline_disconnect", "tpms",
+    "hhc_uphill_start_assist", "engine_electronic_security",
+
+    # ===== IMAGE 11: Power outlet / Charging Points =====
+    "usb_type_c_front_row", "usb_type_c_front_row_count", "usb_type_c_rear_row", "socket_12v",
+
+    # ===== IMAGE 11: Brakes =====
+    "auto_hold", "rollover_mitigation", "rmi_anti_rollover", "vdc_vehicle_dynamic",
+    "csc_corner_stability", "avh_auto_vehicle_hold", "hac_hill_ascend",
+    "hba_hydraulic_brake", "dbc_downhill_brake", "ebp_electronic_brake_prefill",
+    "bdw_brake_disc_wiping", "edtc_engine_drag_torque", "tcs_traction_control",
+    "ebd_electronic_brake", "abs_antilock", "dst_dynamic_steering",
+    "eba_brake_assist", "cbc_cornering_brake", "hdc_hill_descent",
+
+    # ===== IMAGE 11: Others =====
+    "active_noise_reduction", "intelligent_voice_control", "transparent_car_bottom",
+    "intellectual_dodge", "car_picnic_table", "trunk_subwoofer", "dashcam_provision",
+    "cup_holder_tail_door", "hooks_tail_door", "warning_triangle_tail_door",
+    "door_magnetic_strap",
 ]
 
 
@@ -337,7 +408,430 @@ SPEC_KEYWORDS = {
     "seat_features_detailed": "seat features backrest split ratio recline lumbar support thigh ventilation",
     "rear_seat_features": "rear seat features fold center armrest cup holder recline",
     "seatbelt_features": "seatbelt features pretensioner load limiter height adjuster",
+
+    # Technical Specifications (from Image 1)
+    "engine": "engine name type",
+    "max_power_kw": "max power kW kilowatt",
+    "fuel_tank_capacity": "fuel tank capacity litres",
+    "transmission": "transmission type manual automatic CVT DCT",
+    "drive": "drive type FWD RWD AWD 4WD",
+    "drive_mode": "drive modes eco sport normal",
+    "top_speed": "top speed kmph",
+    "length": "length mm dimensions",
+    "width": "width mm dimensions",
+    "height": "height mm dimensions",
+    "wheel_track": "wheel track front rear",
+    "front_brakes": "front brakes disc drum ventilated",
+    "rear_brakes": "rear brakes disc drum",
+    "front_suspension": "front suspension MacPherson strut",
+    "rear_suspension": "rear suspension multi-link torsion beam",
+    "front_tyre_size": "front tyre size",
+    "rear_tyre_size": "rear tyre size",
+    "spare_tyres": "spare tyre type full size temporary",
+
+    # Exterior Features (from Images 2-3)
+    "full_led": "full LED headlamps",
+    "wheel_arch_claddings": "wheel arch claddings",
+    "front_bumper_grille": "front bumper grille design",
+    "antenna_type": "antenna type shark fin",
+    "foot_step": "foot step side step",
+    "console_switches": "console switches controls",
+    "upholstery": "upholstery material leather fabric",
+    "ip_dashboard": "instrument panel dashboard",
+    "glove_box": "glove box cooled illuminated",
+    "sunvisor_driver": "sun visor driver vanity mirror",
+    "sunvisor_co_driver": "sun visor co-driver passenger",
+    "grab_handle_driver": "grab handle driver",
+    "grab_handle_co_driver": "grab handle co-driver",
+    "grab_handle_2nd_row": "grab handle 2nd row rear",
+    "panoramic_sunroof": "panoramic sunroof",
+    "roller_blind_sunblind": "roller blind sunblind sunshade",
+    "luggage_rack": "luggage rack roof rails",
+    "front_wiper": "front wiper",
+    "defogging": "defogging defogger",
+    "rain_sensing_wipers": "rain sensing wipers automatic",
+    "rear_wiper": "rear wiper washer",
+    "door_front": "front door",
+    "door_rear": "rear door",
+    "tailgate_type": "tailgate type",
+    "power_tailgate": "power tailgate electric boot",
+
+    # Interior Features (from Images 4-5)
+    "steering_wheel": "steering wheel leather wrapped",
+    "bonnet_gas_strut": "bonnet gas strut hood lifter",
+    "bottle_holder": "bottle holder door pocket",
+    "door_arm_rest": "door arm rest",
+    "boot_organizer": "boot organizer cargo net",
+    "boot_lamp": "boot lamp trunk light",
+    "power_window_all_doors": "power window all doors",
+    "power_window_driver_door": "power window driver door auto",
+    "window_one_key_lift": "window one touch up down",
+    "window_anti_clamping": "window anti-pinch anti-clamping",
+    "multilayer_silencing_glass": "multilayer silencing glass acoustic",
+    "front_windshield_mute_glass": "front windshield acoustic glass",
+    "steering_column": "steering column tilt telescopic",
+    "steering_column_lock": "steering column lock",
+    "floor_console_armrest": "floor console armrest storage",
+    "cup_holders": "cup holders number",
+    "wireless_charging": "wireless charging pad",
+    "no_of_wireless_charging": "number of wireless charging pads",
+    "door_inner_scuff_front": "front door scuff plate",
+    "door_inner_scuff_rear": "rear door scuff plate",
+    "voice_recognition_steering": "voice recognition steering wheel button",
+
+    # Safety Features (from Image 6)
+    "seat_ventilation_driver": "driver seat ventilation cooling",
+    "seat_ventilation_front_passenger": "front passenger seat ventilation",
+    "pab_deactivation_switch": "passenger airbag deactivation switch",
+    "driver_seat_belt": "driver seat belt pretensioner",
+    "front_passenger_seat_belt": "front passenger seat belt",
+    "seat_belt_2nd_row": "2nd row seat belt rear",
+    "child_anchor": "child anchor ISOFIX",
+    "child_lock": "child lock rear door",
+    "seat_belt_reminder": "seat belt reminder buzzer warning",
+    "seat_belt_holder_2nd_row": "seat belt holder 2nd row",
+    "crash_sensors": "crash sensors impact detection",
+
+    # Technology Features (from Image 8)
+    "smartphone_connectivity": "smartphone connectivity mirroring",
+    "bluetooth": "bluetooth connectivity",
+    "am_fm_radio": "AM FM radio",
+    "digital_radio": "digital radio DAB",
+    "connected_drive_wireless": "connected drive wireless OTA",
+    "immersive_sound_3d": "3D immersive sound surround",
+    "no_of_speakers": "number of speakers",
+    "audio_brand": "audio brand harman bose JBL",
+    "dolby_atmos": "Dolby Atmos sound",
+    "audio_adjustable": "audio adjustable equalizer",
+
+    # Lighting Features (from Image 9)
+    "headlamp": "headlamp type LED halogen",
+    "high_beam": "high beam",
+    "low_beam": "low beam",
+    "auto_high_beam": "auto high beam assist",
+    "headlamp_leveling": "headlamp leveling auto manual",
+    "projector_led": "projector LED headlamps",
+    "front_fog_lamp": "front fog lamp LED",
+    "welcome_lighting": "welcome lighting puddle lamps",
+    "ambient_lighting": "ambient lighting interior",
+    "cabin_lamps": "cabin lamps interior lights",
+    "high_mounted_stop_lamp": "high mounted stop lamp HMSL",
+    "hazard_lamp": "hazard lamp warning lights",
+
+    # Locking Features (from Image 9)
+    "central_locking": "central locking",
+    "door_lock": "door lock power",
+    "speed_sensing_door_lock": "speed sensing door lock auto",
+    "panic_alarm": "panic alarm",
+    "remote_lock_unlock": "remote lock unlock key fob",
+    "digital_key_plus": "digital key smartphone",
+    "horn": "horn dual tone",
+    "over_speeding_bell": "over speeding bell alert warning",
+
+    # ADAS Features (from Image 10)
+    "active_cruise_control": "active cruise control ACC adaptive",
+    "lane_departure_warning": "lane departure warning LDW",
+    "automatic_emergency_braking": "automatic emergency braking AEB",
+    "lane_keep_assist": "lane keep assist LKA",
+    "blind_spot_detection": "blind spot detection BSD",
+    "blind_spot_collision_warning": "blind spot collision warning",
+    "forward_collision_warning": "forward collision warning FCW",
+    "rear_collision_warning": "rear collision warning",
+    "door_open_alert": "door open alert warning",
+    "high_beam_assist": "high beam assist automatic",
+    "traffic_sign_recognition": "traffic sign recognition TSR",
+    "rear_cross_traffic_alert": "rear cross traffic alert RCTA",
+    "traffic_jam_alert": "traffic jam alert assist",
+    "safe_exit_braking": "safe exit braking warning",
+    "surround_view_monitor": "surround view monitor 360 camera",
+    "smart_pilot_assist": "smart pilot assist autonomous",
+
+    # Climate Features (from Image 11)
+    "auto_defogging": "auto defogging automatic defog",
+    "no_of_zone_climate": "climate zone dual triple automatic",
+    "rear_vent_ac": "rear AC vent air conditioning",
+    "active_carbon_filter": "active carbon filter air purifier",
+    "temp_diff_control": "temperature differential control",
+    "bottle_opener": "bottle opener",
+
+    # Capabilities Features (from Image 11)
+    "terrain_modes": "terrain modes off-road sand mud snow",
+    "crawl_smart": "crawl smart low speed control",
+    "intelli_turn": "intelli turn intelligent turning",
+    "off_road_info_display": "off-road information display",
+    "central_differential": "central differential lock",
+    "limited_slip_differential": "limited slip differential LSD rear",
+    "wading_sensing_system": "wading sensing system water depth",
+    "electronic_gear_shift": "electronic gear shift dial rotary",
+    "electric_driveline_disconnect": "electric driveline disconnect front axle",
+    "tpms": "TPMS tyre pressure monitoring",
+    "hhc_uphill_start_assist": "HHC uphill start assist hill hold",
+    "engine_electronic_security": "engine electronic security immobilizer",
+
+    # Power Outlet / Charging Points (from Image 11)
+    "usb_type_c_front_row": "USB Type-C front row",
+    "usb_type_c_front_row_count": "number USB Type-C front",
+    "usb_type_c_rear_row": "USB Type-C rear row",
+    "socket_12v": "12V socket power outlet",
+
+    # Brakes Detailed (from Image 11)
+    "auto_hold": "auto hold brake",
+    "rollover_mitigation": "rollover mitigation",
+    "rmi_anti_rollover": "RMI anti-rollover control",
+    "vdc_vehicle_dynamic": "VDC vehicle dynamic control",
+    "csc_corner_stability": "CSC corner stability control",
+    "avh_auto_vehicle_hold": "AVH automatic vehicle hold",
+    "hac_hill_ascend": "HAC hill ascend control",
+    "hba_hydraulic_brake": "HBA hydraulic brake assist",
+    "dbc_downhill_brake": "DBC downhill brake control",
+    "ebp_electronic_brake_prefill": "EBP electronic brake pre-fill",
+    "bdw_brake_disc_wiping": "BDW brake disc wiping",
+    "edtc_engine_drag_torque": "EDTC engine drag torque control",
+    "tcs_traction_control": "TCS traction control system",
+    "ebd_electronic_brake": "EBD electronic brake force distribution",
+    "abs_antilock": "ABS antilock braking system",
+    "dst_dynamic_steering": "DST dynamic steering torque",
+    "eba_brake_assist": "EBA emergency brake assist",
+    "cbc_cornering_brake": "CBC cornering brake control",
+    "hdc_hill_descent": "HDC hill descent control",
+
+    # Others (from Image 11)
+    "active_noise_reduction": "active noise reduction cancellation ANC",
+    "intelligent_voice_control": "intelligent voice control assistant",
+    "transparent_car_bottom": "transparent car bottom camera view",
+    "intellectual_dodge": "intellectual dodge obstacle avoidance",
+    "car_picnic_table": "car picnic table",
+    "trunk_subwoofer": "trunk subwoofer bass",
+    "dashcam_provision": "dashcam provision",
+    "cup_holder_tail_door": "cup holder tail door tailgate",
+    "hooks_tail_door": "hooks tail door cargo",
+    "warning_triangle_tail_door": "warning triangle tail door",
+    "door_magnetic_strap": "door magnetic strap holder",
 }
+
+# ============================================================================
+# SPEC GROUPS - Group related specs to reduce Custom Search API calls
+# Each group uses ONE search query to extract MULTIPLE specs
+# Only for newly added specs (IMAGE 1-11 specs)
+# ============================================================================
+SPEC_GROUPS = {
+    # Sunvisor - 1 search for 2 specs
+    "sunvisor": {
+        "query": "sun visor driver passenger vanity mirror illuminated",
+        "specs": ["sunvisor_driver", "sunvisor_co_driver"],
+    },
+    # Grab handles - 1 search for 3 specs
+    "grab_handle": {
+        "query": "grab handle driver passenger rear 2nd row",
+        "specs": ["grab_handle_driver", "grab_handle_co_driver", "grab_handle_2nd_row"],
+    },
+    # Sunroof - 1 search for 2 specs
+    "sunroof_features": {
+        "query": "panoramic sunroof roller blind sunshade",
+        "specs": ["panoramic_sunroof", "roller_blind_sunblind"],
+    },
+    # Wipers - 1 search for 4 specs
+    "wipers": {
+        "query": "wiper front rear rain sensing automatic defogger",
+        "specs": ["front_wiper", "defogging", "rain_sensing_wipers", "rear_wiper"],
+    },
+    # Doors - 1 search for 2 specs
+    "doors": {
+        "query": "front door rear door features",
+        "specs": ["door_front", "door_rear"],
+    },
+    # Tailgate - 1 search for 2 specs
+    "tailgate": {
+        "query": "tailgate power electric boot type",
+        "specs": ["tailgate_type", "power_tailgate"],
+    },
+    # Power windows - 1 search for 4 specs
+    "power_windows": {
+        "query": "power window all doors one touch auto up down anti-pinch",
+        "specs": ["power_window_all_doors", "power_window_driver_door", "window_one_key_lift", "window_anti_clamping"],
+    },
+    # Acoustic glass - 1 search for 2 specs
+    "acoustic_glass": {
+        "query": "acoustic glass multilayer silencing windshield",
+        "specs": ["multilayer_silencing_glass", "front_windshield_mute_glass"],
+    },
+    # Steering column - 1 search for 2 specs
+    "steering_column": {
+        "query": "steering column tilt telescopic lock adjustment",
+        "specs": ["steering_column", "steering_column_lock"],
+    },
+    # Wireless charging - 1 search for 2 specs
+    "wireless_charging": {
+        "query": "wireless charging pad number of chargers",
+        "specs": ["wireless_charging", "no_of_wireless_charging"],
+    },
+    # Door scuff - 1 search for 2 specs
+    "door_scuff": {
+        "query": "door scuff plate front rear illuminated",
+        "specs": ["door_inner_scuff_front", "door_inner_scuff_rear"],
+    },
+    # Seat ventilation - 1 search for 2 specs
+    "seat_ventilation": {
+        "query": "seat ventilation cooling driver front passenger",
+        "specs": ["seat_ventilation_driver", "seat_ventilation_front_passenger"],
+    },
+    # Seat belts - 1 search for 5 specs
+    "seat_belts": {
+        "query": "seat belt driver passenger rear 2nd row reminder pretensioner holder",
+        "specs": ["driver_seat_belt", "front_passenger_seat_belt", "seat_belt_2nd_row", "seat_belt_reminder", "seat_belt_holder_2nd_row"],
+    },
+    # Radio - 1 search for 2 specs
+    "radio": {
+        "query": "radio AM FM digital DAB",
+        "specs": ["am_fm_radio", "digital_radio"],
+    },
+    # Audio system - 1 search for 5 specs
+    "audio_system": {
+        "query": "audio speakers 3D surround sound Dolby brand harman bose JBL",
+        "specs": ["immersive_sound_3d", "no_of_speakers", "audio_brand", "dolby_atmos", "audio_adjustable"],
+    },
+    # Headlamps - 1 search for 6 specs
+    "headlamps": {
+        "query": "headlamp LED projector high beam low beam auto leveling",
+        "specs": ["headlamp", "high_beam", "low_beam", "auto_high_beam", "headlamp_leveling", "projector_led"],
+    },
+    # Interior lighting - 1 search for 4 specs
+    "interior_lighting": {
+        "query": "ambient lighting welcome puddle cabin lamps interior",
+        "specs": ["welcome_lighting", "ambient_lighting", "cabin_lamps", "high_mounted_stop_lamp"],
+    },
+    # Locking - 1 search for 5 specs
+    "locking": {
+        "query": "central locking door lock speed sensing remote digital key",
+        "specs": ["central_locking", "door_lock", "speed_sensing_door_lock", "remote_lock_unlock", "digital_key_plus"],
+    },
+    # ADAS collision - 1 search for 4 specs
+    "adas_collision": {
+        "query": "collision warning forward rear blind spot automatic emergency braking AEB",
+        "specs": ["forward_collision_warning", "rear_collision_warning", "blind_spot_collision_warning", "automatic_emergency_braking"],
+    },
+    # ADAS lane - 1 search for 2 specs
+    "adas_lane": {
+        "query": "lane departure warning keep assist LDW LKA",
+        "specs": ["lane_departure_warning", "lane_keep_assist"],
+    },
+    # ADAS alerts - 1 search for 4 specs
+    "adas_alerts": {
+        "query": "door open alert traffic sign recognition jam alert safe exit",
+        "specs": ["door_open_alert", "traffic_sign_recognition", "traffic_jam_alert", "safe_exit_braking"],
+    },
+    # ADAS advanced - 1 search for 4 specs
+    "adas_advanced": {
+        "query": "surround view 360 camera smart pilot assist rear cross traffic blind spot detection",
+        "specs": ["surround_view_monitor", "smart_pilot_assist", "rear_cross_traffic_alert", "blind_spot_detection"],
+    },
+    # Climate - 1 search for 5 specs
+    "climate": {
+        "query": "climate zone dual automatic AC rear vent defogging carbon filter",
+        "specs": ["auto_defogging", "no_of_zone_climate", "rear_vent_ac", "active_carbon_filter", "temp_diff_control"],
+    },
+    # Terrain capabilities - 1 search for 4 specs
+    "terrain_capabilities": {
+        "query": "terrain modes off-road crawl smart intelli turn display",
+        "specs": ["terrain_modes", "crawl_smart", "intelli_turn", "off_road_info_display"],
+    },
+    # Differential - 1 search for 2 specs
+    "differential": {
+        "query": "differential central limited slip LSD lock",
+        "specs": ["central_differential", "limited_slip_differential"],
+    },
+    # Off-road tech - 1 search for 3 specs
+    "offroad_tech": {
+        "query": "wading sensing water depth electronic gear shift driveline disconnect",
+        "specs": ["wading_sensing_system", "electronic_gear_shift", "electric_driveline_disconnect"],
+    },
+    # USB charging ports - 1 search for 4 specs
+    "usb_ports": {
+        "query": "USB Type-C port front rear 12V socket power outlet",
+        "specs": ["usb_type_c_front_row", "usb_type_c_front_row_count", "usb_type_c_rear_row", "socket_12v"],
+    },
+    # Brake assist - 1 search for 4 specs
+    "brake_assist": {
+        "query": "auto hold brake assist AVH HBA EBA emergency",
+        "specs": ["auto_hold", "avh_auto_vehicle_hold", "hba_hydraulic_brake", "eba_brake_assist"],
+    },
+    # Brake stability - 1 search for 4 specs
+    "brake_stability": {
+        "query": "rollover mitigation VDC vehicle dynamic CSC corner stability RMI",
+        "specs": ["rollover_mitigation", "rmi_anti_rollover", "vdc_vehicle_dynamic", "csc_corner_stability"],
+    },
+    # Hill control - 1 search for 4 specs
+    "hill_control": {
+        "query": "hill ascend descent control HAC HDC HHC uphill start DBC",
+        "specs": ["hac_hill_ascend", "dbc_downhill_brake", "hdc_hill_descent", "hhc_uphill_start_assist"],
+    },
+    # Brake tech - 1 search for 8 specs
+    "brake_tech": {
+        "query": "ABS EBD TCS traction control brake disc wiping EDTC CBC cornering DST",
+        "specs": ["ebp_electronic_brake_prefill", "bdw_brake_disc_wiping", "edtc_engine_drag_torque", "tcs_traction_control", "ebd_electronic_brake", "abs_antilock", "cbc_cornering_brake", "dst_dynamic_steering"],
+    },
+    # Boot features - 1 search for 2 specs
+    "boot_features": {
+        "query": "boot organizer cargo net lamp trunk light",
+        "specs": ["boot_organizer", "boot_lamp"],
+    },
+    # Door trim - 1 search for 2 specs
+    "door_trim": {
+        "query": "bottle holder door pocket arm rest",
+        "specs": ["bottle_holder", "door_arm_rest"],
+    },
+    # Tail door accessories - 1 search for 3 specs
+    "tail_door_accessories": {
+        "query": "tail door cup holder hooks warning triangle cargo",
+        "specs": ["cup_holder_tail_door", "hooks_tail_door", "warning_triangle_tail_door"],
+    },
+    # Misc features - 1 search for 4 specs
+    "misc_features": {
+        "query": "active noise reduction voice control transparent car bottom intellectual dodge",
+        "specs": ["active_noise_reduction", "intelligent_voice_control", "transparent_car_bottom", "intellectual_dodge"],
+    },
+    # Misc accessories - 1 search for 3 specs
+    "misc_accessories": {
+        "query": "picnic table trunk subwoofer dashcam provision door magnetic strap",
+        "specs": ["car_picnic_table", "trunk_subwoofer", "dashcam_provision", "door_magnetic_strap"],
+    },
+    # Exterior cladding - 1 search for 3 specs
+    "exterior_body": {
+        "query": "wheel arch claddings front bumper grille foot step side",
+        "specs": ["wheel_arch_claddings", "front_bumper_grille", "foot_step"],
+    },
+    # Floor console - 1 search for 2 specs
+    "floor_console": {
+        "query": "floor console armrest cup holders storage",
+        "specs": ["floor_console_armrest", "cup_holders"],
+    },
+    # Child safety - 1 search for 3 specs
+    "child_safety": {
+        "query": "child anchor ISOFIX lock rear door PAB airbag deactivation",
+        "specs": ["child_anchor", "child_lock", "pab_deactivation_switch"],
+    },
+    # Connectivity - 1 search for 3 specs
+    "connectivity": {
+        "query": "smartphone connectivity bluetooth mirroring connected drive wireless OTA",
+        "specs": ["smartphone_connectivity", "bluetooth", "connected_drive_wireless"],
+    },
+    # Security - 1 search for 3 specs
+    "security": {
+        "query": "panic alarm horn dual tone engine immobilizer electronic security",
+        "specs": ["panic_alarm", "horn", "engine_electronic_security"],
+    },
+    # Cruise & speed - 1 search for 3 specs
+    "cruise_speed": {
+        "query": "cruise control ACC adaptive active over speeding bell alert TPMS",
+        "specs": ["active_cruise_control", "over_speeding_bell", "tpms"],
+    },
+}
+
+# Create reverse mapping: spec -> group name
+SPEC_TO_GROUP = {}
+for group_name, group_data in SPEC_GROUPS.items():
+    for spec in group_data["specs"]:
+        SPEC_TO_GROUP[spec] = group_name
 
 
 # Top 4 most reliable automotive spec sources (hardcoded)
@@ -1172,17 +1666,20 @@ CRITICAL RULES:
 
 def phase1_per_spec_search(car_name: str, existing_specs: Dict[str, str] = None) -> Dict[str, Any]:
     """
-    Phase 1: Per-spec CSE search (unchanged) + batched Gemini extraction.
+    Phase 1: Optimized search with GROUPED specs to reduce API calls.
 
-    Searches: 1 Custom Search query per spec (same as before).
-    Extraction: snippets from 10 specs sent to 1 Gemini call (10x fewer Gemini calls).
+    - Grouped specs (newly added): ONE search per group extracts multiple specs
+    - Ungrouped specs (original): ONE search per spec
 
     Returns: {specs: {spec_name: value}, citations: {spec_name: {source_url}}}
     """
     BATCH_SIZE = 10
+    SEARCH_CHUNK_SIZE = 30  # Process searches in chunks
+    GEMINI_CHUNK_SIZE = 8   # Process Gemini batches at a time
+    CHUNK_DELAY = 1.5       # Delay between chunks
 
     print(f"\n{'='*60}")
-    print(f"PHASE 1: PER-SPEC SEARCH + BATCHED SNIPPET EXTRACTION")
+    print(f"PHASE 1: GROUPED SEARCH + BATCHED EXTRACTION")
     print(f"{'='*60}\n")
 
     existing_specs = existing_specs or {}
@@ -1193,12 +1690,57 @@ def phase1_per_spec_search(car_name: str, existing_specs: Dict[str, str] = None)
         if s not in existing_specs or existing_specs.get(s) in ["Not found", "Not Available", ""]
     ]
 
-    print(f"  Searching {len(remaining_specs)} specs | extracting in batches of {BATCH_SIZE}...\n")
+    # ── Separate grouped vs ungrouped specs ──────────
+    grouped_specs = []
+    ungrouped_specs = []
+    groups_to_search = set()
 
-    # ── STEP 1: run all searches in parallel (identical to original) ──────────
+    for spec in remaining_specs:
+        if spec in SPEC_TO_GROUP:
+            grouped_specs.append(spec)
+            groups_to_search.add(SPEC_TO_GROUP[spec])
+        else:
+            ungrouped_specs.append(spec)
+
+    print(f"  Total remaining: {len(remaining_specs)} specs")
+    print(f"  - Grouped specs: {len(grouped_specs)} (in {len(groups_to_search)} groups)")
+    print(f"  - Ungrouped specs: {len(ungrouped_specs)} (individual searches)")
+    print(f"  Total searches: {len(groups_to_search) + len(ungrouped_specs)} (reduced from {len(remaining_specs)})\n")
+
     search_results_map: Dict[str, List[Dict]] = {}
 
-    def run_search(spec_name):
+    # ── STEP 1a: Search for GROUPED specs (one search per group) ──────────
+    def run_group_search(group_name):
+        group_data = SPEC_GROUPS[group_name]
+        query = build_enhanced_query(car_name, group_data["query"], enhance=True)
+        try:
+            results = google_custom_search(query, SEARCH_ENGINE_ID, num_results=5)
+            return group_name, results
+        except Exception as e:
+            if "429" in str(e) or "quota" in str(e).lower():
+                print(f"    Search rate limit: group {group_name}")
+            return group_name, []
+
+    group_list = list(groups_to_search)
+    group_chunks = [group_list[i:i+SEARCH_CHUNK_SIZE] for i in range(0, len(group_list), SEARCH_CHUNK_SIZE)]
+
+    group_results_map = {}
+    for chunk_idx, chunk in enumerate(group_chunks):
+        if chunk_idx > 0:
+            time.sleep(CHUNK_DELAY)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=SEARCH_WORKERS) as executor:
+            for group_name, results in executor.map(run_group_search, chunk):
+                group_results_map[group_name] = results
+                # Map results to all specs in this group
+                for spec in SPEC_GROUPS[group_name]["specs"]:
+                    if spec in remaining_specs:
+                        search_results_map[spec] = results
+
+        print(f"    Group search chunk {chunk_idx+1}/{len(group_chunks)} done ({len(chunk)} groups)")
+
+    # ── STEP 1b: Search for UNGROUPED specs (one search per spec) ──────────
+    def run_single_search(spec_name):
         keyword = SPEC_KEYWORDS.get(spec_name, spec_name.replace("_", " "))
         query = build_enhanced_query(car_name, keyword, enhance=True)
         try:
@@ -1208,13 +1750,21 @@ def phase1_per_spec_search(car_name: str, existing_specs: Dict[str, str] = None)
                 print(f"    Search rate limit: {spec_name}")
             return spec_name, []
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=SEARCH_WORKERS) as executor:
-        for spec_name, results in executor.map(run_search, remaining_specs):
-            search_results_map[spec_name] = results
+    ungrouped_chunks = [ungrouped_specs[i:i+SEARCH_CHUNK_SIZE] for i in range(0, len(ungrouped_specs), SEARCH_CHUNK_SIZE)]
 
-    # ── STEP 2: batch specs into groups of 10, one Gemini call per batch ──────
+    for chunk_idx, chunk in enumerate(ungrouped_chunks):
+        if chunk_idx > 0 or group_chunks:  # Add delay if there were group searches before
+            time.sleep(CHUNK_DELAY)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=SEARCH_WORKERS) as executor:
+            for spec_name, results in executor.map(run_single_search, chunk):
+                search_results_map[spec_name] = results
+
+        print(f"    Ungrouped search chunk {chunk_idx+1}/{len(ungrouped_chunks)} done ({len(chunk)} specs)")
+
+    # ── STEP 2: Batch Gemini extraction ──────────
     batches = [remaining_specs[i:i+BATCH_SIZE] for i in range(0, len(remaining_specs), BATCH_SIZE)]
-    print(f"  {len(remaining_specs)} searches done → {len(batches)} Gemini extraction calls\n")
+    print(f"\n  {len(groups_to_search) + len(ungrouped_specs)} searches done → {len(batches)} Gemini calls")
 
     specs = {}
     citations = {}
@@ -1223,19 +1773,27 @@ def phase1_per_spec_search(car_name: str, existing_specs: Dict[str, str] = None)
     def run_batch(batch):
         return _extract_batch_from_snippets(car_name, batch, search_results_map)
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=GEMINI_WORKERS) as executor:
-        for batch_result in executor.map(run_batch, batches):
-            for spec_name, spec_data in batch_result.items():
-                value = spec_data["value"]
-                source_url = spec_data["source_url"]
-                specs[spec_name] = value
-                citations[spec_name] = {
-                    "source_url": source_url,
-                    "citation_text": "From search results",
-                    "engine": "SEARCH",
-                }
-                if value and "Not found" not in value:
-                    found += 1
+    batch_chunks = [batches[i:i+GEMINI_CHUNK_SIZE] for i in range(0, len(batches), GEMINI_CHUNK_SIZE)]
+
+    for chunk_idx, batch_chunk in enumerate(batch_chunks):
+        if chunk_idx > 0:
+            time.sleep(CHUNK_DELAY)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=GEMINI_WORKERS) as executor:
+            for batch_result in executor.map(run_batch, batch_chunk):
+                for spec_name, spec_data in batch_result.items():
+                    value = spec_data["value"]
+                    source_url = spec_data["source_url"]
+                    specs[spec_name] = value
+                    citations[spec_name] = {
+                        "source_url": source_url,
+                        "citation_text": "From search results",
+                        "engine": "SEARCH",
+                    }
+                    if value and "Not found" not in value:
+                        found += 1
+
+        print(f"    Gemini chunk {chunk_idx+1}/{len(batch_chunks)} done")
 
     accuracy = (found / len(remaining_specs) * 100) if remaining_specs else 0
     print(f"\n  Phase 1 Complete: {found}/{len(remaining_specs)} specs ({accuracy:.1f}%)")
@@ -1536,6 +2094,96 @@ def phase2_cardekho_fallback(car_name: str, current_specs: Dict[str, str]) -> Di
 
 
 # ============================================================================
+# ENGINE VARIANTS EXTRACTION
+# ============================================================================
+
+def fetch_engine_variants(car_name: str) -> List[Dict[str, str]]:
+    """
+    Fetch all engine variants for a car using Gemini with Google Search grounding.
+
+    Returns a list of dicts, each containing:
+    - engine: Engine name (e.g., "TGDI mStallion", "CRDI mHawk")
+    - engine_displacement: Engine CC (e.g., "2.0L [1997cc]")
+    - max_power_kw: Power output (e.g., "130kW @ 5000 RPM")
+    - torque: Torque (e.g., "380Nm @ 1750-3000 RPM")
+    - transmission: Transmission type (e.g., "6AT | 6MT")
+    - drive: Drive type (e.g., "RWD", "AWD")
+    - kerb_weight: Weight (e.g., "1970 kg")
+    - steering: Steering type (e.g., "Electric power steering")
+    """
+    print(f"\n  Fetching engine variants for {car_name}...")
+
+    prompt = f"""Search for all engine/powertrain variants available for the {car_name} car.
+
+For each engine variant found, extract:
+1. engine: The engine name/type (e.g., "2.0L TGDI mStallion Petrol", "2.2L CRDI mHawk Diesel", "1.5TD+7DCT")
+2. engine_displacement: Engine capacity in CC or liters (e.g., "1997cc", "2.0L [1997cc]")
+3. max_power_kw: Maximum power in kW or bhp with RPM (e.g., "130kW @ 5000 RPM", "170bhp @ 3750 RPM")
+4. torque: Maximum torque in Nm with RPM range (e.g., "380Nm @ 1750-3000 RPM")
+5. transmission: Available transmissions for this engine (e.g., "6AT | 6MT", "7DCT")
+6. drive: Drive type (e.g., "RWD", "FWD", "AWD", "4WD")
+7. kerb_weight: Kerb weight in kg (e.g., "1970 kg")
+8. steering: Steering type (e.g., "Electric power steering with Tilt")
+
+Return JSON array with each engine variant as an object. Example:
+[
+  {{
+    "engine": "2.0L TGDI mStallion Petrol",
+    "engine_displacement": "2.0L [1997cc]",
+    "max_power_kw": "130kW @ 5000 RPM",
+    "torque": "380Nm @ 1750-3000 RPM",
+    "transmission": "6AT | 6MT",
+    "drive": "RWD",
+    "kerb_weight": "1970 kg",
+    "steering": "Electric power steering"
+  }},
+  {{
+    "engine": "2.2L CRDI mHawk Diesel",
+    "engine_displacement": "2.2L [2184cc]",
+    "max_power_kw": "128.6kW @ 3750 RPM",
+    "torque": "400Nm @ 1750-2750 RPM",
+    "transmission": "6AT | 6MT",
+    "drive": "RWD | AWD",
+    "kerb_weight": "2050 kg",
+    "steering": "Electric power steering"
+  }}
+]
+
+If only one engine variant exists, return array with single object.
+Return ONLY valid JSON array, no markdown or explanation."""
+
+    try:
+        response = _gemini_search_client.models.generate_content(
+            model=GEMINI_MAIN_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                tools=[types.Tool(google_search=types.GoogleSearch())],
+                response_modalities=["TEXT"],
+                temperature=0.1,
+            )
+        )
+
+        if response and response.text:
+            text = response.text.strip()
+            # Clean up markdown if present
+            if text.startswith("```"):
+                text = text.split("```")[1]
+                if text.startswith("json"):
+                    text = text[4:]
+                text = text.strip()
+
+            variants = json_repair.loads(text)
+            if isinstance(variants, list) and len(variants) > 0:
+                print(f"    Found {len(variants)} engine variant(s)")
+                return variants
+    except Exception as e:
+        print(f"    Warning: Engine variants fetch failed - {str(e)}")
+
+    # Return empty list if failed
+    return []
+
+
+# ============================================================================
 # MAIN SCRAPING FUNCTION
 # ============================================================================
 
@@ -1544,8 +2192,8 @@ def scrape_car_data_with_custom_search(car_name: str) -> Dict[str, Any]:
     Main scraping function.
 
     Phase 0: Official brand site extraction (top 30 specs)
-    Phase 1: Per-spec search for remaining specs
-    Phase 2: CarDekho fallback for missing specs
+    Phase 1: AutoCar/CarDekho fallback (better spec coverage)
+    Phase 2: CSE grouped search for missing specs
     """
     # Reset Gemini model to Flash at start of each car
     reset_gemini_model()
@@ -1561,8 +2209,8 @@ def scrape_car_data_with_custom_search(car_name: str) -> Dict[str, Any]:
     specs = phase0_result["specs"].copy()
     citations = phase0_result["citations"].copy()
 
-    # Phase 1: Per-spec search for remaining specs
-    phase1_result = phase1_per_spec_search(car_name, existing_specs=specs)
+    # Phase 1: AutoCar/CarDekho fallback (better spec coverage)
+    phase1_result = phase2_cardekho_fallback(car_name, specs)
 
     # Merge Phase 1 results
     for spec_name, value in phase1_result["specs"].items():
@@ -1573,15 +2221,17 @@ def scrape_car_data_with_custom_search(car_name: str) -> Dict[str, Any]:
         if spec_name not in citations:
             citations[spec_name] = citation
 
-    # Phase 2: CarDekho fallback
-    phase2_result = phase2_cardekho_fallback(car_name, specs)
+    # Phase 2: CSE grouped search (only for missing specs)
+    phase2_result = phase1_per_spec_search(car_name, existing_specs=specs)
 
-    # Merge Phase 2 results
+    # Merge Phase 2 results (only missing specs)
     for spec_name, value in phase2_result["specs"].items():
-        specs[spec_name] = value
+        if spec_name not in specs or specs.get(spec_name) in ["Not found", "Not Available", ""]:
+            specs[spec_name] = value
 
     for spec_name, citation in phase2_result["citations"].items():
-        citations[spec_name] = citation
+        if spec_name not in citations:
+            citations[spec_name] = citation
 
     # Phase 3: Extract feature-specific images from CarDekho
     try:
@@ -1598,12 +2248,16 @@ def scrape_car_data_with_custom_search(car_name: str) -> Dict[str, Any]:
             "safety": []
         }
 
+    # Phase 4: Fetch engine variants
+    engine_variants = fetch_engine_variants(car_name)
+
     # Build final car_data
     car_data = {
         "car_name": car_name,
         "method": "Per-Spec Search + CarDekho Fallback",
         "source_urls": [],
         "images": images,  # Add extracted images
+        "engine_variants": engine_variants,  # Add engine variants
     }
 
     # Collect source URLs
@@ -1849,8 +2503,8 @@ async def async_scrape_car_data(car_name: str) -> Dict[str, Any]:
     specs = phase0_result["specs"].copy()
     citations = phase0_result["citations"].copy()
 
-    # Phase 1: Sync per-spec search with batched Gemini extraction (faster than async per-spec)
-    phase1_result = phase1_per_spec_search(car_name, existing_specs=specs)
+    # Phase 1: AutoCar/CarDekho fallback (better spec coverage)
+    phase1_result = phase2_cardekho_fallback(car_name, specs)
 
     # Merge Phase 1 results
     for spec_name, value in phase1_result["specs"].items():
@@ -1861,15 +2515,17 @@ async def async_scrape_car_data(car_name: str) -> Dict[str, Any]:
         if spec_name not in citations:
             citations[spec_name] = citation
 
-    # Phase 2: CarDekho fallback (still sync for now)
-    phase2_result = phase2_cardekho_fallback(car_name, specs)
+    # Phase 2: CSE grouped search (only for missing specs after fallback)
+    phase2_result = phase1_per_spec_search(car_name, existing_specs=specs)
 
-    # Merge Phase 2 results
+    # Merge Phase 2 results (only missing specs)
     for spec_name, value in phase2_result["specs"].items():
-        specs[spec_name] = value
+        if spec_name not in specs or specs.get(spec_name) in ["Not found", "Not Available", ""]:
+            specs[spec_name] = value
 
     for spec_name, citation in phase2_result["citations"].items():
-        citations[spec_name] = citation
+        if spec_name not in citations:
+            citations[spec_name] = citation
 
     # Phase 3: Async image extraction
     try:
@@ -1885,12 +2541,16 @@ async def async_scrape_car_data(car_name: str) -> Dict[str, Any]:
             "safety": []
         }
 
+    # Phase 4: Fetch engine variants
+    engine_variants = fetch_engine_variants(car_name)
+
     # Build final car_data
     car_data = {
         "car_name": car_name,
         "method": "Async Per-Spec Search + CarDekho Fallback",
         "source_urls": [],
         "images": images,
+        "engine_variants": engine_variants,  # Add engine variants
     }
 
     # Collect source URLs

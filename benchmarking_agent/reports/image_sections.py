@@ -1652,12 +1652,10 @@ def generate_drivetrain_comparison_section(
     page_num: int = 19
 ) -> str:
     """
-    Generate drivetrain/powertrain feature comparison sections — ONE per car.
+    Generate drivetrain/powertrain comparison section with 50-50 side-by-side layout.
 
-    Runs one Gemini call per car in parallel (3 cars = 3 parallel calls).
-    Each section has a dynamic comparison_with column based on the car's
-    actual drivetrain type (4WD vs Conventional 4WD, FWD vs Conventional FWD,
-    EV vs Conventional ICE, etc.)
+    Shows both cars side-by-side with a vertical divider line between them.
+    Each car has: intro paragraph, feature table, and explanations.
 
     Args:
         comparison_data: Dict mapping car names to their scraped data
@@ -1665,7 +1663,7 @@ def generate_drivetrain_comparison_section(
         page_num: Starting page number
 
     Returns:
-        HTML string — concatenated drivetrain sections for all cars
+        HTML string — single drivetrain comparison section with both cars side-by-side
     """
     car_names = [name for name, data in comparison_data.items()
                  if isinstance(data, dict) and "error" not in data
@@ -1680,13 +1678,184 @@ def generate_drivetrain_comparison_section(
     if not all_drivetrain:
         return ""
 
-    # Generate one section per car
-    html_parts = []
-    for i, car_dt_data in enumerate(all_drivetrain):
-        if car_dt_data and car_dt_data.get("features"):
-            html_parts.append(_generate_single_drivetrain_section(car_dt_data, page_num + i))
+    # Filter out empty results
+    valid_drivetrain = [dt for dt in all_drivetrain if dt and dt.get("features")]
+    if not valid_drivetrain:
+        return ""
 
-    return "\n".join(html_parts)
+    # Generate side-by-side drivetrain cards (each with intro + table + explanations)
+    drivetrain_cards = ""
+    for card_idx, dt_data in enumerate(valid_drivetrain):
+        car_name = dt_data.get("car_name", "")
+        system_name = dt_data.get("system_name", "Drivetrain System")
+        intro_text = dt_data.get("intro_text", "")
+        features = dt_data.get("features", [])
+        explanations = dt_data.get("explanations", [])
+        comparison_with = dt_data.get("comparison_with", "Conventional Drivetrain")
+
+        # Highlight keywords with green background
+        highlighted_intro = intro_text
+        for keyword in dt_data.get("highlight_keywords", []):
+            if keyword:
+                highlighted_intro = highlighted_intro.replace(keyword, f'<span class="highlight-green">{keyword}</span>')
+
+        # Build feature rows for this car's table
+        feature_rows = ""
+        for feature in features:
+            feature_rows += f'''
+            <tr>
+                <td class="feature-name">{feature.get("name", "")}</td>
+                <td class="feature-car">{feature.get("car_value", "")}</td>
+                <td class="feature-conventional">{feature.get("conventional_value", "")}</td>
+            </tr>
+            '''
+
+        # Build explanations list
+        explanations_html = ""
+        for i, exp in enumerate(explanations):
+            letter = chr(97 + i)  # a, b, c, d...
+            explanations_html += f'''
+            <li><span class="exp-letter">{letter}.</span> <span class="exp-title">{exp.get("title", "")}:</span> {exp.get("description", "")}</li>
+            '''
+
+        drivetrain_cards += f'''
+        <div class="drivetrain-card">
+            <p class="drivetrain-intro">{highlighted_intro}</p>
+            <table class="drivetrain-table">
+                <thead>
+                    <tr>
+                        <th>Feature</th>
+                        <th class="car-col">{car_name}<br><span class="car-subtitle">{system_name}</span></th>
+                        <th class="conv-col">{comparison_with}</th>
+                    </tr>
+                </thead>
+                <tbody>{feature_rows}</tbody>
+            </table>
+            <ol class="drivetrain-explanations">{explanations_html}</ol>
+        </div>
+        '''
+        # Add divider after first card (between the two cards)
+        if card_idx == 0 and len(valid_drivetrain) > 1:
+            drivetrain_cards += '<div class="drivetrain-divider"></div>'
+
+    return f'''
+    <style>
+        .drivetrain-grid {{
+            display: grid;
+            grid-template-columns: 1fr 1px 1fr;
+            gap: 30px;
+        }}
+        .drivetrain-divider {{
+            background: #dee2e6;
+            width: 1px;
+        }}
+        .drivetrain-card {{
+            background: white;
+        }}
+        .drivetrain-intro {{
+            font-size: 14px;
+            color: #333;
+            line-height: 1.7;
+            margin: 0 0 20px 0;
+            text-decoration: underline;
+            text-decoration-color: #ccc;
+        }}
+        .highlight-green {{
+            background: #d4edda;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+            color: #155724;
+            text-decoration: none;
+        }}
+        .drivetrain-table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            border: 1px solid #dee2e6;
+        }}
+        .drivetrain-table th {{
+            padding: 12px 10px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            border-bottom: 2px solid #dee2e6;
+            background: white;
+        }}
+        .drivetrain-table th.car-col {{
+            border-left: 1px solid #dee2e6;
+        }}
+        .drivetrain-table th.conv-col {{
+            border-left: 1px solid #dee2e6;
+            color: #666;
+        }}
+        .drivetrain-table .car-subtitle {{
+            font-weight: 400;
+            font-size: 11px;
+            color: #666;
+        }}
+        .drivetrain-table td {{
+            padding: 12px 10px;
+            font-size: 13px;
+            border-bottom: 1px solid #dee2e6;
+            vertical-align: top;
+        }}
+        .drivetrain-table td.feature-name {{
+            font-weight: 600;
+            color: #1c2a39;
+            width: 25%;
+        }}
+        .drivetrain-table td.feature-car {{
+            border-left: 1px solid #dee2e6;
+            text-align: center;
+        }}
+        .drivetrain-table td.feature-conventional {{
+            border-left: 1px solid #dee2e6;
+            text-align: center;
+            color: #666;
+        }}
+        .drivetrain-explanations {{
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            font-size: 13px;
+            line-height: 1.6;
+        }}
+        .drivetrain-explanations li {{
+            margin-bottom: 12px;
+        }}
+        .drivetrain-explanations .exp-letter {{
+            font-weight: 600;
+            margin-right: 4px;
+        }}
+        .drivetrain-explanations .exp-title {{
+            font-weight: 600;
+            text-decoration: underline;
+        }}
+        @media (max-width: 1024px) {{
+            .drivetrain-grid {{
+                grid-template-columns: 1fr;
+            }}
+            .drivetrain-divider {{
+                display: none;
+            }}
+        }}
+    </style>
+    <div class="content" id="drivetrain-section">
+        <div class="section-header">
+            <div class="icon-wrapper">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                </svg>
+            </div>
+            <h2>Drivetrain Comparison</h2>
+        </div>
+        <div class="drivetrain-grid">
+            {drivetrain_cards}
+        </div>
+    </div>
+    '''
 
 
 def _extract_all_drivetrain_data(
@@ -4046,7 +4215,19 @@ def generate_variant_walk_section(comparison_data: Dict[str, Any]) -> str:
         if not variants:
             continue
 
-        variant_names = [v.get("name", k) for k, v in variants.items()]
+        # Helper to ensure we have a list (handle JSON strings)
+        def ensure_list(val):
+            if val is None:
+                return []
+            if isinstance(val, str):
+                if val.startswith('{') or val.startswith('[') or val.startswith('```'):
+                    return []
+                return [val] if val.strip() else []
+            if isinstance(val, list):
+                return [str(v) for v in val if v and not (isinstance(v, str) and (v.startswith('{') or v.startswith('```')))]
+            return []
+
+        variant_names = [v.get("name", k) if isinstance(v, dict) else k for k, v in variants.items()]
         num_cols = len(variant_names)
 
         html += f"""
@@ -4062,23 +4243,26 @@ def generate_variant_walk_section(comparison_data: Dict[str, Any]) -> str:
         is_first = True
         variant_keys = list(variants.keys())
         for idx, (vkey, vdata) in enumerate(variants.items()):
-            vdata = vdata or {}
-            features = vdata.get("features") or []
-            features_added = vdata.get("features_added") or []
-            features_deleted = vdata.get("features_deleted") or []
+            vdata = vdata if isinstance(vdata, dict) else {}
+            features = ensure_list(vdata.get("features"))
+            features_added = ensure_list(vdata.get("features_added"))
+            features_deleted = ensure_list(vdata.get("features_deleted"))
 
             html += "<td>"
             if is_first:
                 html += '<div class="bm-vw-section-label">Standard Features:</div>'
                 is_first = False
             else:
-                prev_name = variants[variant_keys[idx - 1]].get("name", variant_keys[idx - 1])
+                prev_vdata = variants[variant_keys[idx - 1]]
+                prev_name = prev_vdata.get("name", variant_keys[idx - 1]) if isinstance(prev_vdata, dict) else variant_keys[idx - 1]
                 html += f'<div class="bm-vw-section-label">In addition to {prev_name}:</div>'
 
             items = features_added if features_added else features[:10]
             if items:
                 html += '<ul class="bm-vw-features">'
                 for feat in items:
+                    if isinstance(feat, str) and (feat.startswith('{') or feat.startswith('```')):
+                        continue
                     html += f'<li class="bm-vw-added">{feat}</li>'
                 html += "</ul>"
 
@@ -4086,6 +4270,8 @@ def generate_variant_walk_section(comparison_data: Dict[str, Any]) -> str:
                 html += '<div class="bm-vw-deleted-label">Removed / Replaced:</div>'
                 html += '<ul class="bm-vw-features">'
                 for feat in features_deleted:
+                    if isinstance(feat, str) and (feat.startswith('{') or feat.startswith('```')):
+                        continue
                     html += f'<li class="bm-vw-deleted">{feat}</li>'
                 html += "</ul>"
 
@@ -4460,7 +4646,7 @@ def generate_price_ladder_section(comparison_data: Dict[str, Any]) -> str:
 
     # Check if any car has generation comparison data
     has_any_gen_comparison = any(
-        car_data.get('generation_comparison', {}).get('has_old_generation', False)
+        (car_data.get('generation_comparison') or {}).get('has_old_generation', False)
         for car_data in comparison_data.values()
         if isinstance(car_data, dict) and "error" not in car_data
     )
