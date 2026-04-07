@@ -34,16 +34,13 @@ _GROUNDING_LOCATION = "us-central1"
 _adas_gemini_client = genai.Client(vertexai=True, project=_PROJECT_ID, location=_GROUNDING_LOCATION)
 
 
-def fetch_adas_comparison_data(car_names: list) -> Dict[str, Any]:
+def _fetch_single_car_adas(car_name: str) -> tuple:
     """
-    Fetch comprehensive ADAS features for all cars using Gemini with Google Search.
-    Returns a dict with car names as keys and ADAS data as values.
+    Fetch ADAS data for a single car. Returns (car_name, adas_data).
     """
-    adas_data = {}
-
-    for car_name in car_names:
-        try:
-            prompt = f"""Search for the latest and most comprehensive ADAS (Advanced Driver Assistance Systems) features for the {car_name} car in India.
+    try:
+        print(f"  Fetching ADAS data: {car_name}")
+        prompt = f"""Search for the latest and most comprehensive ADAS (Advanced Driver Assistance Systems) features for the {car_name} car in India.
 
 Provide a detailed breakdown of ALL available ADAS features in the following categories:
 
@@ -109,31 +106,73 @@ Return as JSON with this structure:
 
 Return ONLY valid JSON, no markdown or explanation."""
 
-            response = _adas_gemini_client.models.generate_content(
-                model=GEMINI_MAIN_MODEL,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    tools=[types.Tool(google_search=types.GoogleSearch())],
-                    response_modalities=["TEXT"],
-                    temperature=0.1,
-                    max_output_tokens=4096,
-                ),
-            )
+        response = _adas_gemini_client.models.generate_content(
+            model=GEMINI_MAIN_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                tools=[types.Tool(google_search=types.GoogleSearch())],
+                response_modalities=["TEXT"],
+                temperature=0.1,
+                max_output_tokens=4096,
+            ),
+        )
 
-            if response and response.text:
-                import json_repair
-                text = response.text.strip()
-                if "```json" in text:
-                    text = text.split("```json")[1].split("```")[0]
-                elif "```" in text:
-                    text = text.split("```")[1].split("```")[0]
-                text = text.strip()
-                if "{" in text and "}" in text:
-                    text = text[text.index("{"):text.rindex("}") + 1]
-                adas_data[car_name] = json_repair.loads(text)
-        except Exception as e:
-            print(f"Error fetching ADAS data for {car_name}: {e}")
-            adas_data[car_name] = {"error": str(e), "car_name": car_name}
+        if response and response.text:
+            import json_repair
+            text = response.text.strip()
+            if "```json" in text:
+                text = text.split("```json")[1].split("```")[0]
+            elif "```" in text:
+                text = text.split("```")[1].split("```")[0]
+            text = text.strip()
+            if "{" in text and "}" in text:
+                text = text[text.index("{"):text.rindex("}") + 1]
+            data = json_repair.loads(text)
+            num_features = sum(len(cat) for cat in data.get("categories", {}).values())
+            print(f"  ✓ {car_name}: {num_features} ADAS features, {data.get('adas_level', 'N/A')}")
+            return (car_name, data)
+    except Exception as e:
+        print(f"  ✗ {car_name}: ADAS fetch error - {e}")
+        return (car_name, {"error": str(e), "car_name": car_name})
+
+    return (car_name, {"error": "No response", "car_name": car_name})
+
+
+def fetch_adas_comparison_data(car_names: list) -> Dict[str, Any]:
+    """
+    Fetch comprehensive ADAS features for all cars using Gemini with Google Search.
+    Uses parallel fetching for all cars simultaneously.
+    Returns a dict with car names as keys and ADAS data as values.
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    adas_data = {}
+
+    if not car_names:
+        return adas_data
+
+    print(f"\n============================================================")
+    print(f"ADAS: Parallel fetch for {len(car_names)} cars")
+    print(f"============================================================")
+    for car in car_names:
+        print(f"  Queuing: {car}")
+
+    print(f"\n  Launching {len(car_names)} parallel Gemini calls...\n")
+
+    # Fetch all cars in parallel
+    with ThreadPoolExecutor(max_workers=len(car_names)) as executor:
+        futures = {executor.submit(_fetch_single_car_adas, car): car for car in car_names}
+
+        for future in as_completed(futures):
+            try:
+                car_name, data = future.result(timeout=120)
+                adas_data[car_name] = data
+            except Exception as e:
+                car_name = futures[future]
+                print(f"  ✗ {car_name}: ADAS timeout/error - {e}")
+                adas_data[car_name] = {"error": str(e), "car_name": car_name}
+
+    print(f"\n  ADAS complete: {len(adas_data)}/{len(car_names)} cars")
 
     return adas_data
 

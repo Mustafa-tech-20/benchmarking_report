@@ -549,43 +549,20 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
         excel_specs = excel_specs_store.get(car)
 
         if is_code_car(car):
-            # CODE: internal cars must NEVER be web-scraped
+            # CODE: internal cars - use PDF/Excel if available, then web search fills gaps
             if manual_specs and not manual_specs.get('left_blank'):
-                # RAG/manually-collected specs — use directly
+                # RAG/manually-collected specs are complete — use directly
                 print(f"[{car}] Using RAG/manual specs (no web search)")
                 car_data = manual_specs
-            elif pdf_specs:
-                # PDF-uploaded specs — merge onto blank base
-                print(f"[{car}] Using PDF-uploaded specs (no web search)")
-                car_data = create_blank_specs_for_code_car(car)
-                car_data['left_blank'] = False
-                car_data['manual_entry'] = False
-                car_data['source_urls'] = ["PDF uploaded by user"]
-                car_data['images'] = {}
-                for field, value in pdf_specs.items():
-                    # Skip citation-like keys the agent may have included
-                    if field.endswith("_citation"):
-                        continue
-                    # Flatten dicts/lists to a plain string
-                    if isinstance(value, dict):
-                        value = value.get("value") or value.get("text") or str(value)
-                    elif isinstance(value, list):
-                        value = ", ".join(str(v) for v in value)
-                    if value and str(value).strip() not in ("", "N/A", "Not Available"):
-                        car_data[field] = str(value).strip()
-                        car_data[f"{field}_citation"] = {
-                            "source_url": "PDF uploaded by user",
-                            "citation_text": "Extracted from PDF uploaded by user"
-                        }
-            elif excel_specs:
-                # Excel-uploaded specs — merge onto blank base
-                print(f"[{car}] Using Excel-uploaded specs (no web search)")
-                car_data = create_blank_specs_for_code_car(car)
-                car_data['left_blank'] = False
-                car_data['manual_entry'] = False
-                car_data['source_urls'] = ["Excel uploaded by user"]
-                car_data['images'] = {}
-                for field, value in excel_specs.items():
+            elif pdf_specs or excel_specs:
+                # HYBRID MODE: PDF/Excel prefill + web search for missing specs
+                source_type = "PDF" if pdf_specs else "Excel"
+                specs_to_use = pdf_specs if pdf_specs else excel_specs
+                print(f"[{car}] HYBRID MODE: {source_type} specs + web search for gaps")
+
+                # Parse prefill specs
+                prefill_data = {}
+                for field, value in specs_to_use.items():
                     if field.endswith("_citation"):
                         continue
                     if isinstance(value, dict):
@@ -593,11 +570,32 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
                     elif isinstance(value, list):
                         value = ", ".join(str(v) for v in value)
                     if value and str(value).strip() not in ("", "N/A", "Not Available"):
-                        car_data[field] = str(value).strip()
+                        prefill_data[field] = str(value).strip()
+
+                print(f"  → {len(prefill_data)} specs from {source_type}, web search will fill remaining")
+
+                # Web search using the car name without CODE: prefix
+                search_name = car[5:].strip() if car.upper().startswith("CODE:") else car
+                car_data = scrape_car_data(search_name, None, use_custom_search=use_custom_search, pdf_specs=None)
+
+                # Merge prefill specs - prefill values take priority
+                prefill_source = f"{source_type} uploaded by user"
+                merged_count = 0
+                for field, value in prefill_data.items():
+                    if value and str(value).strip() not in ("", "N/A", "Not Available"):
+                        car_data[field] = value
                         car_data[f"{field}_citation"] = {
-                            "source_url": "Excel uploaded by user",
-                            "citation_text": "Extracted from Excel uploaded by user"
+                            "source_url": prefill_source,
+                            "citation_text": f"Extracted from {prefill_source}"
                         }
+                        merged_count += 1
+                print(f"[{car}] Merged {merged_count} specs from {prefill_source}")
+
+                # Add source URL for prefill
+                if "source_urls" not in car_data:
+                    car_data["source_urls"] = []
+                if prefill_source not in car_data["source_urls"]:
+                    car_data["source_urls"].insert(0, prefill_source)
             else:
                 # No specs collected yet — use blank rather than web-scraping
                 print(f"[{car}] No specs available for CODE car, using blank")
