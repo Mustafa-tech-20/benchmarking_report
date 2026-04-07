@@ -965,38 +965,68 @@ Return JSON only: {{"features": [{{"name": "X", "{car1}": true/false, "{car2}": 
 def _build_fallback_categories(car_names: List[str], comparison_data: Dict[str, Any]) -> List[Dict]:
     """Build category structure from existing scraped data when Gemini is unavailable."""
     feature_groups = {
-        "Safety": {
-            "Airbags": [("Number of Airbags", "airbags"), ("Airbag Types", "airbag_types_breakdown")],
-            "Sensors": [("NCAP Rating", "ncap_rating"), ("Impact Rating", "impact"), ("ADAS System", "adas")],
-            "Controls": [("Electronic Stability", "stability"), ("Hill Hold", "epb"),
-                         ("Parking Sensors", "parking_sensors"), ("Parking Camera", "parking_camera")],
-            "Restraints": [("Seatbelt Features", "seats_restraint"), ("Safety Features", "vehicle_safety_features")],
-        },
-        "Technology": {
-            "Infotainment": [("Instrument Cluster", "digital_display"), ("Touchscreen", "infotainment_screen"),
-                             ("Touch Response", "touch_response")],
-            "Connectivity": [("Apple CarPlay", "apple_carplay"), ("Cruise Control", "cruise_control")],
-            "Audio": [("Audio System", "audio_system")],
-        },
         "Exterior": {
-            "Lighting": [("LED Headlamps", "led"), ("DRL", "drl"), ("Tail Lamps", "tail_lamp")],
-            "Wheels": [("Alloy Wheels", "alloy_wheel"), ("Tyre Size", "tyre_size")],
-            "Roof": [("Sunroof", "sunroof")],
+            "Full LED": [("LED Headlamps", "led"), ("LED DRL", "drl"), ("LED Tail Lamps", "tail_lamp")],
+            "Wheels & Tyres": [("Alloy Wheels", "alloy_wheel"), ("Tyre Size", "tyre_size")],
         },
         "Interior": {
-            "Seats": [("Seat Material", "seat_material"), ("Ventilated Seats", "ventilated_seats"),
-                      ("Seating Capacity", "seating_capacity")],
-            "Climate": [("Climate Control", "climate_control")],
-            "Comfort": [("Armrest", "armrest"), ("Soft Touch Trims", "soft_trims"),
-                        ("Push Button Start", "button"), ("Power Windows", "window")],
+            "Upholstery": [("Seat Material", "seat_material")],
+            "Dashboard": [("Soft Touch Dashboard", "soft_trims")],
         },
-        "Performance": {
-            "Engine": [("Fuel Type", "fuel_type"), ("Displacement", "engine_displacement"),
-                       ("Torque", "torque"), ("Mileage", "mileage")],
+        "Sun Roof / Fixed Roof": {
+            "Panoramic Sun Roof": [("Sunroof", "sunroof")],
         },
-        "Dimensions": {
-            "Size": [("Wheelbase", "wheelbase"), ("Ground Clearance", "ground_clearance"),
-                     ("Boot Space", "boot_space"), ("Chassis Type", "chasis")],
+        "Wipers & Demister": {
+            "Defogging": [("Rear Defogger", "rear_defogger")],
+        },
+        "ORVM": {
+            "ORVM": [("Power ORVM", "orvm")],
+        },
+        "Boot/Trunk": {
+            "Boot": [("Boot Space", "boot_space")],
+        },
+        "Floor Console": {
+            "Arm Rest": [("Armrest", "armrest")],
+        },
+        "Wireless charging": {
+            "Wireless charging": [("Wireless Charging", "wireless_charging")],
+        },
+        "Seats": {
+            "Seats": [("Seating Capacity", "seating_capacity"), ("Ventilated Seats", "ventilated_seats")],
+        },
+        "Safety": {
+            "Airbags": [("Number of Airbags", "airbags"), ("Airbag Types", "airbag_types_breakdown")],
+            "Sensors": [("NCAP Rating", "ncap_rating"), ("Parking Sensors", "parking_sensors"),
+                        ("Parking Camera", "parking_camera"), ("ADAS System", "adas")],
+            "Safety Features": [("Vehicle Safety Features", "vehicle_safety_features"),
+                                ("Seatbelt Features", "seats_restraint")],
+        },
+        "Technology": {
+            "Infotainment": [("Touchscreen", "infotainment_screen"), ("Screen Resolution", "resolution"),
+                             ("Touch Response", "touch_response"), ("Digital Display", "digital_display")],
+            "Smart Phone Connectivity": [("Apple CarPlay", "apple_carplay")],
+            "Audio": [("Audio System", "audio_system")],
+        },
+        "Lighting": {
+            "Lighting": [("LED Headlamps", "led"), ("Tail Lamp", "tail_lamp"), ("DRL", "drl")],
+        },
+        "Locking": {
+            "Locking": [("Push Button Start", "button")],
+        },
+        "Climate": {
+            "Climate Control": [("Climate Control", "climate_control")],
+        },
+        "Capabilities": {
+            "Off-Road": [("Off-Road", "off_road"), ("Drive Modes", "drive_mode")],
+        },
+        "Power Window": {
+            "All Doors": [("Power Windows", "window")],
+        },
+        "Steering": {
+            "Steering": [("Steering Type", "steering"), ("Telescopic Steering", "telescopic_steering")],
+        },
+        "Brakes": {
+            "Brakes": [("Brakes", "brakes"), ("EPB", "epb"), ("Stability Control", "stability")],
         },
     }
 
@@ -1505,7 +1535,8 @@ def generate_technical_spec_section(comparison_data: Dict[str, Any], page_start:
 def generate_feature_list_section(comparison_data: Dict[str, Any], page_start: int = 4) -> str:
     """
     Generate Feature List Comparison pages — ticks and crosses only (no text columns).
-    Uses the same specs as Technical Specifications but displays them in checklist format.
+    Uses Gemini + Google Search for a comprehensive 80-120 feature binary list.
+    Falls back to existing scraped data if Gemini is unavailable.
     """
     car_names = [name for name, data in comparison_data.items()
                  if isinstance(data, dict) and "error" not in data]
@@ -1513,315 +1544,10 @@ def generate_feature_list_section(comparison_data: Dict[str, Any], page_start: i
     if not car_names:
         return ""
 
-    # Use the same tech_spec_groups as Technical Specifications section
-    tech_spec_groups = {
-        "Powertrain": [
-            ("Engine", "engine"),
-            ("Engine CC", "engine_displacement"),
-            ("Max Power (kW)", "max_power_kw"),
-            ("Max Torque (Nm)", "torque"),
-        ],
-        "Fuel": [
-            ("Type", "fuel_type"),
-            ("Tank Capacity", "fuel_tank_capacity"),
-        ],
-        "Transmission": [
-            ("Transmission", "transmission"),
-        ],
-        "Drive": [
-            ("Drive", "drive"),
-            ("Drive Mode", "drive_mode"),
-        ],
-        "Top Speed": [
-            ("Top Speed (km/h)", "top_speed"),
-        ],
-        "Dimension": [
-            ("Length (mm)", "length"),
-            ("Width (mm)", "width"),
-            ("Height (mm)", "height"),
-            ("Wheelbase (mm)", "wheelbase"),
-            ("WheelTrack F/R", "wheel_track"),
-            ("Ground clearance", "ground_clearance"),
-            ("Kerb weight (kg)", "kerb_weight"),
-        ],
-        "Steering": [
-            ("Type", "steering"),
-        ],
-        "Seat": [
-            ("Seating Capacity", "seating_capacity"),
-        ],
-        "Brakes": [
-            ("Front Brakes", "front_brakes"),
-            ("Rear Brakes", "rear_brakes"),
-        ],
-        "Suspension": [
-            ("Front Suspension", "front_suspension"),
-            ("Rear Suspension", "rear_suspension"),
-        ],
-        "Wheel & Tyre": [
-            ("Front - Tyre size", "front_tyre_size"),
-            ("Rear - Tyre size", "rear_tyre_size"),
-            ("Spare Tyres", "spare_tyres"),
-        ],
-        "Boot": [
-            ("Space (L)", "boot_space"),
-        ],
-        "Exterior": [
-            ("Full LED", "full_led"),
-            ("Wheel arch Ext. Claddings", "wheel_arch_claddings"),
-            ("Front Bumper & Grille", "front_bumper_grille"),
-            ("Antenna Type", "antenna_type"),
-            ("Foot step", "foot_step"),
-        ],
-        "Interior": [
-            ("Console Switches", "console_switches"),
-            ("Upholstery", "upholstery"),
-            ("IP/ Dashboard", "ip_dashboard"),
-            ("Glove Box", "glove_box"),
-        ],
-        "Sunvisor": [
-            ("Driver", "sunvisor_driver"),
-            ("Co Driver", "sunvisor_co_driver"),
-        ],
-        "Grab Handle": [
-            ("Driver", "grab_handle_driver"),
-            ("Co Driver", "grab_handle_co_driver"),
-            ("2nd Row Both side", "grab_handle_2nd_row"),
-        ],
-        "Sun Roof / Fixed Roof": [
-            ("Panoramic Sun Roof", "panoramic_sunroof"),
-            ("Roller Blind/ Sunblind", "roller_blind_sunblind"),
-        ],
-        "Luggage rack": [
-            ("Luggage rack", "luggage_rack"),
-        ],
-        "Wipers & Demister": [
-            ("Front Wiper", "front_wiper"),
-            ("Defogging", "defogging"),
-            ("Rain Sensing Wipers", "rain_sensing_wipers"),
-            ("Rear Wiper", "rear_wiper"),
-        ],
-        "Door": [
-            ("Front", "door_front"),
-            ("Rear", "door_rear"),
-        ],
-        "Tailgate": [
-            ("Type", "tailgate_type"),
-            ("Power operated tail gate + eLatch", "power_tailgate"),
-        ],
-        "ORVM": [
-            ("ORVM", "orvm"),
-        ],
-        "Steering Wheel": [
-            ("Steering Wheel", "steering_wheel"),
-        ],
-        "Bonnet Stay Mechanism": [
-            ("Bonnet Gas Strut", "bonnet_gas_strut"),
-        ],
-        "Door Trim": [
-            ("Bottle Holder", "bottle_holder"),
-            ("Door arm Rest", "door_arm_rest"),
-        ],
-        "Boot/Trunk": [
-            ("Boot Organizer", "boot_organizer"),
-            ("Lamp", "boot_lamp"),
-        ],
-        "Power Window": [
-            ("All Doors", "power_window_all_doors"),
-            ("Driver Door", "power_window_driver_door"),
-            ("Window one key lift function", "window_one_key_lift"),
-            ("Window anti-clamping function", "window_anti_clamping"),
-            ("Multilayer silencing glass at the front door", "multilayer_silencing_glass"),
-            ("Front windshield multilayer mute glass", "front_windshield_mute_glass"),
-        ],
-        "Steering Column": [
-            ("Steering Column", "steering_column"),
-            ("Steering Column Lock", "steering_column_lock"),
-        ],
-        "Floor Console": [
-            ("Arm Rest", "floor_console_armrest"),
-            ("No Of Cup Holder", "cup_holders"),
-        ],
-        "Wireless charging": [
-            ("Wireless charging", "wireless_charging"),
-            ("No of wireless charging", "no_of_wireless_charging"),
-        ],
-        "Door Inner Scuff": [
-            ("Front", "door_inner_scuff_front"),
-            ("Rear", "door_inner_scuff_rear"),
-        ],
-        "Voice Recognition": [
-            ("Voice Recognition Button On Steering Wheel Control", "voice_recognition_steering"),
-        ],
-        "Seats": [
-            ("Seats", "seats"),
-            ("Seat Ventilation", "ventilated_seats"),
-            ("Driver and Front Passenger", "seat_ventilation_front_passenger"),
-        ],
-        "Safety": [
-            ("Airbags", "airbags"),
-            ("PAB deactivation switch", "pab_deactivation_switch"),
-            ("Driver Seat Belt", "driver_seat_belt"),
-            ("Front Passenger Seat Belt", "front_passenger_seat_belt"),
-            ("2nd Row Seat Belt", "seat_belt_2nd_row"),
-            ("Child Anchor", "child_anchor"),
-            ("Child Lock", "child_lock"),
-            ("Seat Belt Reminder with Buzzer", "seat_belt_reminder"),
-            ("Seat Belt Holder - 2nd Row", "seat_belt_holder_2nd_row"),
-            ("Sensors", "crash_sensors"),
-        ],
-        "Technology": [
-            ("Infotainment", "infotainment_screen"),
-            ("Smart Phone Connectivity", "smartphone_connectivity"),
-            ("Bluetooth", "bluetooth"),
-        ],
-        "Radio": [
-            ("AM / FM", "am_fm_radio"),
-            ("Digital", "digital_radio"),
-        ],
-        "ConnectedDrive": [
-            ("Wireless", "connected_drive_wireless"),
-        ],
-        "Branded Audio": [
-            ("3D Immersive Sound", "immersive_sound_3d"),
-            ("No of speakers", "no_of_speakers"),
-            ("Brand", "audio_brand"),
-            ("Dolby", "dolby_atmos"),
-            ("Adjustable", "audio_adjustable"),
-        ],
-        "Lighting": [
-            ("Headlamp", "headlamp"),
-            ("High beam", "high_beam"),
-            ("Low beam", "low_beam"),
-            ("Auto High Beam", "auto_high_beam"),
-            ("Headlamp Leveling", "headlamp_leveling"),
-            ("Projector LED", "projector_led"),
-            ("Front Fog Lamp", "front_fog_lamp"),
-            ("Tail Lamp", "tail_lamp"),
-            ("Welcome Lighting", "welcome_lighting"),
-            ("Ambient Lighting System", "ambient_lighting"),
-            ("Cabin Lamps", "cabin_lamps"),
-            ("High Mounted Stop Lamp", "high_mounted_stop_lamp"),
-            ("Hazard Lamp", "hazard_lamp"),
-        ],
-        "Locking": [
-            ("Locking", "central_locking"),
-            ("Door Lock", "door_lock"),
-            ("Speed Sensing Door Lock", "speed_sensing_door_lock"),
-            ("Panic Alarm", "panic_alarm"),
-            ("Remote Lock/Unlock", "remote_lock_unlock"),
-            ("Digital Key Plus", "digital_key_plus"),
-        ],
-        "Horn": [
-            ("Electronic Horn - dual tone", "horn"),
-        ],
-        "Over speeding Bell": [
-            ("Over speeding Bell", "over_speeding_bell"),
-        ],
-        "ADAS": [
-            ("Active Cruise Control with Stop & Go", "active_cruise_control"),
-            ("Lane Departure Warning", "lane_departure_warning"),
-            ("Automatic Emergency Braking (Stop Assist)", "automatic_emergency_braking"),
-            ("Lane Keep Assist", "lane_keep_assist"),
-            ("Blind Spot Detection", "blind_spot_detection"),
-            ("Blind Spot Collision warning", "blind_spot_collision_warning"),
-            ("Forward Collision warning", "forward_collision_warning"),
-            ("Rear Collision Warning", "rear_collision_warning"),
-            ("Door Open Alert", "door_open_alert"),
-            ("High beam Assist", "high_beam_assist"),
-            ("Traffic Sign Recognition", "traffic_sign_recognition"),
-            ("Rear Cross Traffic Alert", "rear_cross_traffic_alert"),
-            ("Traffic jam alert", "traffic_jam_alert"),
-            ("Safe Exit Braking/ Warning", "safe_exit_braking"),
-            ("Surround View Monitor", "surround_view_monitor"),
-            ("Smart Pilot Assist", "smart_pilot_assist"),
-        ],
-        "Climate": [
-            ("Auto Defogging", "auto_defogging"),
-            ("No of Zone", "no_of_zone_climate"),
-            ("Rear Vent AC", "rear_vent_ac"),
-            ("Active Carbon filter", "active_carbon_filter"),
-            ("Temp diff control", "temp_diff_control"),
-            ("Bottle Opener", "bottle_opener"),
-        ],
-        "Capabilities": [
-            ("Drive Modes", "drive_mode"),
-            ("Terrain Modes", "terrain_modes"),
-            ("Crawl Smart", "crawl_smart"),
-            ("Intelli Turn", "intelli_turn"),
-            ("Off-road information display", "off_road_info_display"),
-            ("Central Differential", "central_differential"),
-            ("Limited Slip Differential At Rear Bridge", "limited_slip_differential"),
-            ("Wading sensing system", "wading_sensing_system"),
-            ("Electronic gear shift", "electronic_gear_shift"),
-            ("Electric Driveline disconnect on front axle", "electric_driveline_disconnect"),
-            ("TPMS (Tyre Pressure Monitoring System)", "tpms"),
-            ("HHC Uphill Start Assist System", "hhc_uphill_start_assist"),
-            ("Engine electronic security", "engine_electronic_security"),
-        ],
-        "Power outlet / Charging Points": [
-            ("No of Front row - USB Type C Port", "usb_type_c_front_row"),
-            ("Front row - USB Type C Port", "usb_type_c_front_row_count"),
-            ("No of Rear row - USB Type C Port", "usb_type_c_rear_row"),
-            ("12V conventional socket", "socket_12v"),
-        ],
-        "Brakes Detailed": [
-            ("Auto Hold", "auto_hold"),
-            ("TPMS", "tpms"),
-            ("Rollover", "rollover_mitigation"),
-            ("RMI", "rmi_anti_rollover"),
-            ("VDC", "vdc_vehicle_dynamic"),
-            ("CSC", "csc_corner_stability"),
-            ("EPB", "epb"),
-            ("AVH", "avh_auto_vehicle_hold"),
-            ("HAC-HHC", "hac_hill_ascend"),
-            ("HBA", "hba_hydraulic_brake"),
-            ("DBC", "dbc_downhill_brake"),
-            ("EBP", "ebp_electronic_brake_prefill"),
-            ("BDW", "bdw_brake_disc_wiping"),
-            ("EDTC", "edtc_engine_drag_torque"),
-            ("TCS", "tcs_traction_control"),
-            ("EBD", "ebd_electronic_brake"),
-            ("ABS", "abs_antilock"),
-            ("DST", "dst_dynamic_steering"),
-            ("EBA", "eba_brake_assist"),
-            ("CBC", "cbc_cornering_brake"),
-            ("HDC", "hdc_hill_descent"),
-        ],
-        "Others": [
-            ("Active noise reduction", "active_noise_reduction"),
-            ("Intelligent voice control", "intelligent_voice_control"),
-            ("Dynamic transparent car bottom", "transparent_car_bottom"),
-            ("Intellectual dodge", "intellectual_dodge"),
-            ("Car picnic table", "car_picnic_table"),
-            ("Trunk subwoofer", "trunk_subwoofer"),
-            ("Dashcam Provision", "dashcam_provision"),
-            ("Cup Holder at Tail door", "cup_holder_tail_door"),
-            ("Hooks at Tail door", "hooks_tail_door"),
-            ("Warning Triangle at packed with tail door", "warning_triangle_tail_door"),
-            ("1st | 2nd row door magnetic Strap", "door_magnetic_strap"),
-        ],
-        "Market": [
-            ("Price Range", "price_range"),
-            ("Monthly Sales", "monthly_sales"),
-            ("User Rating", "user_rating"),
-        ],
-    }
-
-    # Build categories structure from tech_spec_groups
-    categories = []
-    for category_name, specs in tech_spec_groups.items():
-        features = []
-        for display_name, data_key in specs:
-            feat = {"name": display_name}
-            for car_name in car_names:
-                car_data = comparison_data.get(car_name, {})
-                feat[car_name] = car_data.get(data_key)
-            features.append(feat)
-        categories.append({
-            "category": category_name,
-            "descriptions": [{"description": category_name, "features": features}]
-        })
+    # Fetch comprehensive binary feature data (Gemini → fallback)
+    categories = _fetch_binary_feature_comparison(car_names, comparison_data)
+    if not categories:
+        categories = _build_fallback_categories(car_names, comparison_data)
 
     import re as _re
 
@@ -3218,7 +2944,7 @@ def generate_venn_diagram_section(
                     <circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/>
                 </svg>
             </div>
-            <h2>Feature Overlap Analysis</h2>
+            <h2>Feature Face-Off</h2>
         </div>
         {diagrams_html}
         <div class="venn-note">
@@ -3393,6 +3119,305 @@ def generate_venn_diagram_section(
     """
 
     return html
+
+
+# ============================================================================
+# DRIVETRAIN COMPARISON SECTION
+# ============================================================================
+
+def _extract_all_drivetrain_data(
+    car_names: List[str],
+    comparison_data: Dict[str, Any]
+) -> List[Dict[str, Any]]:
+    """
+    Fetch drivetrain data for ALL cars using parallel Gemini calls.
+    Sync wrapper around the async parallel fetcher.
+    """
+    import asyncio
+    import concurrent.futures
+
+    try:
+        from benchmarking_agent.extraction.drivetrain_fetcher import fetch_all_cars_drivetrain_parallel
+
+        try:
+            asyncio.get_running_loop()
+            # Already in an event loop — run in a thread pool
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(
+                    asyncio.run,
+                    fetch_all_cars_drivetrain_parallel(car_names, comparison_data)
+                )
+                return future.result(timeout=180)
+        except RuntimeError:
+            # No event loop running
+            return asyncio.run(
+                fetch_all_cars_drivetrain_parallel(car_names, comparison_data)
+            )
+
+    except Exception as e:
+        print(f"  Drivetrain parallel fetch error: {e}")
+
+    # Fallback: try building from existing comparison_data for each car
+    fallback_results = []
+    for car_name in car_names:
+        car_data = comparison_data.get(car_name, {})
+        fallback = _fallback_drivetrain_extraction(car_name, car_data)
+        if fallback:
+            # Attach images from existing data
+            if not fallback.get("images"):
+                fallback["images"] = []
+            images = car_data.get("images", {})
+            for category in ["technology", "exterior"]:
+                for img in images.get(category, [])[:2]:
+                    if isinstance(img, (list, tuple)):
+                        fallback["images"].append(img[0])
+                    elif isinstance(img, str):
+                        fallback["images"].append(img)
+                if fallback["images"]:
+                    break
+            fallback_results.append(fallback)
+
+    return fallback_results
+
+
+def _fallback_drivetrain_extraction(car_name: str, car_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Fallback extraction from existing comparison data if Gemini fails.
+    """
+    drivetrain_data = {
+        "car_name": car_name,
+        "features": [],
+        "explanations": [],
+        "images": [],
+        "highlight_keywords": [],
+        "system_name": "Intelligent 4WD",
+        "intro_text": ""
+    }
+
+    # Try to extract what we can from existing data
+    off_road = car_data.get("off_road", "")
+    if off_road and off_road not in ["N/A", "Not Available", "-", ""]:
+        drivetrain_data["features"].append({
+            "name": "Off-Road Capability",
+            "car_value": off_road,
+            "conventional_value": "Basic off-road"
+        })
+
+    ground_clearance = car_data.get("ground_clearance", "")
+    if ground_clearance and ground_clearance not in ["N/A", "Not Available", "-", ""]:
+        drivetrain_data["features"].append({
+            "name": "Ground Clearance",
+            "car_value": ground_clearance,
+            "conventional_value": "150-180 mm"
+        })
+
+    stability = car_data.get("stability", "")
+    if stability and stability not in ["N/A", "Not Available", "-", ""]:
+        drivetrain_data["features"].append({
+            "name": "Stability Control",
+            "car_value": stability,
+            "conventional_value": "Basic ESC"
+        })
+
+    if drivetrain_data["features"]:
+        drivetrain_data["intro_text"] = f"The {car_name} offers capable off-road performance with features designed to maximize traction and stability across various terrains."
+        return drivetrain_data
+
+    return None
+
+
+def generate_drivetrain_comparison_section(
+    comparison_data: Dict[str, Any],
+    drivetrain_data: Dict[str, Any] = None,
+    page_num: int = 19
+) -> str:
+    """
+    Generate drivetrain/powertrain comparison section with 50-50 side-by-side layout.
+    """
+    car_names = [name for name, data in comparison_data.items()
+                 if isinstance(data, dict) and "error" not in data
+                 and not name.strip().upper().startswith("CODE:")]
+
+    if not car_names:
+        return ""
+
+    # Fetch drivetrain data for ALL cars in parallel
+    all_drivetrain = _extract_all_drivetrain_data(car_names, comparison_data)
+
+    if not all_drivetrain:
+        return ""
+
+    # Filter out empty results
+    valid_drivetrain = [dt for dt in all_drivetrain if dt and dt.get("features")]
+    if not valid_drivetrain:
+        return ""
+
+    # Generate side-by-side drivetrain cards
+    drivetrain_cards = ""
+    for card_idx, dt_data in enumerate(valid_drivetrain):
+        car_name = dt_data.get("car_name", "")
+        system_name = dt_data.get("system_name", "Drivetrain System")
+        intro_text = dt_data.get("intro_text", "")
+        features = dt_data.get("features", [])
+        explanations = dt_data.get("explanations", [])
+        comparison_with = dt_data.get("comparison_with", "Conventional Drivetrain")
+
+        # Highlight keywords with green background
+        highlighted_intro = intro_text
+        for keyword in dt_data.get("highlight_keywords", []):
+            if keyword:
+                highlighted_intro = highlighted_intro.replace(keyword, f'<span class="highlight-green">{keyword}</span>')
+
+        # Build feature rows for this car's table
+        feature_rows = ""
+        for feature in features:
+            feature_rows += f'''
+            <tr>
+                <td class="feature-name">{feature.get("name", "")}</td>
+                <td class="feature-car">{feature.get("car_value", "")}</td>
+                <td class="feature-conventional">{feature.get("conventional_value", "")}</td>
+            </tr>
+            '''
+
+        # Build explanations list
+        explanations_html = ""
+        for i, exp in enumerate(explanations):
+            letter = chr(97 + i)
+            explanations_html += f'''
+            <li><span class="exp-letter">{letter}.</span> <span class="exp-title">{exp.get("title", "")}:</span> {exp.get("description", "")}</li>
+            '''
+
+        drivetrain_cards += f'''
+        <div class="drivetrain-card">
+            <p class="drivetrain-intro">{highlighted_intro}</p>
+            <table class="drivetrain-table">
+                <thead>
+                    <tr>
+                        <th>Feature</th>
+                        <th class="car-col">{car_name}<br><span class="car-subtitle">{system_name}</span></th>
+                        <th class="conv-col">{comparison_with}</th>
+                    </tr>
+                </thead>
+                <tbody>{feature_rows}</tbody>
+            </table>
+            <ol class="drivetrain-explanations">{explanations_html}</ol>
+        </div>
+        '''
+        if card_idx == 0 and len(valid_drivetrain) > 1:
+            drivetrain_cards += '<div class="drivetrain-divider"></div>'
+
+    return f'''
+    <style>
+        .drivetrain-grid {{
+            display: grid;
+            grid-template-columns: 1fr 1px 1fr;
+            gap: 30px;
+        }}
+        .drivetrain-divider {{
+            background: #dee2e6;
+            width: 1px;
+        }}
+        .drivetrain-card {{
+            background: white;
+        }}
+        .drivetrain-intro {{
+            font-size: 14px;
+            color: #333;
+            line-height: 1.7;
+            margin: 0 0 20px 0;
+            text-decoration: underline;
+            text-decoration-color: #ccc;
+        }}
+        .highlight-green {{
+            background: #d4edda;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+            color: #155724;
+            text-decoration: none;
+        }}
+        .drivetrain-table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            border: 1px solid #dee2e6;
+        }}
+        .drivetrain-table th {{
+            padding: 12px 10px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            border-bottom: 2px solid #dee2e6;
+            background: white;
+        }}
+        .drivetrain-table th.car-col {{
+            border-left: 1px solid #dee2e6;
+        }}
+        .drivetrain-table th.conv-col {{
+            border-left: 1px solid #dee2e6;
+            color: #666;
+        }}
+        .drivetrain-table .car-subtitle {{
+            font-weight: 400;
+            font-size: 11px;
+            color: #666;
+        }}
+        .drivetrain-table td {{
+            padding: 12px 10px;
+            font-size: 13px;
+            border-bottom: 1px solid #dee2e6;
+            vertical-align: top;
+        }}
+        .drivetrain-table td.feature-name {{
+            font-weight: 600;
+            color: #1c2a39;
+            width: 25%;
+        }}
+        .drivetrain-table td.feature-car {{
+            border-left: 1px solid #dee2e6;
+            text-align: center;
+        }}
+        .drivetrain-table td.feature-conventional {{
+            border-left: 1px solid #dee2e6;
+            text-align: center;
+            color: #666;
+        }}
+        .drivetrain-explanations {{
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            font-size: 13px;
+            line-height: 1.6;
+        }}
+        .drivetrain-explanations li {{
+            margin-bottom: 12px;
+        }}
+        .drivetrain-explanations .exp-letter {{
+            font-weight: 600;
+            margin-right: 4px;
+        }}
+        .drivetrain-explanations .exp-title {{
+            font-weight: 600;
+            text-decoration: underline;
+        }}
+        @media (max-width: 1024px) {{
+            .drivetrain-grid {{
+                grid-template-columns: 1fr;
+            }}
+            .drivetrain-divider {{
+                display: none;
+            }}
+        }}
+    </style>
+    <div class="content" id="drivetrain-section">
+        <div class="section-header">
+            <h2>Drivetrain Comparison</h2>
+        </div>
+        <div class="drivetrain-grid">
+            {drivetrain_cards}
+        </div>
+    </div>
+    '''
 
 
 def get_image_section_styles() -> str:

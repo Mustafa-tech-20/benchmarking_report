@@ -2887,9 +2887,9 @@ def create_comparison_chart_html(
                 table-layout: fixed !important;
             }}
             
-            table th, table td {{ 
-                padding: 8px 6px !important; 
-                border: 1px solid #333 !important; 
+            table th, table td {{
+                padding: 8px 6px !important;
+                border: 1px solid #333 !important;
                 font-size: 10px !important;
                 line-height: 1.4 !important;
                 word-wrap: break-word !important;
@@ -2899,6 +2899,91 @@ def create_comparison_chart_html(
                 hyphens: auto !important;
                 -webkit-hyphens: auto !important;
                 -ms-hyphens: auto !important;
+            }}
+
+            /* SPEC TABLE - Engine Variants Print Fix */
+            .spec-table {{
+                table-layout: auto !important;
+                width: 100% !important;
+                font-size: 9px !important;
+            }}
+
+            .spec-table th, .spec-table td {{
+                padding: 6px 4px !important;
+                font-size: 9px !important;
+                line-height: 1.3 !important;
+                word-wrap: break-word !important;
+                overflow-wrap: break-word !important;
+                word-break: break-word !important;
+                white-space: normal !important;
+                max-width: 80px !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+            }}
+
+            .spec-table th {{
+                font-size: 8px !important;
+                padding: 5px 3px !important;
+                max-width: 70px !important;
+            }}
+
+            .spec-table td.cat-cell {{
+                width: 80px !important;
+                min-width: 80px !important;
+                max-width: 80px !important;
+                font-size: 9px !important;
+            }}
+
+            .spec-table td.param-cell {{
+                width: 100px !important;
+                min-width: 100px !important;
+                max-width: 100px !important;
+                font-size: 9px !important;
+            }}
+
+            /* FI REVIEW TABLE - User Comments Print Fix */
+            .fi-review-table {{
+                table-layout: fixed !important;
+                width: 100% !important;
+                font-size: 9px !important;
+            }}
+
+            .fi-review-table th, .fi-review-table td {{
+                padding: 6px 4px !important;
+                font-size: 9px !important;
+                line-height: 1.3 !important;
+                word-wrap: break-word !important;
+                overflow-wrap: break-word !important;
+                word-break: break-word !important;
+                white-space: normal !important;
+                overflow: hidden !important;
+                vertical-align: top !important;
+            }}
+
+            .fi-comment-cell {{
+                max-width: 150px !important;
+                font-size: 8px !important;
+                line-height: 1.2 !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+            }}
+
+            .fi-comment-cell .expandable-content {{
+                max-height: none !important;
+                overflow: visible !important;
+                display: block !important;
+            }}
+
+            .fi-category-cell {{
+                width: 30px !important;
+                min-width: 30px !important;
+                font-size: 8px !important;
+            }}
+
+            .fi-rating-cell {{
+                width: 40px !important;
+                min-width: 40px !important;
+                font-size: 10px !important;
             }}
             
             table th {{ 
@@ -4367,8 +4452,8 @@ def create_comparison_chart_html(
                     <button class="nav-dropdown-toggle">Specs</button>
                     <div class="nav-dropdown-menu">
                         <a href="#tech-spec-section">Tech Specs</a>
-                        <a href="#feature-list-section">Feature Specs</a>
                         <a href="#venn-section">Feature Face-Off</a>
+                        <a href="#feature-list-section">Feature Specs</a>
                     </div>
                 </div>
                 <div class="nav-dropdown">
@@ -4391,12 +4476,12 @@ def create_comparison_chart_html(
                 <div class="nav-dropdown">
                     <button class="nav-dropdown-toggle">Analysis</button>
                     <div class="nav-dropdown-menu">
-                        <a href="#consolidated-review-section">Functional Image Review</a>
-                        <a href="#detailed-reviews-section">Pro Reviews</a>
                         <a href="#spider-charts-section">Radar Charts</a>
-                        <a href="#ai-analysis-section">AI Analysis</a>
-                        <a href="#attribute-proscons-section">Pros & Cons</a>
+                        <a href="#consolidated-review-section">Functional Image Review</a>
                         <a href="#adas-section">ADAS Comparison</a>
+                        <a href="#detailed-reviews-section">Pro Reviews</a>
+                        <a href="#attribute-proscons-section">Pros & Cons</a>
+                        <a href="#ai-analysis-section">AI Analysis Summary</a>
                     </div>
                 </div>
                 <a href="#" id="citations-toggle" onclick="toggleCitations(event)">Citations</a>
@@ -4435,6 +4520,7 @@ def create_comparison_chart_html(
             <div class="animate-on-scroll">{adas_html}</div>
         </div>
         {detailed_reviews_html}
+        {attribute_proscons_html}
         <div class="content">
             <div class="section-header">
                 <div class="icon-wrapper">
@@ -4448,7 +4534,6 @@ def create_comparison_chart_html(
                 <p>{ai_summary_html}</p>
             </div>
         </div>
-        {attribute_proscons_html}
     </div>
     <div class="content" id="citations-section" style="display: none;"><div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><line x1="10" y1="9" x2="8" y2="9"></line></svg></div><h2>Data Source Citations</h2></div><div class="citations-grid">{citations_html}</div></div>
     <footer class="footer"><span>Copyright© 2026 Mahindra&Mahindra Ltd. All Rights Reserved.</span></footer>

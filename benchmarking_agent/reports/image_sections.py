@@ -4360,7 +4360,7 @@ def generate_venn_diagram_section(
                     <circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/>
                 </svg>
             </div>
-            <h2>Feature Overlap Analysis</h2>
+            <h2>Feature Face-Off</h2>
         </div>
         {diagrams_html}
         <div class="venn-note">
