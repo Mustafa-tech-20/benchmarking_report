@@ -3,10 +3,17 @@ aiodns
 aiohttp-retry
 tenacity
 fastapi
+pydantic
+requests
+
+# Google Cloud & AI dependencies
 google-adk
 google-auth
 google-cloud-aiplatform
 google-cloud-storage
+google-genai
+vertexai
+
 python-dotenv
 uvicorn
 json-repair
@@ -22,3 +29,7 @@ motor
 pymongo
 dnspython
 certifi
+
+# Data processing
+pandas
+openpyxl

@@ -318,7 +318,7 @@ async def delete_conversation_endpoint(
 @app.post("/api/compare")
 async def compare_cars(
     query: str = Form(..., description="Your query (e.g., 'Summarize this', 'Compare cars in this with Thar', 'Compare Thar and Swift')"),
-    pdf_files: List[UploadFile] = File(default=[], description="Optional PDFs with car specifications or reviews (max 10 files, 30MB total)"),
+    pdf_files: List[UploadFile] = File(default=[], description="Optional PDF/Excel/CSV files with car specifications or reviews (max 10 files, 30MB total)"),
     x_user_id: Optional[str] = Header(None, alias="X-User-Id", description="User ID from previous response. Pass to continue conversation."),
     x_session_id: Optional[str] = Header(None, alias="X-Session-Id", description="Session ID from previous response. Pass to continue conversation."),
     x_conversation_id: Optional[str] = Header(None, alias="X-Conversation-Id", description="Conversation ID to continue existing conversation."),
@@ -332,14 +332,14 @@ async def compare_cars(
     - PP Role → Product Planning Agent
     - VD Role → Vehicle Development Agent
 
-    **Multi-PDF Support:**
-    - Upload up to 10 PDF files per request
+    **Multi-File Support (PDF/Excel/CSV):**
+    - Upload up to 10 files per request
     - Maximum 10MB per file, 30MB total
-    - All PDFs are processed together in context
+    - All files are processed together in context
 
-    **PDF modes (determined by your query):**
+    **File modes (determined by your query):**
     - `"summarize these"` → returns document summaries
-    - `"extract car specs"` → returns specs found in the PDFs
+    - `"extract car specs"` → returns specs found in the files
     - `"compare cars in these with Mahindra Thar"` → runs full comparison
 
     **Without PDF:**
@@ -410,23 +410,46 @@ async def compare_cars(
         if len(valid_pdfs) > 10:
             raise HTTPException(
                 status_code=400,
-                detail="Too many files. Maximum 10 PDFs per request."
+                detail="Too many files. Maximum 10 files per request."
             )
 
-        # Process each PDF
-        for pdf_file in valid_pdfs:
-            logger.info(f"[PDF] Processing: {pdf_file.filename}")
+        # Supported MIME types
+        SUPPORTED_MIME_TYPES = {
+            "application/pdf": "application/pdf",
+            "text/csv": "text/csv",
+            "application/vnd.ms-excel": "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }
 
-            if pdf_file.content_type != "application/pdf":
+        # Process each file
+        for pdf_file in valid_pdfs:
+            logger.info(f"[FILE] Processing: {pdf_file.filename}")
+
+            # Get mime type from content_type or infer from extension
+            mime_type = pdf_file.content_type
+            filename_lower = pdf_file.filename.lower() if pdf_file.filename else ""
+
+            # Handle cases where content_type might be generic
+            if mime_type == "application/octet-stream" or mime_type not in SUPPORTED_MIME_TYPES:
+                if filename_lower.endswith(".pdf"):
+                    mime_type = "application/pdf"
+                elif filename_lower.endswith(".csv"):
+                    mime_type = "text/csv"
+                elif filename_lower.endswith(".xlsx"):
+                    mime_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                elif filename_lower.endswith(".xls"):
+                    mime_type = "application/vnd.ms-excel"
+
+            if mime_type not in SUPPORTED_MIME_TYPES:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Invalid file type for {pdf_file.filename}: {pdf_file.content_type}. Only PDF files are supported."
+                    detail=f"Invalid file type for {pdf_file.filename}: {pdf_file.content_type}. Supported formats: PDF, CSV, Excel (.xls, .xlsx)"
                 )
 
             file_bytes = await pdf_file.read()
             file_size = len(file_bytes)
             total_pdf_size += file_size
-            logger.info(f"[PDF] {pdf_file.filename}: {file_size} bytes")
+            logger.info(f"[FILE] {pdf_file.filename}: {file_size} bytes, type: {mime_type}")
 
             if file_size > 10 * 1024 * 1024:
                 raise HTTPException(
@@ -440,11 +463,11 @@ async def compare_cars(
                     detail="Total file size exceeds 30MB limit."
                 )
 
-            parts.append(types.Part(inline_data=types.Blob(mime_type="application/pdf", data=file_bytes)))
+            parts.append(types.Part(inline_data=types.Blob(mime_type=mime_type, data=file_bytes)))
             valid_pdf_count += 1
 
         if valid_pdf_count > 0:
-            logger.info(f"[PDF] Added {valid_pdf_count} PDF(s) to content parts, total size: {total_pdf_size} bytes")
+            logger.info(f"[FILE] Added {valid_pdf_count} file(s) to content parts, total size: {total_pdf_size} bytes")
 
         # User query — passed exactly as typed, no modifications
         parts.append(types.Part(text=query))

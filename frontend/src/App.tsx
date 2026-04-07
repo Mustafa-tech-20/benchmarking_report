@@ -321,9 +321,20 @@ function App() {
     const validFiles: File[] = [];
     let totalSize = selectedFiles.reduce((sum, f) => sum + f.size, 0);
 
+    const SUPPORTED_TYPES = [
+      'application/pdf',
+      'text/csv',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ];
+    const SUPPORTED_EXTENSIONS = ['.pdf', '.csv', '.xls', '.xlsx'];
+
     for (const file of files) {
-      if (file.type !== 'application/pdf') {
-        alert(`${file.name} is not a PDF file`);
+      const fileExt = file.name.toLowerCase().slice(file.name.lastIndexOf('.'));
+      const isValidType = SUPPORTED_TYPES.includes(file.type) || SUPPORTED_EXTENSIONS.includes(fileExt);
+
+      if (!isValidType) {
+        alert(`${file.name} is not a supported file type. Supported: PDF, CSV, Excel`);
         continue;
       }
       if (file.size > 10 * 1024 * 1024) {
@@ -711,22 +722,22 @@ function App() {
                     <div className="card-description">Fetch internal CODE: car specs from RAG corpus, then compare with external cars</div>
                   </div>
                 </button>
-                <button className="query-card" onClick={() => setInput('compare CODE:PROTO1 from uploaded PDF with ')}>
+                <button className="query-card" onClick={() => setInput('compare CODE:PROTO1 from uploaded PDF/Excel with ')}>
                   <div className="card-icon-wrapper">
                     <FileText size={18} strokeWidth={1.5} />
                   </div>
                   <div className="card-content">
-                    <div className="card-title">Prototype Analysis (PDF)</div>
-                    <div className="card-description">Upload spec PDF — say: compare CODE:[name] from uploaded PDF with [external car name]</div>
+                    <div className="card-title">Prototype Analysis (PDF/Excel)</div>
+                    <div className="card-description">Upload spec PDF/Excel — say: compare CODE:[name] from uploaded PDF/Excel with [external car name]</div>
                   </div>
                 </button>
-                <button className="query-card" onClick={() => setInput('Summarize this PDF')}>
+                <button className="query-card" onClick={() => setInput('Summarize this PDF/Excel')}>
                   <div className="card-icon-wrapper">
                     <BarChart3 size={18} strokeWidth={1.5} />
                   </div>
                   <div className="card-content">
                     <div className="card-title">Document Analysis</div>
-                    <div className="card-description">Summarize uploaded PDF</div>
+                    <div className="card-description">Summarize uploaded PDF/Excel</div>
                   </div>
                 </button>
               </div>
@@ -816,7 +827,7 @@ function App() {
             type="file"
             ref={fileInputRef}
             onChange={handleFileSelect}
-            accept="application/pdf"
+            accept=".pdf,.csv,.xls,.xlsx,application/pdf,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             multiple
             style={{ display: 'none' }}
           />
@@ -845,7 +856,7 @@ function App() {
               onClick={() => fileInputRef.current?.click()}
               className="chatgpt-icon-btn"
               disabled={isLoading || selectedFiles.length >= 10}
-              title={selectedFiles.length >= 10 ? 'Maximum 10 files' : 'Add PDFs'}
+              title={selectedFiles.length >= 10 ? 'Maximum 10 files' : 'Add PDF/Excel'}
             >
               <Plus size={20} />
             </button>
@@ -878,7 +889,7 @@ function App() {
               type="file"
               ref={fileInputRef}
               onChange={handleFileSelect}
-              accept="application/pdf"
+              accept=".pdf,.csv,.xls,.xlsx,application/pdf,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               multiple
               style={{ display: 'none' }}
             />
@@ -907,7 +918,7 @@ function App() {
                 onClick={() => fileInputRef.current?.click()}
                 className="chatgpt-icon-btn"
                 disabled={isLoading || selectedFiles.length >= 10}
-                title={selectedFiles.length >= 10 ? 'Maximum 10 files' : 'Add PDFs'}
+                title={selectedFiles.length >= 10 ? 'Maximum 10 files' : 'Add PDF/Excel'}
               >
                 <Plus size={20} />
               </button>
