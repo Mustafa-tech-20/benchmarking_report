@@ -329,136 +329,104 @@ def generate_technical_spec_section(comparison_data: Dict[str, Any], page_start:
         'summary_data',
     }
 
-    # Comprehensive organized spec groups
+    # Specs that should show variant columns (one column per engine variant)
+    VARIANT_SPECS = {
+        "engine", "engine_displacement", "max_power_kw", "torque",
+        "transmission", "drive", "kerb_weight", "steering"
+    }
+
+    # Build variant info for each car
+    car_variants = {}
+    for car_name in car_names:
+        car_data = comparison_data.get(car_name, {})
+        variants = car_data.get("engine_variants", [])
+        if variants and len(variants) > 0:
+            car_variants[car_name] = variants
+        else:
+            # Fallback: Check if any VARIANT_SPECS have comma-separated values
+            # and create synthetic variants from them
+            max_values = 1
+            variant_values = {}
+            for key in VARIANT_SPECS:
+                val = car_data.get(key, "")
+                if isinstance(val, str) and ", " in val:
+                    parts = [p.strip() for p in val.split(", ")]
+                    variant_values[key] = parts
+                    max_values = max(max_values, len(parts))
+                elif isinstance(val, list):
+                    variant_values[key] = val
+                    max_values = max(max_values, len(val))
+
+            if max_values > 1:
+                # Create synthetic variants from comma-separated values
+                synthetic_variants = []
+                for i in range(max_values):
+                    variant = {"_synthetic": True}
+                    for key in VARIANT_SPECS:
+                        if key in variant_values and i < len(variant_values[key]):
+                            variant[key] = variant_values[key][i]
+                        else:
+                            # Use the single value or first value if available
+                            original = car_data.get(key, "-")
+                            if isinstance(original, list) and len(original) > 0:
+                                variant[key] = original[0] if i >= len(original) else original[i]
+                            elif isinstance(original, str) and ", " in original:
+                                parts = [p.strip() for p in original.split(", ")]
+                                variant[key] = parts[0] if i >= len(parts) else parts[i]
+                            else:
+                                variant[key] = original
+                    synthetic_variants.append(variant)
+                car_variants[car_name] = synthetic_variants
+            else:
+                # No variants - use single column with existing data
+                car_variants[car_name] = [{"_single": True}]
+
+    # Comprehensive organized spec groups matching reference spec sheets
     tech_spec_groups = {
         "Powertrain": [
-            ("Engine Displacement", "engine_displacement"),
-            ("Fuel Type", "fuel_type"),
-            ("Torque", "torque"),
-            ("Mileage / Fuel Economy", "mileage"),
-            ("Acceleration (0-100 kmph)", "acceleration"),
-            ("Performance Feel", "performance_feel"),
-            ("Driveability", "driveability"),
-            ("Response", "response"),
-            ("City Performance", "city_performance"),
-            ("Highway Performance", "highway_performance"),
-            ("Off-Road Capability", "off_road"),
-            ("Crawl / 4WD Modes", "crawl"),
+            ("Engine", "engine"),
+            ("Engine CC", "engine_displacement"),
+            ("Max Power (kW)", "max_power_kw"),
+            ("Max Torque (Nm)", "torque"),
         ],
-        "Transmission": [
-            ("Manual Transmission", "manual_transmission_performance"),
-            ("Automatic Transmission", "automatic_transmission_performance"),
-            ("Pedal Operation", "pedal_operation"),
-            ("Gear Shift", "gear_shift"),
-            ("Gear Selection", "gear_selection"),
-            ("Pedal Travel", "pedal_travel"),
+        "Fuel": [
+            ("Type", "fuel_type"),
+            ("Tank Capacity", "tank_capacity"),
+            ("Transmission", "transmission"),
+            ("Drive", "drive"),
+            ("Drive Mode", "drive_mode"),
+            ("Top Speed (km/h)", "top_speed"),
         ],
-        "Dimensions": [
+        "Dimension": [
+            ("Length (mm)", "length"),
+            ("Width (mm)", "width"),
+            ("Height (mm)", "height"),
             ("Wheelbase (mm)", "wheelbase"),
-            ("Ground Clearance (mm)", "ground_clearance"),
-            ("Boot Space", "boot_space"),
-            ("Turning Radius (m)", "turning_radius"),
+            ("WheelTrack F/R", "wheel_track"),
+            ("Ground clearance", "ground_clearance"),
+            ("Kerb weight (kg)", "kerb_weight"),
+        ],
+        "Steering": [
+            ("Type", "steering"),
+        ],
+        "Seat": [
             ("Seating Capacity", "seating_capacity"),
         ],
-        "Chassis": [
-            ("Chassis Type", "chasis"),
+        "Brakes": [
+            ("Front Brakes", "front_brakes"),
+            ("Rear Brakes", "rear_brakes"),
         ],
-        "Safety": [
-            ("Airbags", "airbags"),
-            ("Airbag Types", "airbag_types_breakdown"),
-            ("NCAP Rating", "ncap_rating"),
-            ("Impact Rating", "impact"),
-            ("ADAS System", "adas"),
-            ("Vehicle Safety Features", "vehicle_safety_features"),
-            ("Brakes", "brakes"),
-            ("Braking", "braking"),
-            ("Brake Performance", "brake_performance"),
-            ("EPB / Hill Hold", "epb"),
-            ("Stability Control", "stability"),
-            ("Parking Sensors", "parking_sensors"),
-            ("Parking Camera", "parking_camera"),
-            ("Parking", "parking"),
-            ("Seatbelt Features", "seatbelt_features"),
-            ("Seats Restraint", "seats_restraint"),
+        "Suspension": [
+            ("Front Suspension", "front_suspension"),
+            ("Rear Suspension", "rear_suspension"),
         ],
-        "Steering & Handling": [
-            ("Steering Type", "steering"),
-            ("Sensitivity", "sensitivity"),
-            ("Telescopic Steering", "telescopic_steering"),
-            ("Manoeuvring", "manoeuvring"),
-            ("Corner Stability", "corner_stability"),
-            ("Straight-Ahead Stability", "straight_ahead_stability"),
+        "Wheel & Tyre": [
+            ("Front - Tyre size", "front_tyre_size"),
+            ("Rear - Tyre size", "rear_tyre_size"),
+            ("Spare Tyres", "spare_tyre"),
         ],
-        "Ride Quality": [
-            ("Ride", "ride"),
-            ("Ride Quality", "ride_quality"),
-            ("Bumps / Potholes", "stiff_on_pot_holes"),
-            ("Bumps", "bumps"),
-            ("Shocks / Suspension", "shocks"),
-            ("Jerks", "jerks"),
-            ("Shakes", "shakes"),
-            ("Shudder", "shudder"),
-            ("Pulsation", "pulsation"),
-            ("Grabby", "grabby"),
-            ("Spongy", "spongy"),
-        ],
-        "NVH": [
-            ("Overall NVH", "nvh"),
-            ("Powertrain Noise", "powertrain_nvh"),
-            ("Wind NVH", "wind_nvh"),
-            ("Road NVH", "road_nvh"),
-            ("Wind Noise", "wind_noise"),
-            ("Tire Noise", "tire_noise"),
-            ("Turbo Noise", "turbo_noise"),
-            ("Blower Noise", "blower_noise"),
-            ("Rattle", "rattle"),
-        ],
-        "Wheels & Tyres": [
-            ("Tyre Size", "tyre_size"),
-            ("Wheel Size", "wheel_size"),
-            ("Alloy Wheels", "alloy_wheel"),
-        ],
-        "Exterior": [
-            ("LED Headlamps", "led"),
-            ("DRL (Daytime Running Lights)", "drl"),
-            ("Tail Lamps", "tail_lamp"),
-            ("Sunroof", "sunroof"),
-            ("ORVM", "orvm"),
-            ("Wiper Control", "wiper_control"),
-        ],
-        "Interior & Comfort": [
-            ("Interior Quality", "interior"),
-            ("Climate Control", "climate_control"),
-            ("Seat Material", "seat_material"),
-            ("Seat Cushion", "seat_cushion"),
-            ("Seat Features", "seat_features_detailed"),
-            ("Seats", "seats"),
-            ("Ventilated Seats", "ventilated_seats"),
-            ("Rear Seat Features", "rear_seat_features"),
-            ("Armrest", "armrest"),
-            ("Headrest", "headrest"),
-            ("Soft Touch Trims", "soft_trims"),
-            ("Visibility", "visibility"),
-            ("Ingress (Entry)", "ingress"),
-            ("Egress (Exit)", "egress"),
-            ("IRVM", "irvm"),
-            ("Power Windows", "window"),
-            ("Door Effort", "door_effort"),
-        ],
-        "Technology": [
-            ("Infotainment Screen", "infotainment_screen"),
-            ("Resolution", "resolution"),
-            ("Touch Response", "touch_response"),
-            ("Digital Display", "digital_display"),
-            ("Apple CarPlay / Android Auto", "apple_carplay"),
-            ("Audio System", "audio_system"),
-            ("Cruise Control", "cruise_control"),
-            ("Push Button Start", "button"),
-        ],
-        "Market": [
-            ("Price Range", "price_range"),
-            ("Monthly Sales", "monthly_sales"),
-            ("User Rating", "user_rating"),
+        "Boot": [
+            ("Space (L)", "boot_space"),
         ],
     }
 
@@ -486,6 +454,9 @@ def generate_technical_spec_section(comparison_data: Dict[str, Any], page_start:
             (k.replace('_', ' ').title(), k) for k in sorted(all_data_keys)
         ]
 
+    # Calculate total columns for variant support
+    total_variant_cols = sum(len(car_variants.get(c, [{"_single": True}])) for c in car_names)
+
     # Generate table rows with collapsible groups
     rows_html = ""
     group_index = 0
@@ -496,17 +467,32 @@ def generate_technical_spec_section(comparison_data: Dict[str, Any], page_start:
         # Check if this group has any non-empty rows
         has_data = False
         for label, key in specs:
-            values = []
             for car_name in car_names:
                 car_data = comparison_data.get(car_name, {})
-                value = car_data.get(key, "-")
-                if isinstance(value, (dict, list)):
-                    value = "-"
-                elif value in EMPTY_VALUES:
-                    value = "-"
-                values.append(value)
-            if not all(v == "-" for v in values):
-                has_data = True
+                is_variant_spec = key in VARIANT_SPECS
+                variants = car_variants.get(car_name, [{"_single": True}])
+
+                if is_variant_spec and len(variants) > 1:
+                    for v in variants:
+                        value = v.get(key, "-") if not v.get("_single") else car_data.get(key, "-")
+                        if isinstance(value, (dict, list)):
+                            value = "-"
+                        elif value in EMPTY_VALUES:
+                            value = "-"
+                        if value != "-":
+                            has_data = True
+                            break
+                else:
+                    value = car_data.get(key, "-")
+                    if isinstance(value, (dict, list)):
+                        value = "-"
+                    elif value in EMPTY_VALUES:
+                        value = "-"
+                    if value != "-":
+                        has_data = True
+                if has_data:
+                    break
+            if has_data:
                 break
 
         if not has_data:
@@ -516,7 +502,7 @@ def generate_technical_spec_section(comparison_data: Dict[str, Any], page_start:
         collapsed_class = "" if grp_idx == 0 else "collapsed"
         toggle_icon = "−" if grp_idx == 0 else "+"
         rows_html += f'''<tr class="spec-group-header {collapsed_class}" data-group="spec-group-{grp_idx}" onclick="toggleSpecGroup(this)">
-            <td colspan="{num_cars + 2}">
+            <td colspan="{total_variant_cols + 2}">
                 <span class="group-toggle-btn">{toggle_icon}</span>
                 <span class="group-title">{category}</span>
             </td>
@@ -524,41 +510,133 @@ def generate_technical_spec_section(comparison_data: Dict[str, Any], page_start:
 
         # Data rows for this group
         for label, key in specs:
-            values = []
-            for car_name in car_names:
-                car_data = comparison_data.get(car_name, {})
-                value = car_data.get(key, "-")
-                if isinstance(value, (dict, list)):
-                    value = "-"
-                elif value in EMPTY_VALUES:
-                    value = "-"
-                values.append(value)
-
-            if all(v == "-" for v in values):
-                continue
+            is_variant_spec = key in VARIANT_SPECS
+            row_values = []  # List of (value, car_index) for comparison
 
             hidden_class = "" if grp_idx == 0 else "group-row-hidden"
-            ref_val = values[0] if values else "-"
             rows_html += f'<tr class="spec-data-row {hidden_class}" data-group="spec-group-{grp_idx}"><td class="cat-cell"></td><td class="param-cell">{label}</td>'
-            for i, value in enumerate(values):
-                if i == 0:
-                    rows_html += f'<td>{value}</td>'
-                else:
-                    if ref_val != "-" and value == "-":
-                        cell_class = "inferior-cell"
-                    elif ref_val == "-" and value != "-":
-                        cell_class = "superior-cell"
-                    else:
+
+            all_values_empty = True
+            first_car_value = None
+
+            for car_idx, car_name in enumerate(car_names):
+                car_data = comparison_data.get(car_name, {})
+                variants = car_variants.get(car_name, [{"_single": True}])
+                num_variants = len(variants)
+
+                if is_variant_spec and num_variants > 1:
+                    # Show one cell per variant
+                    for v in variants:
+                        if v.get("_single"):
+                            value = car_data.get(key, "-")
+                        else:
+                            value = v.get(key, "-")
+                        if isinstance(value, (dict, list)):
+                            value = "-"
+                        elif value in EMPTY_VALUES:
+                            value = "-"
+
+                        if value != "-":
+                            all_values_empty = False
+                        if first_car_value is None and car_idx == 0:
+                            first_car_value = value
+
+                        # Determine cell class for comparison
                         cell_class = ""
-                    rows_html += f'<td class="{cell_class}">{value}</td>'
+                        if car_idx > 0 and first_car_value is not None:
+                            if first_car_value != "-" and value == "-":
+                                cell_class = "inferior-cell"
+                            elif first_car_value == "-" and value != "-":
+                                cell_class = "superior-cell"
+
+                        rows_html += f'<td class="{cell_class}">{value}</td>'
+                else:
+                    # Non-variant spec: span all variant columns for this car
+                    value = car_data.get(key, "-")
+                    if isinstance(value, (dict, list)):
+                        value = "-"
+                    elif value in EMPTY_VALUES:
+                        value = "-"
+
+                    if value != "-":
+                        all_values_empty = False
+                    if first_car_value is None and car_idx == 0:
+                        first_car_value = value
+
+                    # Determine cell class for comparison
+                    cell_class = ""
+                    if car_idx > 0 and first_car_value is not None:
+                        if first_car_value != "-" and value == "-":
+                            cell_class = "inferior-cell"
+                        elif first_car_value == "-" and value != "-":
+                            cell_class = "superior-cell"
+
+                    colspan = f" colspan='{num_variants}'" if num_variants > 1 else ""
+                    rows_html += f'<td{colspan} class="{cell_class}">{value}</td>'
+
             rows_html += '</tr>'
 
     for category, specs in tech_spec_groups.items():
         _render_rows(category, specs, group_index)
         group_index += 1
 
-    # Build the page
-    cars_header = "".join([f'<th colspan="1">{name}</th>' for name in car_names])
+    # Build the table header with variant columns
+    # Row 1: Car names (spanning all their variant columns)
+    car_name_header = ""
+    for car_name in car_names:
+        num_cols = len(car_variants.get(car_name, [{}]))
+        car_name_header += f'<th colspan="{num_cols}">{car_name}</th>'
+
+    # Row 2: Engine variant names (for cars with multiple variants)
+    variant_header = ""
+    for car_name in car_names:
+        variants = car_variants.get(car_name, [{}])
+        for v_idx, v in enumerate(variants):
+            if v.get("_single"):
+                # Single column - no variant name needed
+                variant_header += f'<th class="variant-header">-</th>'
+            elif v.get("_synthetic"):
+                # Synthetic variant - use engine displacement or engine name as header
+                engine_disp = v.get("engine_displacement", "")
+                engine_name = v.get("engine", "")
+                header_text = engine_disp if engine_disp and engine_disp != "-" else engine_name
+                if not header_text or header_text == "-":
+                    header_text = f"Variant {v_idx + 1}"
+                # Shorten if too long
+                if len(header_text) > 25:
+                    header_text = header_text[:22] + "..."
+                variant_header += f'<th class="variant-header">{header_text}</th>'
+            else:
+                engine_name = v.get("engine", "-")
+                # Shorten engine name if too long
+                if len(engine_name) > 25:
+                    engine_name = engine_name[:22] + "..."
+                variant_header += f'<th class="variant-header">{engine_name}</th>'
+
+    # Check if we need the variant row (if any car has multiple variants)
+    has_multiple_variants = any(len(v) > 1 for v in car_variants.values())
+
+    if has_multiple_variants:
+        header_html = f'''
+                <thead>
+                    <tr>
+                        <th rowspan="2">Description</th>
+                        <th rowspan="2">Parameter</th>
+                        {car_name_header}
+                    </tr>
+                    <tr>
+                        {variant_header}
+                    </tr>
+                </thead>'''
+    else:
+        header_html = f'''
+                <thead>
+                    <tr>
+                        <th>Description</th>
+                        <th>Parameter</th>
+                        {car_name_header}
+                    </tr>
+                </thead>'''
 
     html = f'''
     <div class="spec-page" id="tech-spec-section">
@@ -572,13 +650,7 @@ def generate_technical_spec_section(comparison_data: Dict[str, Any], page_start:
         </div>
         <div class="spec-table-container">
             <table class="spec-table">
-                <thead>
-                    <tr>
-                        <th>Description</th>
-                        <th>Parameter</th>
-                        {cars_header}
-                    </tr>
-                </thead>
+                {header_html}
                 <tbody>
                     {rows_html}
                 </tbody>
@@ -588,6 +660,18 @@ def generate_technical_spec_section(comparison_data: Dict[str, Any], page_start:
         </div>
     </div>
     <style>
+        .variant-header {{
+            background: #f0f0f0 !important;
+            font-size: 11px !important;
+            font-weight: 600;
+            color: #555;
+            text-align: center;
+            padding: 8px 6px !important;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 120px;
+        }}
         .spec-group-header {{
             background: #f8f9fa;
             cursor: pointer;
@@ -823,135 +907,387 @@ _SCRAPED_KEY_MAP = {
     "Auto Headlamps":               "auto_headlamps",
 }
 
-# Pre-defined feature batches — ~10 features each, all run in parallel
+# Pre-defined feature batches matching reference spec sheets order
 _FEATURE_BATCHES = [
+    # ── Exterior ──
     {
-        "category": "Safety", "description": "Airbags & Passive Safety",
-        "features": ["Total Airbags", "Front Airbags", "Side Airbags", "Curtain Airbags",
-                     "Knee Airbag", "Seatbelt Pretensioner", "Rear Seatbelts",
-                     "NCAP Safety Rating", "ISOFIX Child Seat Anchors", "Impact Protection Rating"]
+        "category": "Exterior", "description": "Full LED",
+        "features": ["LED Headlamps", "LED DRL", "LED Tail Lamps", "LED Fog Lamps"]
     },
     {
-        "category": "Safety", "description": "Active Safety",
-        "features": ["ABS", "Electronic Stability Control", "Traction Control",
-                     "Hill Hold Control", "Electronic Parking Brake", "Auto Hold",
-                     "Brake Assist", "Hill Descent Control", "Rear Parking Sensors",
-                     "Front Parking Sensors"]
+        "category": "Exterior", "description": "Wheel arch Ext. Claddings",
+        "features": ["Wheel Arch Cladding", "Body Cladding"]
     },
     {
-        "category": "Safety", "description": "ADAS",
-        "features": ["Forward Collision Warning", "Automatic Emergency Braking",
-                     "Lane Keep Assist", "Lane Departure Warning", "Blind Spot Monitor",
-                     "Rear Cross Traffic Alert", "Adaptive Cruise Control",
-                     "Traffic Sign Recognition", "360 Degree Camera", "Driver Fatigue Detection"]
+        "category": "Exterior", "description": "Front Bumper & Grille",
+        "features": ["Front Bumper Design", "Grille Design", "Chrome Grille"]
     },
+    {
+        "category": "Exterior", "description": "Antenna Type",
+        "features": ["Shark Fin Antenna", "Roof Antenna"]
+    },
+    {
+        "category": "Exterior", "description": "Foot step",
+        "features": ["Side Footstep", "Running Board"]
+    },
+    # ── Interior ──
+    {
+        "category": "Interior", "description": "Console Switches",
+        "features": ["Piano Black Console", "Chrome Console Switches", "Soft Touch Console"]
+    },
+    {
+        "category": "Interior", "description": "Upholstery",
+        "features": ["Seat Material", "Leather Upholstery", "Leatherette Upholstery", "Fabric Upholstery"]
+    },
+    {
+        "category": "Interior", "description": "IP/ Dashboard",
+        "features": ["Soft Touch Dashboard", "Dashboard Material", "Dual Tone Dashboard"]
+    },
+    # ── Glove Box ──
+    {
+        "category": "Glove Box", "description": "Glove Box",
+        "features": ["Illuminated Glove Box", "Cooled Glove Box", "Glove Box Lock"]
+    },
+    # ── Sunvisor ──
+    {
+        "category": "Sunvisor", "description": "Driver",
+        "features": ["Driver Sunvisor Mirror", "Driver Sunvisor Light"]
+    },
+    {
+        "category": "Sunvisor", "description": "Co Driver",
+        "features": ["Co-Driver Sunvisor Mirror", "Co-Driver Sunvisor Light"]
+    },
+    # ── Grab Handle ──
+    {
+        "category": "Grab Handle", "description": "Driver",
+        "features": ["Driver Grab Handle"]
+    },
+    {
+        "category": "Grab Handle", "description": "Co Driver",
+        "features": ["Co-Driver Grab Handle"]
+    },
+    {
+        "category": "Grab Handle", "description": "2nd Row Both side",
+        "features": ["Rear Grab Handle Left", "Rear Grab Handle Right"]
+    },
+    # ── Sun Roof / Fixed Roof ──
+    {
+        "category": "Sun Roof / Fixed Roof", "description": "Panoramic Sun Roof",
+        "features": ["Panoramic Sunroof", "Single Pane Sunroof", "Electric Sunroof"]
+    },
+    {
+        "category": "Sun Roof / Fixed Roof", "description": "Roller Blind/ Sunblind",
+        "features": ["Sunroof Roller Blind", "Rear Sunshade"]
+    },
+    # ── Luggage rack ──
+    {
+        "category": "Luggage rack", "description": "Luggage rack",
+        "features": ["Roof Rails", "Roof Rack", "Roof Cross Bars"]
+    },
+    # ── Wipers & Demister ──
+    {
+        "category": "Wipers & Demister", "description": "Front Wiper",
+        "features": ["Front Wiper", "Wiper Speed Settings"]
+    },
+    {
+        "category": "Wipers & Demister", "description": "Defogging",
+        "features": ["Front Defogger", "Rear Defogger", "Auto Defogging"]
+    },
+    {
+        "category": "Wipers & Demister", "description": "Rain Sensing Wipers",
+        "features": ["Rain Sensing Wipers", "Auto Wipers"]
+    },
+    {
+        "category": "Wipers & Demister", "description": "Rear Wiper",
+        "features": ["Rear Wiper", "Rear Washer"]
+    },
+    # ── Door ──
+    {
+        "category": "Door", "description": "Front",
+        "features": ["Front Door Pockets", "Front Door Armrest"]
+    },
+    {
+        "category": "Door", "description": "Rear",
+        "features": ["Rear Door Pockets", "Rear Door Armrest"]
+    },
+    # ── Tailgate ──
+    {
+        "category": "Tailgate", "description": "Type",
+        "features": ["Tailgate Type", "Split Tailgate"]
+    },
+    {
+        "category": "Tailgate", "description": "Power operated tail gate eLatch",
+        "features": ["Power Tailgate", "Hands-Free Tailgate", "Tailgate eLatch"]
+    },
+    # ── ORVM ──
+    {
+        "category": "ORVM", "description": "ORVM",
+        "features": ["Power ORVM", "Auto Folding ORVM", "Heated ORVM", "ORVM Turn Indicators"]
+    },
+    # ── Bonnet Stay Mechanism ──
+    {
+        "category": "Bonnet Stay Mechanism", "description": "Bonnet Gas Strut",
+        "features": ["Bonnet Gas Strut", "Hood Lift Support"]
+    },
+    # ── Door Trim ──
+    {
+        "category": "Door Trim", "description": "Bottle Holder",
+        "features": ["Front Door Bottle Holder", "Rear Door Bottle Holder"]
+    },
+    {
+        "category": "Door Trim", "description": "Door arm Rest",
+        "features": ["Soft Touch Door Armrest", "Door Armrest Material"]
+    },
+    # ── Boot/Trunk ──
+    {
+        "category": "Boot/Trunk", "description": "Boot Organizer",
+        "features": ["Boot Organizer", "Boot Storage Box", "Cargo Net"]
+    },
+    {
+        "category": "Boot/Trunk", "description": "Lamp",
+        "features": ["Boot Lamp", "Boot Lighting"]
+    },
+    # ── Floor Console ──
+    {
+        "category": "Floor Console", "description": "Arm Rest",
+        "features": ["Center Armrest", "Armrest Storage", "Sliding Armrest"]
+    },
+    {
+        "category": "Floor Console", "description": "No Of Cup Holder",
+        "features": ["Front Cup Holders", "Rear Cup Holders", "Console Cup Holders"]
+    },
+    # ── Wireless charging ──
+    {
+        "category": "Wireless charging", "description": "Wireless charging",
+        "features": ["Wireless Charging", "Wireless Charging Pad"]
+    },
+    {
+        "category": "Wireless charging", "description": "No of wireless charging",
+        "features": ["No of Wireless Charging Pads", "Dual Wireless Charging"]
+    },
+    # ── Door Inner Scuff ──
+    {
+        "category": "Door Inner Scuff", "description": "Front",
+        "features": ["Front Door Scuff Material", "Front Illuminated Scuff Plates"]
+    },
+    {
+        "category": "Door Inner Scuff", "description": "Rear",
+        "features": ["Rear Door Scuff Material", "Rear Illuminated Scuff Plates"]
+    },
+    # ── Voice Recognition ──
+    {
+        "category": "Voice Recognition Button On Steering Wheel Control", "description": "Voice Control",
+        "features": ["Voice Recognition Steering Wheel", "Voice Control Button", "Voice Assistant"]
+    },
+    # ── Seats ──
+    {
+        "category": "Seats", "description": "Seats",
+        "features": ["Power Driver Seat", "Power Co-Driver Seat", "Driver Memory Seat",
+                     "Rear Reclining Seats", "Rear Foldable Seats", "Seating Capacity"]
+    },
+    # ── Seat Ventilation ──
+    {
+        "category": "Seat Ventilation", "description": "Driver and Front Passenger",
+        "features": ["Ventilated Front Seats", "Heated Front Seats", "Cooled Seats"]
+    },
+    # ── Safety ──
+    {
+        "category": "Safety", "description": "Airbags",
+        "features": ["Total Airbags", "Front Airbags", "Side Airbags", "Curtain Airbags", "Knee Airbag"]
+    },
+    {
+        "category": "Safety", "description": "PAB deactivation switch",
+        "features": ["PAB Deactivation Switch", "Airbag On/Off Switch"]
+    },
+    {
+        "category": "Safety", "description": "Driver Seat Belt",
+        "features": ["Driver Seatbelt Pretensioner", "Driver Seatbelt Reminder"]
+    },
+    {
+        "category": "Safety", "description": "Front Passenger Seat Belt",
+        "features": ["Front Passenger Seatbelt Pretensioner", "Front Passenger Seatbelt Reminder"]
+    },
+    {
+        "category": "Safety", "description": "2nd Row Seat Belt",
+        "features": ["Rear Seatbelts 3-Point", "Rear Center Seatbelt"]
+    },
+    {
+        "category": "Safety", "description": "Child Anchor",
+        "features": ["ISOFIX Child Seat Anchors", "Child Seat Anchor Points"]
+    },
+    {
+        "category": "Safety", "description": "Child Lock",
+        "features": ["Rear Door Child Lock", "Power Child Lock"]
+    },
+    {
+        "category": "Safety", "description": "Seat Belt Reminder with Buzzer",
+        "features": ["Seatbelt Reminder All Seats", "Seatbelt Warning Buzzer"]
+    },
+    {
+        "category": "Safety", "description": "Seat Belt Holder - 2nd Row",
+        "features": ["Seatbelt Tongue Holder 2nd Row", "Rear Seatbelt Holder"]
+    },
+    {
+        "category": "Safety", "description": "Sensors",
+        "features": ["Rear Parking Sensors", "Front Parking Sensors", "360 Degree Camera", "Crash Sensor"]
+    },
+    # ── Technology ──
     {
         "category": "Technology", "description": "Infotainment",
-        "features": ["Touchscreen Display", "Screen Size (inches)", "Apple CarPlay",
-                     "Android Auto", "Wireless CarPlay", "Wireless Android Auto",
-                     "OTA Updates", "Built-in Navigation", "Voice Control",
-                     "Digital Instrument Cluster"]
+        "features": ["Touchscreen Display", "Screen Size (inches)", "Infotainment System"]
     },
     {
-        "category": "Technology", "description": "Audio & Connectivity",
-        "features": ["Speaker Count", "Premium Sound System", "Subwoofer",
-                     "USB Type-C Front Row", "USB Type-C Rear Row", "Wireless Charging",
-                     "Bluetooth", "Wi-Fi Hotspot", "Heads-Up Display",
-                     "Rear Entertainment System"]
+        "category": "Technology", "description": "Smart Phone Connectivity",
+        "features": ["Apple CarPlay", "Android Auto", "Wireless CarPlay", "Wireless Android Auto"]
     },
     {
-        "category": "Interior", "description": "Seats",
-        "features": ["Seat Material", "Ventilated Front Seats", "Heated Front Seats",
-                     "Power Driver Seat", "Power Co-Driver Seat", "Driver Memory Seat",
-                     "Power Adjustment Ways (Driver)", "Rear Reclining Seats",
-                     "Rear Foldable Seats", "Seating Capacity"]
+        "category": "Technology", "description": "Bluetooth",
+        "features": ["Bluetooth", "Bluetooth Hands Free", "Bluetooth Audio Streaming"]
     },
     {
-        "category": "Interior", "description": "Comfort & Climate",
-        "features": ["Sunroof", "Panoramic Sunroof", "Automatic Climate Control",
-                     "Dual Zone Climate Control", "Rear AC Vents", "PM2.5 Air Filter",
-                     "Push Button Start", "Keyless Entry", "Auto Dimming IRVM",
-                     "Ambient Lighting"]
+        "category": "Technology", "description": "Radio",
+        "features": ["AM/FM Radio", "Digital Radio DAB", "Radio Antenna"]
     },
     {
-        "category": "Exterior", "description": "Lighting & Wheels",
-        "features": ["LED Headlamps", "LED Daytime Running Lights", "LED Tail Lamps",
-                     "Auto Headlamps", "Cornering Lights", "Follow Me Home Lights",
-                     "Alloy Wheels", "Wheel Size (inches)", "Tyre Size", "Roof Rails"]
+        "category": "Technology", "description": "ConnectedDrive",
+        "features": ["Connected Car Features", "OTA Updates", "Remote App Control", "Vehicle Tracking"]
+    },
+    # ── Branded Audio ──
+    {
+        "category": "Branded Audio", "description": "3D Immersive Sound",
+        "features": ["Premium Sound System", "Speaker Count", "Subwoofer", "Dolby Atmos", "Audio Brand"]
+    },
+    # ── Lighting ──
+    {
+        "category": "Lighting", "description": "Front Fog Lamp",
+        "features": ["Front Fog Lamps", "LED Fog Lamps", "Cornering Fog Lamps"]
     },
     {
-        "category": "Performance", "description": "Engine & Transmission",
-        "features": ["Fuel Type", "Engine Displacement (cc)", "Max Power (bhp)",
-                     "Max Torque (Nm)", "Turbo Engine", "Fuel Efficiency (kmpl)",
-                     "Manual Transmission", "Automatic Transmission",
-                     "Paddle Shifters", "Drive Modes"]
+        "category": "Lighting", "description": "Tail Lamp",
+        "features": ["LED Tail Lamps", "Connected Tail Lamps", "Dynamic Tail Lamps"]
     },
     {
-        "category": "Handling", "description": "Off-Road & Dynamics",
-        "features": ["4WD / AWD", "Electronic Locking Differential", "Hill Descent Control",
-                     "Terrain Modes", "Ground Clearance (mm)", "Electronic Power Steering",
-                     "Telescopic Steering Column", "Turning Radius (m)",
-                     "Tow Hook", "Skid Plates"]
+        "category": "Lighting", "description": "Welcome Lighting",
+        "features": ["Welcome Lights", "Puddle Lamps", "Follow Me Home Lights"]
     },
     {
-        "category": "Convenience", "description": "Windows & Controls",
-        "features": ["Power Windows All Doors", "One-Touch Window Up/Down",
-                     "Rain Sensing Wipers", "Rear Wiper & Washer", "Auto Folding ORVM",
-                     "Heated ORVM", "TPMS (Tyre Pressure Monitor)",
-                     "Cruise Control", "Speed Alert System", "Rear Sunshade"]
+        "category": "Lighting", "description": "Ambient Lighting System",
+        "features": ["Ambient Lighting", "Multi-Color Ambient Lighting", "Footwell Lighting"]
     },
     {
-        "category": "Dimensions & Storage", "description": "Space & Capacity",
-        "features": ["Wheelbase (mm)", "Boot Space (litres)", "Spare Tyre Type",
-                     "Cargo Net", "Rear Armrest with Cupholder", "Front Cup Holders",
-                     "Rear Cup Holders", "Total USB Ports", "12V Power Outlet",
-                     "Tow Capacity (kg)"]
-    },
-    # ── New categories from reference spec sheets ──────────────────────────
-    {
-        "category": "Boot & Trunk", "description": "Storage & Boot Utilities",
-        "features": ["Trunk Metal Anchor Points", "Trunk Storage Box",
-                     "Trunk Subwoofer", "Dashcam Provision",
-                     "Cup Holder at Tail Door", "Hooks at Tail Door",
-                     "Warning Triangle at Tail Door", "Door Magnetic Strap"]
+        "category": "Lighting", "description": "Cabin Lamps",
+        "features": ["Front Reading Lamps", "Rear Reading Lamps", "Interior Dome Light"]
     },
     {
-        "category": "Floor Console", "description": "Armrest & Charging",
-        "features": ["Armrest Sliding", "Armrest Soft", "Armrest Storage",
-                     "Wireless Charging Front Row", "No of Wireless Charging Pads"]
+        "category": "Lighting", "description": "High Mounted Stop",
+        "features": ["High Mounted Stop Lamp", "HMSL LED"]
     },
     {
-        "category": "Door & Trim", "description": "Door Panel Details",
-        "features": ["Front Door Scuff Material", "Rear Door Scuff Material"]
+        "category": "Lighting", "description": "Hazard Lamp",
+        "features": ["Hazard Warning Lights", "Emergency Flashers"]
+    },
+    # ── Locking ──
+    {
+        "category": "Locking", "description": "Locking",
+        "features": ["Central Locking", "Speed Sensing Door Lock", "Auto Lock/Unlock"]
     },
     {
-        "category": "Steering & Voice", "description": "Controls & Voice Assistance",
-        "features": ["Voice Recognition Steering Wheel", "Voice Assistant Type",
-                     "Multi-language Voice Commands", "Amazon Alexa Voice Assistant",
-                     "Active Noise Reduction", "Intelligent Voice Control",
-                     "Intelligent Dodge", "Intelligent Parking Assist"]
+        "category": "Locking", "description": "Digital Key Plus",
+        "features": ["Digital Key", "Smart Key", "Keyless Entry", "Push Button Start"]
+    },
+    # ── Horn ──
+    {
+        "category": "Horn", "description": "Horn",
+        "features": ["Dual Horn", "Horn Type"]
+    },
+    # ── Over speeding Bell ──
+    {
+        "category": "Over speeding Bell", "description": "Over speeding Bell",
+        "features": ["Speed Alert System", "Overspeed Warning", "Speed Limit Warning"]
+    },
+    # ── Climate ──
+    {
+        "category": "Climate", "description": "Auto Defogging",
+        "features": ["Auto Defogging", "Auto Climate Control", "Dual Zone Climate Control", "Rear AC Vents"]
+    },
+    # ── Capabilities ──
+    {
+        "category": "Capabilities", "description": "Capabilities",
+        "features": ["4WD / AWD", "Drive Modes", "Terrain Modes", "Hill Descent Control",
+                     "Electronic Locking Differential", "Tow Hook", "Skid Plates"]
+    },
+    # ── Power outlet / Charging Points ──
+    {
+        "category": "Power outlet / Charging Points", "description": "Power outlet / Charging Points",
+        "features": ["12V Power Outlet", "USB Type-C Front Row", "USB Type-C Rear Row",
+                     "Total USB Ports", "230V Power Outlet"]
+    },
+    # ── Power Window ──
+    {
+        "category": "Power Window", "description": "All Doors",
+        "features": ["Power Windows All Doors"]
     },
     {
-        "category": "Seats Extended", "description": "Power & Memory",
-        "features": ["Co-Driver Seat Adjustment", "Power Seat Controls Location",
-                     "Programmable Memory Seat", "Seatbelt Warning",
-                     "Seatbelt Tongue Holder 2nd Row", "Crash Sensor"]
+        "category": "Power Window", "description": "Driver Door",
+        "features": ["Driver Auto Up/Down Window"]
     },
     {
-        "category": "Technology Extended", "description": "Connectivity & Media",
-        "features": ["Infotainment Touch", "Display Language",
-                     "Phone Sync Audio", "Bluetooth Hands Free",
-                     "AM/FM Radio", "Digital Radio DAB",
-                     "Wireless Smartphone Integration"]
+        "category": "Power Window", "description": "Window one key lift function",
+        "features": ["One-Touch Window Up/Down", "Global Window Open/Close"]
     },
     {
-        "category": "Branded Audio", "description": "Sound System Details",
-        "features": ["Audio Brand", "Dolby Atmos", "Speed Sensing Volume"]
+        "category": "Power Window", "description": "Window anti-clamping function",
+        "features": ["Anti-Pinch Power Windows", "Window Safety Reverse"]
     },
+    {
+        "category": "Power Window", "description": "Multilayer silencing glass the front door",
+        "features": ["Acoustic Glass Front", "Laminated Front Windows"]
+    },
+    {
+        "category": "Power Window", "description": "Front windshield multilayer mute glass",
+        "features": ["Acoustic Windshield", "Laminated Windshield", "IR Cut Windshield"]
+    },
+    # ── Steering ──
+    {
+        "category": "Steering", "description": "Steering Column",
+        "features": ["Tilt Steering", "Telescopic Steering Column", "Electric Steering Adjust"]
+    },
+    {
+        "category": "Steering", "description": "Steering Column Lock",
+        "features": ["Steering Lock", "Electronic Steering Lock"]
+    },
+    {
+        "category": "Steering", "description": "Steering Wheel",
+        "features": ["Leather Steering Wheel", "Multifunction Steering Wheel", "Heated Steering Wheel"]
+    },
+    # ── Brakes ──
+    {
+        "category": "Brakes", "description": "Auto Hold",
+        "features": ["Auto Hold", "Brake Auto Hold"]
+    },
+    {
+        "category": "Brakes", "description": "TPMS",
+        "features": ["TPMS (Tyre Pressure Monitor)", "Direct TPMS"]
+    },
+    {
+        "category": "Brakes", "description": "Safety Systems",
+        "features": ["ABS", "EBD", "Brake Assist", "Electronic Stability Control", "Traction Control"]
+    },
+    {
+        "category": "Brakes", "description": "EPB & Hill Assist",
+        "features": ["Electronic Parking Brake", "Hill Hold Control", "Hill Descent Control"]
+    },
+    {
+        "category": "Brakes", "description": "Advanced Braking",
+        "features": ["Disc Brakes Front", "Disc Brakes Rear", "Ventilated Disc Brakes"]
+    },
+    # ── Others ──
     {
         "category": "Others", "description": "Unique Features",
-        "features": ["Transparent Car Bottom Camera", "Car Picnic Table",
-                     "Safety Belt Holder 2nd Row", "Front Rear Parking Sensor Radar"]
+        "features": ["Active Noise Reduction", "Intelligent Voice Control", "Transparent Car Bottom Camera",
+                     "Car Picnic Table", "Trunk Subwoofer", "Dashcam Provision",
+                     "Cup Holder at Tail Door", "Hooks at Tail Door", "Warning Triangle at Tail Door",
+                     "Door Magnetic Strap"]
     },
 ]
 
@@ -1131,17 +1467,15 @@ Return JSON only: {{"features": [{{"name": "X", "{car1}": true/false, "{car2}": 
                     print(f"    [DEBUG] Exception in extract_batch: {type(e).__name__}: {e}")
                     return []
 
-            # Step 2c: Process batches with 4 parallel Gemini calls
-            print(f"  Extracting features ({len(batches)} batches, 4 parallel)...")
-            for i in range(0, len(batches), 4):
-                batch_group = batches[i:i + 4]
-                with concurrent.futures.ThreadPoolExecutor(max_workers=4) as ex:
-                    futures = [ex.submit(extract_batch, b) for b in batch_group]
-                    for future in concurrent.futures.as_completed(futures):
-                        for feat in future.result():
-                            name = feat.get("name", "")
-                            if name:
-                                gemini_resolved[name] = {cn: feat.get(cn) for cn in car_names}
+            # Step 2c: Process ALL batches in parallel (10 concurrent Gemini calls)
+            print(f"  Extracting features ({len(batches)} batches, {len(batches)} parallel)...")
+            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as ex:
+                futures = [ex.submit(extract_batch, b) for b in batches]
+                for future in concurrent.futures.as_completed(futures):
+                    for feat in future.result():
+                        name = feat.get("name", "")
+                        if name:
+                            gemini_resolved[name] = {cn: feat.get(cn) for cn in car_names}
 
             print(f"  Fetched {len(gemini_resolved)} features via {len(missing_features)} searches + {len(batches)} Gemini calls")
 
@@ -1182,38 +1516,68 @@ Return JSON only: {{"features": [{{"name": "X", "{car1}": true/false, "{car2}": 
 def _build_fallback_categories(car_names: List[str], comparison_data: Dict[str, Any]) -> List[Dict]:
     """Build category structure from existing scraped data when Gemini is unavailable."""
     feature_groups = {
-        "Safety": {
-            "Airbags": [("Number of Airbags", "airbags"), ("Airbag Types", "airbag_types_breakdown")],
-            "Sensors": [("NCAP Rating", "ncap_rating"), ("Impact Rating", "impact"), ("ADAS System", "adas")],
-            "Controls": [("Electronic Stability", "stability"), ("Hill Hold", "epb"),
-                         ("Parking Sensors", "parking_sensors"), ("Parking Camera", "parking_camera")],
-            "Restraints": [("Seatbelt Features", "seats_restraint"), ("Safety Features", "vehicle_safety_features")],
-        },
-        "Technology": {
-            "Infotainment": [("Instrument Cluster", "digital_display"), ("Touchscreen", "infotainment_screen"),
-                             ("Touch Response", "touch_response")],
-            "Connectivity": [("Apple CarPlay", "apple_carplay"), ("Cruise Control", "cruise_control")],
-            "Audio": [("Audio System", "audio_system")],
-        },
         "Exterior": {
-            "Lighting": [("LED Headlamps", "led"), ("DRL", "drl"), ("Tail Lamps", "tail_lamp")],
-            "Wheels": [("Alloy Wheels", "alloy_wheel"), ("Tyre Size", "tyre_size")],
-            "Roof": [("Sunroof", "sunroof")],
+            "Full LED": [("LED Headlamps", "led"), ("LED DRL", "drl"), ("LED Tail Lamps", "tail_lamp")],
+            "Wheels & Tyres": [("Alloy Wheels", "alloy_wheel"), ("Tyre Size", "tyre_size")],
         },
         "Interior": {
-            "Seats": [("Seat Material", "seat_material"), ("Ventilated Seats", "ventilated_seats"),
-                      ("Seating Capacity", "seating_capacity")],
-            "Climate": [("Climate Control", "climate_control")],
-            "Comfort": [("Armrest", "armrest"), ("Soft Touch Trims", "soft_trims"),
-                        ("Push Button Start", "button"), ("Power Windows", "window")],
+            "Upholstery": [("Seat Material", "seat_material")],
+            "Dashboard": [("Soft Touch Dashboard", "soft_trims")],
         },
-        "Performance": {
-            "Engine": [("Fuel Type", "fuel_type"), ("Displacement", "engine_displacement"),
-                       ("Torque", "torque"), ("Mileage", "mileage")],
+        "Sun Roof / Fixed Roof": {
+            "Panoramic Sun Roof": [("Sunroof", "sunroof")],
         },
-        "Dimensions": {
-            "Size": [("Wheelbase", "wheelbase"), ("Ground Clearance", "ground_clearance"),
-                     ("Boot Space", "boot_space"), ("Chassis Type", "chasis")],
+        "Wipers & Demister": {
+            "Defogging": [("Rear Defogger", "rear_defogger")],
+        },
+        "ORVM": {
+            "ORVM": [("Power ORVM", "orvm")],
+        },
+        "Boot/Trunk": {
+            "Boot": [("Boot Space", "boot_space")],
+        },
+        "Floor Console": {
+            "Arm Rest": [("Armrest", "armrest")],
+        },
+        "Wireless charging": {
+            "Wireless charging": [("Wireless Charging", "wireless_charging")],
+        },
+        "Seats": {
+            "Seats": [("Seating Capacity", "seating_capacity"), ("Ventilated Seats", "ventilated_seats")],
+        },
+        "Safety": {
+            "Airbags": [("Number of Airbags", "airbags"), ("Airbag Types", "airbag_types_breakdown")],
+            "Sensors": [("NCAP Rating", "ncap_rating"), ("Parking Sensors", "parking_sensors"),
+                        ("Parking Camera", "parking_camera"), ("ADAS System", "adas")],
+            "Safety Features": [("Vehicle Safety Features", "vehicle_safety_features"),
+                                ("Seatbelt Features", "seats_restraint")],
+        },
+        "Technology": {
+            "Infotainment": [("Touchscreen", "infotainment_screen"), ("Screen Resolution", "resolution"),
+                             ("Touch Response", "touch_response"), ("Digital Display", "digital_display")],
+            "Smart Phone Connectivity": [("Apple CarPlay", "apple_carplay")],
+            "Audio": [("Audio System", "audio_system")],
+        },
+        "Lighting": {
+            "Lighting": [("LED Headlamps", "led"), ("Tail Lamp", "tail_lamp"), ("DRL", "drl")],
+        },
+        "Locking": {
+            "Locking": [("Push Button Start", "button")],
+        },
+        "Climate": {
+            "Climate Control": [("Climate Control", "climate_control")],
+        },
+        "Capabilities": {
+            "Off-Road": [("Off-Road", "off_road"), ("Drive Modes", "drive_mode")],
+        },
+        "Power Window": {
+            "All Doors": [("Power Windows", "window")],
+        },
+        "Steering": {
+            "Steering": [("Steering Type", "steering"), ("Telescopic Steering", "telescopic_steering")],
+        },
+        "Brakes": {
+            "Brakes": [("Brakes", "brakes"), ("EPB", "epb"), ("Stability Control", "stability")],
         },
     }
 

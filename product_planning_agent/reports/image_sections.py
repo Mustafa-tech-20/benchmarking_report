@@ -617,135 +617,127 @@ _SCRAPED_KEY_MAP = {
     "Auto Headlamps":               "auto_headlamps",
 }
 
+# Pre-defined feature batches matching reference spec sheets order
 _FEATURE_BATCHES = [
-    {
-        "category": "Safety", "description": "Airbags & Passive Safety",
-        "features": ["Total Airbags", "Front Airbags", "Side Airbags", "Curtain Airbags",
-                     "Knee Airbag", "Seatbelt Pretensioner", "Rear Seatbelts",
-                     "NCAP Safety Rating", "ISOFIX Child Seat Anchors", "Impact Protection Rating"]
-    },
-    {
-        "category": "Safety", "description": "Active Safety",
-        "features": ["ABS", "Electronic Stability Control", "Traction Control",
-                     "Hill Hold Control", "Electronic Parking Brake", "Auto Hold",
-                     "Brake Assist", "Hill Descent Control", "Rear Parking Sensors",
-                     "Front Parking Sensors"]
-    },
-    {
-        "category": "Safety", "description": "ADAS",
-        "features": ["Forward Collision Warning", "Automatic Emergency Braking",
-                     "Lane Keep Assist", "Lane Departure Warning", "Blind Spot Monitor",
-                     "Rear Cross Traffic Alert", "Adaptive Cruise Control",
-                     "Traffic Sign Recognition", "360 Degree Camera", "Driver Fatigue Detection"]
-    },
-    {
-        "category": "Technology", "description": "Infotainment",
-        "features": ["Touchscreen Display", "Screen Size (inches)", "Apple CarPlay",
-                     "Android Auto", "Wireless CarPlay", "Wireless Android Auto",
-                     "OTA Updates", "Built-in Navigation", "Voice Control",
-                     "Digital Instrument Cluster"]
-    },
-    {
-        "category": "Technology", "description": "Audio & Connectivity",
-        "features": ["Speaker Count", "Premium Sound System", "Subwoofer",
-                     "USB Type-C Front Row", "USB Type-C Rear Row", "Wireless Charging",
-                     "Bluetooth", "Wi-Fi Hotspot", "Heads-Up Display",
-                     "Rear Entertainment System"]
-    },
-    {
-        "category": "Interior", "description": "Seats",
-        "features": ["Seat Material", "Ventilated Front Seats", "Heated Front Seats",
-                     "Power Driver Seat", "Power Co-Driver Seat", "Driver Memory Seat",
-                     "Power Adjustment Ways (Driver)", "Rear Reclining Seats",
-                     "Rear Foldable Seats", "Seating Capacity"]
-    },
-    {
-        "category": "Interior", "description": "Comfort & Climate",
-        "features": ["Sunroof", "Panoramic Sunroof", "Automatic Climate Control",
-                     "Dual Zone Climate Control", "Rear AC Vents", "PM2.5 Air Filter",
-                     "Push Button Start", "Keyless Entry", "Auto Dimming IRVM",
-                     "Ambient Lighting"]
-    },
-    {
-        "category": "Exterior", "description": "Lighting & Wheels",
-        "features": ["LED Headlamps", "LED Daytime Running Lights", "LED Tail Lamps",
-                     "Auto Headlamps", "Cornering Lights", "Follow Me Home Lights",
-                     "Alloy Wheels", "Wheel Size (inches)", "Tyre Size", "Roof Rails"]
-    },
-    {
-        "category": "Performance", "description": "Engine & Transmission",
-        "features": ["Fuel Type", "Engine Displacement (cc)", "Max Power (bhp)",
-                     "Max Torque (Nm)", "Turbo Engine", "Fuel Efficiency (kmpl)",
-                     "Manual Transmission", "Automatic Transmission",
-                     "Paddle Shifters", "Drive Modes"]
-    },
-    {
-        "category": "Handling", "description": "Off-Road & Dynamics",
-        "features": ["4WD / AWD", "Electronic Locking Differential", "Hill Descent Control",
-                     "Terrain Modes", "Ground Clearance (mm)", "Electronic Power Steering",
-                     "Telescopic Steering Column", "Turning Radius (m)",
-                     "Tow Hook", "Skid Plates"]
-    },
-    {
-        "category": "Convenience", "description": "Windows & Controls",
-        "features": ["Power Windows All Doors", "One-Touch Window Up/Down",
-                     "Rain Sensing Wipers", "Rear Wiper & Washer", "Auto Folding ORVM",
-                     "Heated ORVM", "TPMS (Tyre Pressure Monitor)",
-                     "Cruise Control", "Speed Alert System", "Rear Sunshade"]
-    },
-    {
-        "category": "Dimensions & Storage", "description": "Space & Capacity",
-        "features": ["Wheelbase (mm)", "Boot Space (litres)", "Spare Tyre Type",
-                     "Cargo Net", "Rear Armrest with Cupholder", "Front Cup Holders",
-                     "Rear Cup Holders", "Total USB Ports", "12V Power Outlet",
-                     "Tow Capacity (kg)"]
-    },
-    # ── New categories from reference spec sheets ──────────────────────────
-    {
-        "category": "Boot & Trunk", "description": "Storage & Boot Utilities",
-        "features": ["Trunk Metal Anchor Points", "Trunk Storage Box",
-                     "Trunk Subwoofer", "Dashcam Provision",
-                     "Cup Holder at Tail Door", "Hooks at Tail Door",
-                     "Warning Triangle at Tail Door", "Door Magnetic Strap"]
-    },
-    {
-        "category": "Floor Console", "description": "Armrest & Charging",
-        "features": ["Armrest Sliding", "Armrest Soft", "Armrest Storage",
-                     "Wireless Charging Front Row", "No of Wireless Charging Pads"]
-    },
-    {
-        "category": "Door & Trim", "description": "Door Panel Details",
-        "features": ["Front Door Scuff Material", "Rear Door Scuff Material"]
-    },
-    {
-        "category": "Steering & Voice", "description": "Controls & Voice Assistance",
-        "features": ["Voice Recognition Steering Wheel", "Voice Assistant Type",
-                     "Multi-language Voice Commands", "Amazon Alexa Voice Assistant",
-                     "Active Noise Reduction", "Intelligent Voice Control",
-                     "Intelligent Dodge", "Intelligent Parking Assist"]
-    },
-    {
-        "category": "Seats Extended", "description": "Power & Memory",
-        "features": ["Co-Driver Seat Adjustment", "Power Seat Controls Location",
-                     "Programmable Memory Seat", "Seatbelt Warning",
-                     "Seatbelt Tongue Holder 2nd Row", "Crash Sensor"]
-    },
-    {
-        "category": "Technology Extended", "description": "Connectivity & Media",
-        "features": ["Infotainment Touch", "Display Language",
-                     "Phone Sync Audio", "Bluetooth Hands Free",
-                     "AM/FM Radio", "Digital Radio DAB",
-                     "Wireless Smartphone Integration"]
-    },
-    {
-        "category": "Branded Audio", "description": "Sound System Details",
-        "features": ["Audio Brand", "Dolby Atmos", "Speed Sensing Volume"]
-    },
-    {
-        "category": "Others", "description": "Unique Features",
-        "features": ["Transparent Car Bottom Camera", "Car Picnic Table",
-                     "Safety Belt Holder 2nd Row", "Front Rear Parking Sensor Radar"]
-    },
+    # ── Exterior ──
+    {"category": "Exterior", "description": "Full LED", "features": ["LED Headlamps", "LED DRL", "LED Tail Lamps", "LED Fog Lamps"]},
+    {"category": "Exterior", "description": "Wheel arch Ext. Claddings", "features": ["Wheel Arch Cladding", "Body Cladding"]},
+    {"category": "Exterior", "description": "Front Bumper & Grille", "features": ["Front Bumper Design", "Grille Design", "Chrome Grille"]},
+    {"category": "Exterior", "description": "Antenna Type", "features": ["Shark Fin Antenna", "Roof Antenna"]},
+    {"category": "Exterior", "description": "Foot step", "features": ["Side Footstep", "Running Board"]},
+    # ── Interior ──
+    {"category": "Interior", "description": "Console Switches", "features": ["Piano Black Console", "Chrome Console Switches", "Soft Touch Console"]},
+    {"category": "Interior", "description": "Upholstery", "features": ["Seat Material", "Leather Upholstery", "Leatherette Upholstery", "Fabric Upholstery"]},
+    {"category": "Interior", "description": "IP/ Dashboard", "features": ["Soft Touch Dashboard", "Dashboard Material", "Dual Tone Dashboard"]},
+    # ── Glove Box ──
+    {"category": "Glove Box", "description": "Glove Box", "features": ["Illuminated Glove Box", "Cooled Glove Box", "Glove Box Lock"]},
+    # ── Sunvisor ──
+    {"category": "Sunvisor", "description": "Driver", "features": ["Driver Sunvisor Mirror", "Driver Sunvisor Light"]},
+    {"category": "Sunvisor", "description": "Co Driver", "features": ["Co-Driver Sunvisor Mirror", "Co-Driver Sunvisor Light"]},
+    # ── Grab Handle ──
+    {"category": "Grab Handle", "description": "Driver", "features": ["Driver Grab Handle"]},
+    {"category": "Grab Handle", "description": "Co Driver", "features": ["Co-Driver Grab Handle"]},
+    {"category": "Grab Handle", "description": "2nd Row Both side", "features": ["Rear Grab Handle Left", "Rear Grab Handle Right"]},
+    # ── Sun Roof / Fixed Roof ──
+    {"category": "Sun Roof / Fixed Roof", "description": "Panoramic Sun Roof", "features": ["Panoramic Sunroof", "Single Pane Sunroof", "Electric Sunroof"]},
+    {"category": "Sun Roof / Fixed Roof", "description": "Roller Blind/ Sunblind", "features": ["Sunroof Roller Blind", "Rear Sunshade"]},
+    # ── Luggage rack ──
+    {"category": "Luggage rack", "description": "Luggage rack", "features": ["Roof Rails", "Roof Rack", "Roof Cross Bars"]},
+    # ── Wipers & Demister ──
+    {"category": "Wipers & Demister", "description": "Front Wiper", "features": ["Front Wiper", "Wiper Speed Settings"]},
+    {"category": "Wipers & Demister", "description": "Defogging", "features": ["Front Defogger", "Rear Defogger", "Auto Defogging"]},
+    {"category": "Wipers & Demister", "description": "Rain Sensing Wipers", "features": ["Rain Sensing Wipers", "Auto Wipers"]},
+    {"category": "Wipers & Demister", "description": "Rear Wiper", "features": ["Rear Wiper", "Rear Washer"]},
+    # ── Door ──
+    {"category": "Door", "description": "Front", "features": ["Front Door Pockets", "Front Door Armrest"]},
+    {"category": "Door", "description": "Rear", "features": ["Rear Door Pockets", "Rear Door Armrest"]},
+    # ── Tailgate ──
+    {"category": "Tailgate", "description": "Type", "features": ["Tailgate Type", "Split Tailgate"]},
+    {"category": "Tailgate", "description": "Power operated tail gate eLatch", "features": ["Power Tailgate", "Hands-Free Tailgate", "Tailgate eLatch"]},
+    # ── ORVM ──
+    {"category": "ORVM", "description": "ORVM", "features": ["Power ORVM", "Auto Folding ORVM", "Heated ORVM", "ORVM Turn Indicators"]},
+    # ── Bonnet Stay Mechanism ──
+    {"category": "Bonnet Stay Mechanism", "description": "Bonnet Gas Strut", "features": ["Bonnet Gas Strut", "Hood Lift Support"]},
+    # ── Door Trim ──
+    {"category": "Door Trim", "description": "Bottle Holder", "features": ["Front Door Bottle Holder", "Rear Door Bottle Holder"]},
+    {"category": "Door Trim", "description": "Door arm Rest", "features": ["Soft Touch Door Armrest", "Door Armrest Material"]},
+    # ── Boot/Trunk ──
+    {"category": "Boot/Trunk", "description": "Boot Organizer", "features": ["Boot Organizer", "Boot Storage Box", "Cargo Net"]},
+    {"category": "Boot/Trunk", "description": "Lamp", "features": ["Boot Lamp", "Boot Lighting"]},
+    # ── Floor Console ──
+    {"category": "Floor Console", "description": "Arm Rest", "features": ["Center Armrest", "Armrest Storage", "Sliding Armrest"]},
+    {"category": "Floor Console", "description": "No Of Cup Holder", "features": ["Front Cup Holders", "Rear Cup Holders", "Console Cup Holders"]},
+    # ── Wireless charging ──
+    {"category": "Wireless charging", "description": "Wireless charging", "features": ["Wireless Charging", "Wireless Charging Pad"]},
+    {"category": "Wireless charging", "description": "No of wireless charging", "features": ["No of Wireless Charging Pads", "Dual Wireless Charging"]},
+    # ── Door Inner Scuff ──
+    {"category": "Door Inner Scuff", "description": "Front", "features": ["Front Door Scuff Material", "Front Illuminated Scuff Plates"]},
+    {"category": "Door Inner Scuff", "description": "Rear", "features": ["Rear Door Scuff Material", "Rear Illuminated Scuff Plates"]},
+    # ── Voice Recognition ──
+    {"category": "Voice Recognition Button On Steering Wheel Control", "description": "Voice Control", "features": ["Voice Recognition Steering Wheel", "Voice Control Button", "Voice Assistant"]},
+    # ── Seats ──
+    {"category": "Seats", "description": "Seats", "features": ["Power Driver Seat", "Power Co-Driver Seat", "Driver Memory Seat", "Rear Reclining Seats", "Rear Foldable Seats", "Seating Capacity"]},
+    # ── Seat Ventilation ──
+    {"category": "Seat Ventilation", "description": "Driver and Front Passenger", "features": ["Ventilated Front Seats", "Heated Front Seats", "Cooled Seats"]},
+    # ── Safety ──
+    {"category": "Safety", "description": "Airbags", "features": ["Total Airbags", "Front Airbags", "Side Airbags", "Curtain Airbags", "Knee Airbag"]},
+    {"category": "Safety", "description": "PAB deactivation switch", "features": ["PAB Deactivation Switch", "Airbag On/Off Switch"]},
+    {"category": "Safety", "description": "Driver Seat Belt", "features": ["Driver Seatbelt Pretensioner", "Driver Seatbelt Reminder"]},
+    {"category": "Safety", "description": "Front Passenger Seat Belt", "features": ["Front Passenger Seatbelt Pretensioner", "Front Passenger Seatbelt Reminder"]},
+    {"category": "Safety", "description": "2nd Row Seat Belt", "features": ["Rear Seatbelts 3-Point", "Rear Center Seatbelt"]},
+    {"category": "Safety", "description": "Child Anchor", "features": ["ISOFIX Child Seat Anchors", "Child Seat Anchor Points"]},
+    {"category": "Safety", "description": "Child Lock", "features": ["Rear Door Child Lock", "Power Child Lock"]},
+    {"category": "Safety", "description": "Seat Belt Reminder with Buzzer", "features": ["Seatbelt Reminder All Seats", "Seatbelt Warning Buzzer"]},
+    {"category": "Safety", "description": "Seat Belt Holder - 2nd Row", "features": ["Seatbelt Tongue Holder 2nd Row", "Rear Seatbelt Holder"]},
+    {"category": "Safety", "description": "Sensors", "features": ["Rear Parking Sensors", "Front Parking Sensors", "360 Degree Camera", "Crash Sensor"]},
+    # ── Technology ──
+    {"category": "Technology", "description": "Infotainment", "features": ["Touchscreen Display", "Screen Size (inches)", "Infotainment System"]},
+    {"category": "Technology", "description": "Smart Phone Connectivity", "features": ["Apple CarPlay", "Android Auto", "Wireless CarPlay", "Wireless Android Auto"]},
+    {"category": "Technology", "description": "Bluetooth", "features": ["Bluetooth", "Bluetooth Hands Free", "Bluetooth Audio Streaming"]},
+    {"category": "Technology", "description": "Radio", "features": ["AM/FM Radio", "Digital Radio DAB", "Radio Antenna"]},
+    {"category": "Technology", "description": "ConnectedDrive", "features": ["Connected Car Features", "OTA Updates", "Remote App Control", "Vehicle Tracking"]},
+    # ── Branded Audio ──
+    {"category": "Branded Audio", "description": "3D Immersive Sound", "features": ["Premium Sound System", "Speaker Count", "Subwoofer", "Dolby Atmos", "Audio Brand"]},
+    # ── Lighting ──
+    {"category": "Lighting", "description": "Front Fog Lamp", "features": ["Front Fog Lamps", "LED Fog Lamps", "Cornering Fog Lamps"]},
+    {"category": "Lighting", "description": "Tail Lamp", "features": ["LED Tail Lamps", "Connected Tail Lamps", "Dynamic Tail Lamps"]},
+    {"category": "Lighting", "description": "Welcome Lighting", "features": ["Welcome Lights", "Puddle Lamps", "Follow Me Home Lights"]},
+    {"category": "Lighting", "description": "Ambient Lighting System", "features": ["Ambient Lighting", "Multi-Color Ambient Lighting", "Footwell Lighting"]},
+    {"category": "Lighting", "description": "Cabin Lamps", "features": ["Front Reading Lamps", "Rear Reading Lamps", "Interior Dome Light"]},
+    {"category": "Lighting", "description": "High Mounted Stop", "features": ["High Mounted Stop Lamp", "HMSL LED"]},
+    {"category": "Lighting", "description": "Hazard Lamp", "features": ["Hazard Warning Lights", "Emergency Flashers"]},
+    # ── Locking ──
+    {"category": "Locking", "description": "Locking", "features": ["Central Locking", "Speed Sensing Door Lock", "Auto Lock/Unlock"]},
+    {"category": "Locking", "description": "Digital Key Plus", "features": ["Digital Key", "Smart Key", "Keyless Entry", "Push Button Start"]},
+    # ── Horn ──
+    {"category": "Horn", "description": "Horn", "features": ["Dual Horn", "Horn Type"]},
+    # ── Over speeding Bell ──
+    {"category": "Over speeding Bell", "description": "Over speeding Bell", "features": ["Speed Alert System", "Overspeed Warning", "Speed Limit Warning"]},
+    # ── Climate ──
+    {"category": "Climate", "description": "Auto Defogging", "features": ["Auto Defogging", "Auto Climate Control", "Dual Zone Climate Control", "Rear AC Vents"]},
+    # ── Capabilities ──
+    {"category": "Capabilities", "description": "Capabilities", "features": ["4WD / AWD", "Drive Modes", "Terrain Modes", "Hill Descent Control", "Electronic Locking Differential", "Tow Hook", "Skid Plates"]},
+    # ── Power outlet / Charging Points ──
+    {"category": "Power outlet / Charging Points", "description": "Power outlet / Charging Points", "features": ["12V Power Outlet", "USB Type-C Front Row", "USB Type-C Rear Row", "Total USB Ports", "230V Power Outlet"]},
+    # ── Power Window ──
+    {"category": "Power Window", "description": "All Doors", "features": ["Power Windows All Doors"]},
+    {"category": "Power Window", "description": "Driver Door", "features": ["Driver Auto Up/Down Window"]},
+    {"category": "Power Window", "description": "Window one key lift function", "features": ["One-Touch Window Up/Down", "Global Window Open/Close"]},
+    {"category": "Power Window", "description": "Window anti-clamping function", "features": ["Anti-Pinch Power Windows", "Window Safety Reverse"]},
+    {"category": "Power Window", "description": "Multilayer silencing glass the front door", "features": ["Acoustic Glass Front", "Laminated Front Windows"]},
+    {"category": "Power Window", "description": "Front windshield multilayer mute glass", "features": ["Acoustic Windshield", "Laminated Windshield", "IR Cut Windshield"]},
+    # ── Steering ──
+    {"category": "Steering", "description": "Steering Column", "features": ["Tilt Steering", "Telescopic Steering Column", "Electric Steering Adjust"]},
+    {"category": "Steering", "description": "Steering Column Lock", "features": ["Steering Lock", "Electronic Steering Lock"]},
+    {"category": "Steering", "description": "Steering Wheel", "features": ["Leather Steering Wheel", "Multifunction Steering Wheel", "Heated Steering Wheel"]},
+    # ── Brakes ──
+    {"category": "Brakes", "description": "Auto Hold", "features": ["Auto Hold", "Brake Auto Hold"]},
+    {"category": "Brakes", "description": "TPMS", "features": ["TPMS (Tyre Pressure Monitor)", "Direct TPMS"]},
+    {"category": "Brakes", "description": "Safety Systems", "features": ["ABS", "EBD", "Brake Assist", "Electronic Stability Control", "Traction Control"]},
+    {"category": "Brakes", "description": "EPB & Hill Assist", "features": ["Electronic Parking Brake", "Hill Hold Control", "Hill Descent Control"]},
+    {"category": "Brakes", "description": "Advanced Braking", "features": ["Disc Brakes Front", "Disc Brakes Rear", "Ventilated Disc Brakes"]},
+    # ── Others ──
+    {"category": "Others", "description": "Unique Features", "features": ["Active Noise Reduction", "Intelligent Voice Control", "Transparent Car Bottom Camera", "Car Picnic Table", "Trunk Subwoofer", "Dashcam Provision", "Cup Holder at Tail Door", "Hooks at Tail Door", "Warning Triangle at Tail Door", "Door Magnetic Strap"]},
 ]
 
 
@@ -924,17 +916,15 @@ Return JSON only: {{"features": [{{"name": "X", "{car1}": true/false, "{car2}": 
                     print(f"    [DEBUG] Exception in extract_batch: {type(e).__name__}: {e}")
                     return []
 
-            # Step 2c: Process batches with 4 parallel Gemini calls
-            print(f"  Extracting features ({len(batches)} batches, 4 parallel)...")
-            for i in range(0, len(batches), 4):
-                batch_group = batches[i:i + 4]
-                with concurrent.futures.ThreadPoolExecutor(max_workers=4) as ex:
-                    futures = [ex.submit(extract_batch, b) for b in batch_group]
-                    for future in concurrent.futures.as_completed(futures):
-                        for feat in future.result():
-                            name = feat.get("name", "")
-                            if name:
-                                gemini_resolved[name] = {cn: feat.get(cn) for cn in car_names}
+            # Step 2c: Process ALL batches in parallel (10 concurrent Gemini calls)
+            print(f"  Extracting features ({len(batches)} batches, {len(batches)} parallel)...")
+            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as ex:
+                futures = [ex.submit(extract_batch, b) for b in batches]
+                for future in concurrent.futures.as_completed(futures):
+                    for feat in future.result():
+                        name = feat.get("name", "")
+                        if name:
+                            gemini_resolved[name] = {cn: feat.get(cn) for cn in car_names}
 
             print(f"  Fetched {len(gemini_resolved)} features via {len(missing_features)} searches + {len(batches)} Gemini calls")
 
@@ -1114,9 +1104,8 @@ def generate_technical_spec_section(comparison_data: Dict[str, Any], page_start:
         'summary_data', 'engine_variants',
     }
 
-    # Comprehensive organized spec groups - matching exact order from Images 1-11
+    # Comprehensive organized spec groups matching reference spec sheets
     tech_spec_groups = {
-        # ===== IMAGE 1: Technical Specifications =====
         "Powertrain": [
             ("Engine", "engine"),
             ("Engine CC", "engine_displacement"),
@@ -1125,18 +1114,10 @@ def generate_technical_spec_section(comparison_data: Dict[str, Any], page_start:
         ],
         "Fuel": [
             ("Type", "fuel_type"),
-            ("Tank Capacity", "fuel_tank_capacity"),
-        ],
-        "Transmission": [
+            ("Tank Capacity", "tank_capacity"),
             ("Transmission", "transmission"),
-        ],
-        "Drive": [
             ("Drive", "drive"),
-        ],
-        "Drive Mode": [
             ("Drive Mode", "drive_mode"),
-        ],
-        "Top Speed": [
             ("Top Speed (km/h)", "top_speed"),
         ],
         "Dimension": [
@@ -1165,268 +1146,10 @@ def generate_technical_spec_section(comparison_data: Dict[str, Any], page_start:
         "Wheel & Tyre": [
             ("Front - Tyre size", "front_tyre_size"),
             ("Rear - Tyre size", "rear_tyre_size"),
-            ("Spare Tyres", "spare_tyres"),
+            ("Spare Tyres", "spare_tyre"),
         ],
         "Boot": [
             ("Space (L)", "boot_space"),
-        ],
-        # ===== IMAGE 2: Exterior =====
-        "Exterior": [
-            ("Full LED", "full_led"),
-            ("Wheel arch Ext. Claddings", "wheel_arch_claddings"),
-            ("Front Bumper & Grille", "front_bumper_grille"),
-            ("Antenna Type", "antenna_type"),
-            ("Foot step", "foot_step"),
-        ],
-        # ===== IMAGE 2: Interior =====
-        "Interior": [
-            ("Console Switches", "console_switches"),
-            ("Upholstery", "upholstery"),
-            ("IP/ Dashboard", "ip_dashboard"),
-        ],
-        "Glove Box": [
-            ("Glove Box", "glove_box"),
-        ],
-        "Sunvisor": [
-            ("Driver", "sunvisor_driver"),
-            ("Co Driver", "sunvisor_co_driver"),
-        ],
-        # ===== IMAGE 3: Grab Handle, Sun Roof, etc. =====
-        "Grab Handle": [
-            ("Driver", "grab_handle_driver"),
-            ("Co Driver", "grab_handle_co_driver"),
-            ("2nd Row Both side", "grab_handle_2nd_row"),
-        ],
-        "Sun Roof / Fixed Roof": [
-            ("Panoramic Sun Roof", "panoramic_sunroof"),
-            ("Roller Blind/ Sunblind", "roller_blind_sunblind"),
-        ],
-        "Luggage rack": [
-            ("Luggage rack", "luggage_rack"),
-        ],
-        "Wipers & Demister": [
-            ("Front Wiper", "front_wiper"),
-            ("Defogging", "defogging"),
-            ("Rain Sensing Wipers", "rain_sensing_wipers"),
-            ("Rear Wiper", "rear_wiper"),
-        ],
-        "Door": [
-            ("Front", "door_front"),
-            ("Rear", "door_rear"),
-        ],
-        "Tailgate": [
-            ("Type", "tailgate_type"),
-            ("Power operated tail gate + eLatch", "power_tailgate"),
-        ],
-        "ORVM": [
-            ("ORVM", "orvm"),
-        ],
-        # ===== IMAGE 4: Steering Wheel, Bonnet, Door Trim, Boot/Trunk =====
-        "Steering Wheel": [
-            ("Steering Wheel", "steering_wheel"),
-        ],
-        "Bonnet Stay Mechanism": [
-            ("Bonnet Gas Strut", "bonnet_gas_strut"),
-        ],
-        "Door Trim": [
-            ("Bottle Holder", "bottle_holder"),
-            ("Door arm Rest", "door_arm_rest"),
-        ],
-        "Boot/Trunk": [
-            ("Boot Organizer", "boot_organizer"),
-            ("Lamp", "boot_lamp"),
-        ],
-        # ===== IMAGE 5: Power Window, Floor Console, Wireless charging =====
-        "Power Window": [
-            ("All Doors", "power_window_all_doors"),
-            ("Driver Door", "power_window_driver_door"),
-            ("Window one key lift function", "window_one_key_lift"),
-            ("Window anti-clamping function", "window_anti_clamping"),
-            ("Multilayer silencing glass at the front door", "multilayer_silencing_glass"),
-            ("Front windshield multilayer mute glass", "front_windshield_mute_glass"),
-        ],
-        "Steering Column": [
-            ("Steering Column", "steering_column"),
-            ("Steering Column Lock", "steering_column_lock"),
-        ],
-        "Floor Console": [
-            ("Arm Rest", "floor_console_armrest"),
-            ("No Of Cup Holder", "cup_holders"),
-        ],
-        "Wireless charging": [
-            ("Wireless charging", "wireless_charging"),
-            ("No of wireless charging", "no_of_wireless_charging"),
-        ],
-        "Door Inner Scuff": [
-            ("Front", "door_inner_scuff_front"),
-            ("Rear", "door_inner_scuff_rear"),
-        ],
-        "Voice Recognition Button On Steering Wheel Control": [
-            ("Voice Recognition Button On Steering Wheel Control", "voice_recognition_steering"),
-        ],
-        # ===== IMAGE 6: Seats, Safety =====
-        "Seats": [
-            ("Seats", "seats"),
-            ("Seat Ventilation", "ventilated_seats"),
-            ("Driver and Front Passenger", "seat_ventilation_front_passenger"),
-        ],
-        "Safety": [
-            ("Airbags", "airbags"),
-            ("PAB deactivation switch", "pab_deactivation_switch"),
-            ("Driver Seat Belt", "driver_seat_belt"),
-            ("Front Passenger Seat Belt", "front_passenger_seat_belt"),
-            ("2nd Row Seat Belt", "seat_belt_2nd_row"),
-            ("Child Anchor", "child_anchor"),
-            ("Child Lock", "child_lock"),
-            ("Seat Belt Reminder with Buzzer", "seat_belt_reminder"),
-            ("Seat Belt Holder - 2nd Row", "seat_belt_holder_2nd_row"),
-            ("Sensors", "crash_sensors"),
-        ],
-        # ===== IMAGE 8: Technology =====
-        "Technology": [
-            ("Infotainment", "infotainment_screen"),
-            ("Smart Phone Connectivity", "smartphone_connectivity"),
-            ("Bluetooth", "bluetooth"),
-        ],
-        "Radio": [
-            ("AM / FM", "am_fm_radio"),
-            ("Digital", "digital_radio"),
-        ],
-        "ConnectedDrive": [
-            ("Wireless", "connected_drive_wireless"),
-        ],
-        "Branded Audio": [
-            ("3D Immersive Sound", "immersive_sound_3d"),
-            ("No of speakers", "no_of_speakers"),
-            ("Brand", "audio_brand"),
-            ("Dolby", "dolby_atmos"),
-            ("Adjustable", "audio_adjustable"),
-        ],
-        # ===== IMAGE 9: Lighting =====
-        "Lighting": [
-            ("Headlamp", "headlamp"),
-            ("High beam", "high_beam"),
-            ("Low beam", "low_beam"),
-            ("Auto High Beam", "auto_high_beam"),
-            ("Headlamp Leveling", "headlamp_leveling"),
-            ("Projector LED", "projector_led"),
-            ("Front Fog Lamp", "front_fog_lamp"),
-            ("Tail Lamp", "tail_lamp"),
-            ("Welcome Lighting", "welcome_lighting"),
-            ("Ambient Lighting System", "ambient_lighting"),
-            ("Cabin Lamps", "cabin_lamps"),
-            ("High Mounted Stop Lamp", "high_mounted_stop_lamp"),
-            ("Hazard Lamp", "hazard_lamp"),
-        ],
-        # ===== IMAGE 9: Locking =====
-        "Locking": [
-            ("Locking", "central_locking"),
-            ("Door Lock", "door_lock"),
-            ("Speed Sensing Door Lock", "speed_sensing_door_lock"),
-            ("Panic Alarm", "panic_alarm"),
-            ("Remote Lock/Unlock", "remote_lock_unlock"),
-            ("Digital Key Plus", "digital_key_plus"),
-        ],
-        # ===== IMAGE 10: Horn, ADAS =====
-        "Horn": [
-            ("Electronic Horn - dual tone", "horn"),
-        ],
-        "Over speeding Bell": [
-            ("Over speeding Bell", "over_speeding_bell"),
-        ],
-        "ADAS": [
-            ("Active Cruise Control with Stop & Go", "active_cruise_control"),
-            ("Lane Departure Warning", "lane_departure_warning"),
-            ("Automatic Emergency Braking (Stop Assist)", "automatic_emergency_braking"),
-            ("Lane Keep Assist", "lane_keep_assist"),
-            ("Blind Spot Detection", "blind_spot_detection"),
-            ("Blind Spot Collision warning", "blind_spot_collision_warning"),
-            ("Forward Collision warning", "forward_collision_warning"),
-            ("Rear Collision Warning", "rear_collision_warning"),
-            ("Door Open Alert", "door_open_alert"),
-            ("High beam Assist", "high_beam_assist"),
-            ("Traffic Sign Recognition", "traffic_sign_recognition"),
-            ("Rear Cross Traffic Alert", "rear_cross_traffic_alert"),
-            ("Traffic jam alert", "traffic_jam_alert"),
-            ("Safe Exit Braking/ Warning", "safe_exit_braking"),
-            ("Surround View Monitor", "surround_view_monitor"),
-            ("Smart Pilot Assist", "smart_pilot_assist"),
-        ],
-        # ===== IMAGE 11: Climate =====
-        "Climate": [
-            ("Auto Defogging", "auto_defogging"),
-            ("No of Zone", "no_of_zone_climate"),
-            ("Rear Vent AC", "rear_vent_ac"),
-            ("Active Carbon filter", "active_carbon_filter"),
-            ("Temp diff control", "temp_diff_control"),
-            ("Bottle Opener", "bottle_opener"),
-        ],
-        # ===== IMAGE 11: Capabilities =====
-        "Capabilities": [
-            ("Drive Modes", "drive_mode"),
-            ("Terrain Modes", "terrain_modes"),
-            ("Crawl Smart", "crawl_smart"),
-            ("Intelli Turn", "intelli_turn"),
-            ("Off-road information display", "off_road_info_display"),
-            ("Central Differential", "central_differential"),
-            ("Limited Slip Differential At Rear Bridge", "limited_slip_differential"),
-            ("Wading sensing system", "wading_sensing_system"),
-            ("Electronic gear shift", "electronic_gear_shift"),
-            ("Electric Driveline disconnect on front axle", "electric_driveline_disconnect"),
-            ("TPMS (Tyre Pressure Monitoring System)", "tpms"),
-            ("HHC Uphill Start Assist System", "hhc_uphill_start_assist"),
-            ("Engine electronic security", "engine_electronic_security"),
-        ],
-        # ===== IMAGE 11: Power outlet / Charging Points =====
-        "Power outlet / Charging Points": [
-            ("No of Front row - USB Type C Port", "usb_type_c_front_row"),
-            ("Front row - USB Type C Port", "usb_type_c_front_row_count"),
-            ("No of Rear row - USB Type C Port", "usb_type_c_rear_row"),
-            ("12V conventional socket", "socket_12v"),
-        ],
-        # ===== IMAGE 11: Brakes Detailed =====
-        "Brakes Detailed": [
-            ("Auto Hold", "auto_hold"),
-            ("TPMS", "tpms"),
-            ("Rollover", "rollover_mitigation"),
-            ("RMI", "rmi_anti_rollover"),
-            ("VDC", "vdc_vehicle_dynamic"),
-            ("CSC", "csc_corner_stability"),
-            ("EPB", "epb"),
-            ("AVH", "avh_auto_vehicle_hold"),
-            ("HAC-HHC", "hac_hill_ascend"),
-            ("HBA", "hba_hydraulic_brake"),
-            ("DBC", "dbc_downhill_brake"),
-            ("EBP", "ebp_electronic_brake_prefill"),
-            ("BDW", "bdw_brake_disc_wiping"),
-            ("EDTC", "edtc_engine_drag_torque"),
-            ("TCS", "tcs_traction_control"),
-            ("EBD", "ebd_electronic_brake"),
-            ("ABS", "abs_antilock"),
-            ("DST", "dst_dynamic_steering"),
-            ("EBA", "eba_brake_assist"),
-            ("CBC", "cbc_cornering_brake"),
-            ("HDC", "hdc_hill_descent"),
-        ],
-        # ===== IMAGE 11: Others =====
-        "Others": [
-            ("Active noise reduction", "active_noise_reduction"),
-            ("Intelligent voice control", "intelligent_voice_control"),
-            ("Dynamic transparent car bottom", "transparent_car_bottom"),
-            ("Intellectual dodge", "intellectual_dodge"),
-            ("Car picnic table", "car_picnic_table"),
-            ("Trunk subwoofer", "trunk_subwoofer"),
-            ("Dashcam Provision", "dashcam_provision"),
-            ("Cup Holder at Tail door", "cup_holder_tail_door"),
-            ("Hooks at Tail door", "hooks_tail_door"),
-            ("Warning Triangle at packed with tail door", "warning_triangle_tail_door"),
-            ("1st | 2nd row door magnetic Strap", "door_magnetic_strap"),
-        ],
-        # ===== Market Info =====
-        "Market": [
-            ("Price Range", "price_range"),
-            ("Monthly Sales", "monthly_sales"),
-            ("User Rating", "user_rating"),
         ],
     }
 

@@ -34,7 +34,7 @@ from vehicle_development_agent.core.scraper import (
     OFFICIAL_SITE_PRIORITY_SPECS, TRUSTED_CITATION_DOMAINS,
     build_enhanced_query, build_official_brand_url, build_cardekho_url,
     normalize_citation_url, _TRUSTED_DOMAINS_PROMPT_LIST,
-    EXTRACTION_CONFIG,
+    EXTRACTION_CONFIG, fetch_engine_variants,
 )
 
 logger = logging.getLogger(__name__)
@@ -61,6 +61,7 @@ class CarResult:
     specs: Dict[str, str] = field(default_factory=dict)
     citations: Dict[str, Dict[str, str]] = field(default_factory=dict)
     images: Dict[str, List[str]] = field(default_factory=dict)
+    engine_variants: List[Dict[str, str]] = field(default_factory=list)
     errors: List[str] = field(default_factory=list)
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
@@ -103,6 +104,7 @@ class CarResult:
             "method": "Interleaved Parallel Processing",
             "source_urls": [],
             "images": self.images,
+            "engine_variants": self.engine_variants,
         }
 
         # Collect source URLs
@@ -855,6 +857,20 @@ class InterleavedCarProcessor:
 
         found_after_fallback = car_result.get_found_count()
         print(f"  [{car_name}] Gemini phases complete: {found_after_fallback}/{len(CAR_SPECS)} specs")
+
+        # === Fetch Engine Variants (Gemini call) ===
+        try:
+            loop = asyncio.get_event_loop()
+            engine_variants = await loop.run_in_executor(
+                _gemini_executor,
+                fetch_engine_variants,
+                car_name
+            )
+            if engine_variants:
+                car_result.engine_variants = engine_variants
+                print(f"  [{car_name}] Engine variants: {len(engine_variants)} found")
+        except Exception as e:
+            print(f"  [{car_name}] Engine variants fetch failed: {e}")
 
     async def _run_cse_phase_sequential(self, car: Dict) -> None:
         """

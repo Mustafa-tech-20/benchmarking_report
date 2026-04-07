@@ -2022,7 +2022,71 @@ def create_comparison_chart_html(
             overall_rating_data.append(overall_rating.get(car, 0) if overall_rating else 0)
 
     citations_html = _generate_citations_html(comparison_data)
-    
+
+    # ============================================================================
+    # PRE-COMPUTE GALLERY SECTIONS IN PARALLEL (each makes Gemini API calls)
+    # ============================================================================
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    gallery_configs = [
+        ("Exterior Highlights", "exterior", "exterior-section"),
+        ("Interior Highlights", "interior", "interior-section"),
+        ("Technology Highlights", "technology", "technology-section"),
+        ("Comfort Highlights", "comfort", "comfort-section"),
+        ("Safety Highlights", "safety", "safety-section"),
+    ]
+
+    def _generate_gallery(config):
+        title, category, section_id = config
+        return (category, generate_image_gallery_section(title, comparison_data, category, section_id, with_ai_notes=True))
+
+    print("  Generating gallery sections with AI notes (5 parallel)...")
+    gallery_sections = {}
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = {executor.submit(_generate_gallery, cfg): cfg[1] for cfg in gallery_configs}
+        for future in as_completed(futures):
+            category = futures[future]
+            try:
+                cat_key, html = future.result()
+                gallery_sections[cat_key] = html
+            except Exception as e:
+                print(f"    Warning: Gallery {category} failed: {e}")
+                gallery_sections[category] = ""
+
+    exterior_gallery_html = gallery_sections.get("exterior", "")
+    interior_gallery_html = gallery_sections.get("interior", "")
+    technology_gallery_html = gallery_sections.get("technology", "")
+    comfort_gallery_html = gallery_sections.get("comfort", "")
+    safety_gallery_html = gallery_sections.get("safety", "")
+
+    # ============================================================================
+    # PRE-COMPUTE DRIVETRAIN + ADAS SECTIONS IN PARALLEL (both make Gemini calls)
+    # ============================================================================
+    print("  Generating Drivetrain + ADAS sections (2 parallel)...")
+    drivetrain_html = ""
+    adas_html = ""
+
+    def _gen_drivetrain():
+        return generate_drivetrain_comparison_section(comparison_data)
+
+    def _gen_adas():
+        return generate_adas_comparison_section(comparison_data)
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        drivetrain_future = executor.submit(_gen_drivetrain)
+        adas_future = executor.submit(_gen_adas)
+
+        try:
+            drivetrain_html = drivetrain_future.result(timeout=180)
+        except Exception as e:
+            print(f"    Warning: Drivetrain generation failed: {e}")
+            drivetrain_html = ""
+
+        try:
+            adas_html = adas_future.result(timeout=180)
+        except Exception as e:
+            print(f"    Warning: ADAS generation failed: {e}")
+            adas_html = ""
 
     def count_words(text: str) -> int:
         return len(str(text).split())
@@ -2035,6 +2099,66 @@ def create_comparison_chart_html(
         "transmission", "drive", "kerb_weight", "steering"
     }
 
+    def _create_synthetic_variants(car_data: dict) -> list:
+        """
+        Create synthetic engine variants from comma-separated spec values.
+        Returns list of variant dicts or empty list if no variants can be synthesized.
+        """
+        import re
+
+        # Check if engine field has multiple engines (comma/slash separated or Petrol/Diesel indicators)
+        engine_val = str(car_data.get("engine", ""))
+
+        # Split patterns: "Engine1, Engine2" or "Engine1 / Engine2" or "Engine1 | Engine2"
+        split_patterns = [
+            r'\s*[,]\s*(?=[A-Z0-9])',  # Comma followed by capital letter or number
+            r'\s*[|/]\s*',  # Pipe or slash
+        ]
+
+        engines = []
+        for pattern in split_patterns:
+            parts = re.split(pattern, engine_val)
+            if len(parts) > 1:
+                engines = [p.strip() for p in parts if p.strip()]
+                break
+
+        # If no split worked, check for Petrol/Diesel in same value
+        if len(engines) < 2:
+            if 'petrol' in engine_val.lower() and 'diesel' in engine_val.lower():
+                # Try to extract both engine types
+                engines = []
+                for fuel_type in ['Petrol', 'Diesel']:
+                    if fuel_type.lower() in engine_val.lower():
+                        engines.append(fuel_type)
+            else:
+                return []  # Can't create synthetic variants
+
+        if len(engines) < 2:
+            return []
+
+        # Build synthetic variants
+        synthetic_variants = []
+        for i, eng in enumerate(engines):
+            variant = {"engine": eng, "variant_name": eng}
+
+            # Try to extract corresponding values from other VARIANT_SPECS
+            for spec_key in ["engine_displacement", "max_power_kw", "torque", "transmission", "drive", "kerb_weight", "steering"]:
+                spec_val = str(car_data.get(spec_key, ""))
+
+                # Try same split pattern
+                for pattern in split_patterns:
+                    parts = re.split(pattern, spec_val)
+                    if len(parts) == len(engines) and i < len(parts):
+                        variant[spec_key] = parts[i].strip()
+                        break
+                else:
+                    # No split - use full value for all variants
+                    variant[spec_key] = spec_val if spec_val else "-"
+
+            synthetic_variants.append(variant)
+
+        return synthetic_variants
+
     # Build variant info for each car
     car_variants = {}
     for car_name in cars:
@@ -2043,8 +2167,13 @@ def create_comparison_chart_html(
         if variants and len(variants) > 0:
             car_variants[car_name] = variants
         else:
-            # No variants - use single column with existing data
-            car_variants[car_name] = [{"_single": True}]
+            # Try synthetic variant extraction from comma-separated values
+            synthetic = _create_synthetic_variants(car_data)
+            if synthetic:
+                car_variants[car_name] = synthetic
+            else:
+                # No variants - use single column with existing data
+                car_variants[car_name] = [{"_single": True}]
 
     # Build table with grouped accordion structure and variant columns
     features_table = "<table><thead>"
@@ -2068,10 +2197,16 @@ def create_comparison_chart_html(
             if len(variants) > 1:
                 for v in variants:
                     variant_name = v.get("variant_name", v.get("engine", "Variant"))
-                    # Shorten variant name if too long
+                    # Show truncated with expandable tooltip for long names
                     if len(variant_name) > 20:
-                        variant_name = variant_name[:17] + "..."
-                    features_table += f"<th class='variant-subheader'>{variant_name}</th>"
+                        short_name = variant_name[:17] + "..."
+                        features_table += f"""<th class='variant-subheader' title='{variant_name}'>
+                            <span class='variant-short'>{short_name}</span>
+                            <span class='variant-full' style='display:none;'>{variant_name}</span>
+                            <button class='variant-expand-btn' onclick='toggleVariantName(this)'>▼</button>
+                        </th>"""
+                    else:
+                        features_table += f"<th class='variant-subheader'>{variant_name}</th>"
         features_table += "</tr>"
 
     features_table += "</thead><tbody id=\"specifications-tbody\">"
@@ -2473,7 +2608,10 @@ def create_comparison_chart_html(
         table th, table td {{ padding: 16px 14px; border-bottom: 1px solid #e9ecef; }}
         table th {{ background: #ffffff !important; color: #212529 !important; text-align: center; font-weight: 600; border-bottom: 2px solid #dee2e6; }}
         table th:first-child {{ text-align: left; }}
-        table th.variant-subheader {{ background: #f8f9fa !important; color: #495057 !important; font-size: 11px; font-weight: 500; padding: 8px 10px; border-bottom: 1px solid #dee2e6; }}
+        table th.variant-subheader {{ background: #f8f9fa !important; color: #495057 !important; font-size: 11px; font-weight: 500; padding: 8px 10px; border-bottom: 1px solid #dee2e6; position: relative; }}
+        .variant-expand-btn {{ background: none; border: none; color: #6c757d; cursor: pointer; font-size: 8px; padding: 2px 4px; margin-left: 4px; vertical-align: middle; }}
+        .variant-expand-btn:hover {{ color: #dd032b; }}
+        .variant-full {{ display: block; font-size: 10px; word-wrap: break-word; max-width: 150px; }}
         tbody td {{ text-align: center; vertical-align: middle; }}
         tbody td:first-child {{ font-weight: 600; text-align: left; vertical-align: top; }}
         .read-more-btn {{ background: none; border: none; color: black; text-decoration: underline; cursor: pointer; padding: 4px 0; font-size: 12px; font-weight: 600; }}
@@ -4233,12 +4371,12 @@ def create_comparison_chart_html(
     {generate_venn_diagram_section(comparison_data, summary_data)}
     {generate_feature_list_section(comparison_data)}
     <div class="container">
-        {generate_image_gallery_section("Exterior Highlights", comparison_data, "exterior", "exterior-section", with_ai_notes=True)}
-        {generate_image_gallery_section("Interior Highlights", comparison_data, "interior", "interior-section", with_ai_notes=True)}
-        {generate_image_gallery_section("Technology Highlights", comparison_data, "technology", "technology-section", with_ai_notes=True)}
-        {generate_image_gallery_section("Comfort Highlights", comparison_data, "comfort", "comfort-section", with_ai_notes=True)}
-        {generate_image_gallery_section("Safety Highlights", comparison_data, "safety", "safety-section", with_ai_notes=True)}
-        {generate_drivetrain_comparison_section(comparison_data)}
+        {exterior_gallery_html}
+        {interior_gallery_html}
+        {technology_gallery_html}
+        {comfort_gallery_html}
+        {safety_gallery_html}
+        {drivetrain_html}
         {generate_variant_walk_section(comparison_data)}
         {generate_spider_chart_section(comparison_data, summary_data)}
         <div class="content">
@@ -4255,7 +4393,7 @@ def create_comparison_chart_html(
                 </div>
                 <h2>ADAS Comparison</h2>
             </div>
-            <div class="animate-on-scroll">{generate_adas_comparison_section(comparison_data)}</div>
+            <div class="animate-on-scroll">{adas_html}</div>
         </div>
         {detailed_reviews_html}
         <div class="content">
@@ -4296,6 +4434,7 @@ def create_comparison_chart_html(
         function clearFilter() {{ const input = document.getElementById('specFilter'); input.value = ''; filterSpecs(); input.focus(); }}
         function printReport() {{ window.print(); }}
         function toggleExpand(button) {{ const content = button.previousElementSibling; content.classList.toggle('expanded'); button.textContent = content.classList.contains('expanded') ? 'Read less' : 'Read more'; }}
+        function toggleVariantName(button) {{ const th = button.parentElement; const shortSpan = th.querySelector('.variant-short'); const fullSpan = th.querySelector('.variant-full'); if (shortSpan.style.display === 'none') {{ shortSpan.style.display = 'inline'; fullSpan.style.display = 'none'; button.textContent = '▼'; }} else {{ shortSpan.style.display = 'none'; fullSpan.style.display = 'block'; button.textContent = '▲'; }} }}
         function toggleCitations(event) {{ event.preventDefault(); const citationsSection = document.getElementById('citations-section'); const mainContent = document.querySelectorAll('.content:not(#citations-section), .cover-page, .hero-image-page, .spec-page, .feature-page, .drivetrain-page, .summary-comparison-page, .spider-charts-page, .container'); const toggleButton = document.getElementById('citations-toggle'); const navLinks = document.querySelectorAll('.main-nav a:not(#citations-toggle)'); const navDropdowns = document.querySelectorAll('.nav-dropdown'); const navSeps = document.querySelectorAll('.nav-sep'); if (citationsSection.style.display === 'none') {{ citationsSection.style.display = 'block'; citationsSection.style.position = 'relative'; mainContent.forEach(section => {{ section.style.display = 'none'; }}); navLinks.forEach(link => {{ link.style.display = 'none'; }}); navDropdowns.forEach(dropdown => {{ dropdown.style.display = 'none'; }}); navSeps.forEach(sep => {{ sep.style.display = 'none'; }}); toggleButton.textContent = 'Go Back'; }} else {{ citationsSection.style.display = 'none'; mainContent.forEach(section => {{ if (section.classList.contains('container')) {{ section.style.display = 'block'; }} else if (section.classList.contains('content')) {{ section.style.display = 'block'; }} else {{ section.style.display = 'flex'; }} }}); navLinks.forEach(link => {{ link.style.display = 'block'; }}); navDropdowns.forEach(dropdown => {{ dropdown.style.display = 'block'; }}); navSeps.forEach(sep => {{ sep.style.display = 'block'; }}); toggleButton.textContent = 'Citations'; }} window.scrollTo({{ top: 0, behavior: 'smooth' }}); }}
         document.addEventListener('DOMContentLoaded', () => {{
             // Animate on scroll observer

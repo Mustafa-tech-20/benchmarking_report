@@ -35,7 +35,12 @@ def generate_test_report(json_path: str, output_path: str = None):
     # Extract required fields
     comparison_data = data.get('comparison_data', {})
     cars_compared = data.get('cars_compared', [])
-    proscons_data = data.get('youtube_proscons', {})
+    # Use attribute_proscons (nested dict format) for the HTML generator, not youtube_proscons (list format)
+    proscons_data = data.get('attribute_proscons', {})
+    # Fallback: if proscons_data is a list (wrong format), skip it
+    if isinstance(proscons_data, list):
+        print("WARNING: proscons_data is a list, expected dict. Skipping proscons section.")
+        proscons_data = {}
 
     # Generate a default summary if not provided
     summary = data.get('summary', f"Comparison between {' and '.join(cars_compared)}")

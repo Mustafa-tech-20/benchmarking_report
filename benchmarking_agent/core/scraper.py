@@ -166,6 +166,7 @@ BRAND_OFFICIAL_URLS = {
     "buick": ("https://www.buick.com", "/suvs/{model}/specs"),
     "genesis": ("https://www.genesis.com", "/worldwide/en/models/luxury-sedan-genesis/{model}/specifications.html"),
     "force": ("https://www.forcemotors.com", "/force{model}/specifications"),
+    "jetour": ("https://jetourglobal.com", "/{model}/"),
 }
 
 CAR_SPECS = [
@@ -178,7 +179,7 @@ CAR_SPECS = [
     "city_performance", "highway_performance", "off_road", "crawl",
     # Transmission
     "manual_transmission_performance", "automatic_transmission_performance",
-    "pedal_operation", "gear_shift", "gear_selection", "pedal_travel",
+    "gear_selection",
     # Ride & Suspension
     "ride", "ride_quality", "stiff_on_pot_holes", "bumps", "shocks",
     # NVH & Noise
@@ -197,7 +198,7 @@ CAR_SPECS = [
     # Interior & Comfort
     "interior", "climate_control", "seats", "seat_cushion", "seat_material",
     "seat_features_detailed", "rear_seat_features", "ventilated_seats",
-    "visibility", "soft_trims", "armrest", "headrest", "egress", "ingress",
+    "visibility", "soft_trims", "armrest", "headrest", "egress",
     "seatbelt_features",
     # Technology & Infotainment
     "infotainment_screen", "resolution", "touch_response", "digital_display",
@@ -235,19 +236,19 @@ CAR_SPECS = [
     "steering_wheel", "bonnet_gas_strut", "bottle_holder", "door_arm_rest",
     "boot_organizer", "boot_lamp", "power_window_all_doors", "power_window_driver_door",
     "window_one_key_lift", "window_anti_clamping", "multilayer_silencing_glass",
-    "front_windshield_mute_glass", "steering_column", "steering_column_lock",
+    "front_windshield_mute_glass", "steering_column",
     "floor_console_armrest", "cup_holders", "wireless_charging", "no_of_wireless_charging",
     "door_inner_scuff_front", "door_inner_scuff_rear", "voice_recognition_steering",
 
     # ===== IMAGE 6: Seats, Safety =====
     "seat_ventilation_driver", "seat_ventilation_front_passenger",
-    "pab_deactivation_switch", "driver_seat_belt", "front_passenger_seat_belt",
+    "driver_seat_belt", "front_passenger_seat_belt",
     "seat_belt_2nd_row", "child_anchor", "child_lock", "seat_belt_reminder",
     "seat_belt_holder_2nd_row", "crash_sensors",
 
     # ===== IMAGE 8: Technology, Radio, ConnectedDrive, Branded Audio =====
     "smartphone_connectivity", "bluetooth", "am_fm_radio", "digital_radio",
-    "connected_drive_wireless", "immersive_sound_3d", "no_of_speakers",
+    "connected_drive_wireless", "no_of_speakers",
     "audio_brand", "dolby_atmos", "audio_adjustable",
 
     # ===== IMAGE 9: Lighting =====
@@ -257,7 +258,7 @@ CAR_SPECS = [
 
     # ===== IMAGE 9: Locking =====
     "central_locking", "door_lock", "speed_sensing_door_lock", "panic_alarm",
-    "remote_lock_unlock", "digital_key_plus", "horn", "over_speeding_bell",
+    "remote_lock_unlock", "digital_key_plus", "over_speeding_bell",
 
     # ===== IMAGE 10: ADAS =====
     "active_cruise_control", "lane_departure_warning", "automatic_emergency_braking",
@@ -271,8 +272,8 @@ CAR_SPECS = [
     "temp_diff_control", "bottle_opener",
 
     # ===== IMAGE 11: Capabilities =====
-    "terrain_modes", "crawl_smart", "intelli_turn", "off_road_info_display",
-    "central_differential", "limited_slip_differential", "wading_sensing_system",
+    "terrain_modes", "crawl_smart", "off_road_info_display",
+    "central_differential", "wading_sensing_system",
     "electronic_gear_shift", "electric_driveline_disconnect", "tpms",
     "hhc_uphill_start_assist", "engine_electronic_security",
 
@@ -289,8 +290,8 @@ CAR_SPECS = [
 
     # ===== IMAGE 11: Others =====
     "active_noise_reduction", "intelligent_voice_control", "transparent_car_bottom",
-    "intellectual_dodge", "car_picnic_table", "trunk_subwoofer", "dashcam_provision",
-    "cup_holder_tail_door", "hooks_tail_door", "warning_triangle_tail_door",
+    "car_picnic_table", "trunk_subwoofer", "dashcam_provision",
+    "cup_holder_tail_door", "warning_triangle_tail_door",
     "door_magnetic_strap",
 ]
 
@@ -340,10 +341,7 @@ SPEC_KEYWORDS = {
     "turbo_noise": "turbo noise",
     "manual_transmission_performance": "manual gearbox",
     "automatic_transmission_performance": "automatic gearbox",
-    "pedal_operation": "clutch pedal",
-    "gear_shift": "gear shift",
     "gear_selection": "gear lever",
-    "pedal_travel": "pedal travel",
     "crawl": "low speed crawl",
     "driveability": "driveability",
     "performance_feel": "driving feel",
@@ -369,7 +367,6 @@ SPEC_KEYWORDS = {
     "armrest": "armrest",
     "headrest": "headrest",
     "egress": "getting out",
-    "ingress": "getting in",
     "audio_system": "audio system speakers",
     "infotainment_screen": "infotainment screen",
     "resolution": "screen resolution",
@@ -498,7 +495,6 @@ SPEC_KEYWORDS = {
     "multilayer_silencing_glass": "multilayer silencing glass acoustic",
     "front_windshield_mute_glass": "front windshield acoustic glass",
     "steering_column": "steering column tilt telescopic",
-    "steering_column_lock": "steering column lock",
     "floor_console_armrest": "floor console armrest storage",
     "cup_holders": "cup holders number",
     "no_of_wireless_charging": "number of wireless charging pads",
@@ -509,7 +505,6 @@ SPEC_KEYWORDS = {
     # Safety Features (from Image 6)
     "seat_ventilation_driver": "driver seat ventilation cooling",
     "seat_ventilation_front_passenger": "front passenger seat ventilation",
-    "pab_deactivation_switch": "passenger airbag deactivation switch",
     "driver_seat_belt": "driver seat belt pretensioner",
     "front_passenger_seat_belt": "front passenger seat belt",
     "seat_belt_2nd_row": "2nd row seat belt rear",
@@ -525,7 +520,6 @@ SPEC_KEYWORDS = {
     "am_fm_radio": "AM FM radio",
     "digital_radio": "digital radio DAB",
     "connected_drive_wireless": "connected drive wireless OTA",
-    "immersive_sound_3d": "3D immersive sound surround",
     "no_of_speakers": "number of speakers",
     "audio_brand": "audio brand harman bose JBL",
     "dolby_atmos": "Dolby Atmos sound",
@@ -551,7 +545,6 @@ SPEC_KEYWORDS = {
     "panic_alarm": "panic alarm",
     "remote_lock_unlock": "remote lock unlock key fob",
     "digital_key_plus": "digital key smartphone",
-    "horn": "horn dual tone",
     "over_speeding_bell": "over speeding bell alert warning",
 
     # ADAS Features (from Image 10)
@@ -579,10 +572,8 @@ SPEC_KEYWORDS = {
     # Capabilities Features (from Image 11)
     "terrain_modes": "terrain modes off-road sand mud snow",
     "crawl_smart": "crawl smart low speed control",
-    "intelli_turn": "intelli turn intelligent turning",
     "off_road_info_display": "off-road information display",
     "central_differential": "central differential lock",
-    "limited_slip_differential": "limited slip differential LSD rear",
     "wading_sensing_system": "wading sensing system water depth",
     "electronic_gear_shift": "electronic gear shift dial rotary",
     "electric_driveline_disconnect": "electric driveline disconnect front axle",
@@ -621,12 +612,10 @@ SPEC_KEYWORDS = {
     "active_noise_reduction": "active noise reduction cancellation ANC",
     "intelligent_voice_control": "intelligent voice control assistant",
     "transparent_car_bottom": "transparent car bottom camera view",
-    "intellectual_dodge": "intellectual dodge obstacle avoidance",
     "car_picnic_table": "car picnic table",
     "trunk_subwoofer": "trunk subwoofer bass",
     "dashcam_provision": "dashcam provision",
     "cup_holder_tail_door": "cup holder tail door tailgate",
-    "hooks_tail_door": "hooks tail door cargo",
     "warning_triangle_tail_door": "warning triangle tail door",
     "door_magnetic_strap": "door magnetic strap holder",
 }
@@ -645,13 +634,13 @@ SPEC_GROUPS = {
     "tailgate": {"query": "tailgate power electric boot type", "specs": ["tailgate_type", "power_tailgate"]},
     "power_windows": {"query": "power window all doors one touch auto up down anti-pinch", "specs": ["power_window_all_doors", "power_window_driver_door", "window_one_key_lift", "window_anti_clamping"]},
     "acoustic_glass": {"query": "acoustic glass multilayer silencing windshield", "specs": ["multilayer_silencing_glass", "front_windshield_mute_glass"]},
-    "steering_column": {"query": "steering column tilt telescopic lock adjustment", "specs": ["steering_column", "steering_column_lock"]},
+    "steering_column": {"query": "steering column tilt telescopic adjustment", "specs": ["steering_column"]},
     "wireless_charging": {"query": "wireless charging pad number of chargers", "specs": ["wireless_charging", "no_of_wireless_charging"]},
     "door_scuff": {"query": "door scuff plate front rear illuminated", "specs": ["door_inner_scuff_front", "door_inner_scuff_rear"]},
     "seat_ventilation": {"query": "seat ventilation cooling driver front passenger", "specs": ["seat_ventilation_driver", "seat_ventilation_front_passenger"]},
     "seat_belts": {"query": "seat belt driver passenger rear 2nd row reminder pretensioner holder", "specs": ["driver_seat_belt", "front_passenger_seat_belt", "seat_belt_2nd_row", "seat_belt_reminder", "seat_belt_holder_2nd_row"]},
     "radio": {"query": "radio AM FM digital DAB", "specs": ["am_fm_radio", "digital_radio"]},
-    "audio_system": {"query": "audio speakers 3D surround sound Dolby brand harman bose JBL", "specs": ["immersive_sound_3d", "no_of_speakers", "audio_brand", "dolby_atmos", "audio_adjustable"]},
+    "audio_system": {"query": "audio speakers Dolby brand harman bose JBL", "specs": ["no_of_speakers", "audio_brand", "dolby_atmos", "audio_adjustable"]},
     "headlamps": {"query": "headlamp LED projector high beam low beam auto leveling", "specs": ["headlamp", "high_beam", "low_beam", "auto_high_beam", "headlamp_leveling", "projector_led"]},
     "interior_lighting": {"query": "ambient lighting welcome puddle cabin lamps interior", "specs": ["welcome_lighting", "ambient_lighting", "cabin_lamps", "high_mounted_stop_lamp"]},
     "locking": {"query": "central locking door lock speed sensing remote digital key", "specs": ["central_locking", "door_lock", "speed_sensing_door_lock", "remote_lock_unlock", "digital_key_plus"]},
@@ -660,8 +649,8 @@ SPEC_GROUPS = {
     "adas_alerts": {"query": "door open alert traffic sign recognition jam alert safe exit", "specs": ["door_open_alert", "traffic_sign_recognition", "traffic_jam_alert", "safe_exit_braking"]},
     "adas_advanced": {"query": "surround view 360 camera smart pilot assist rear cross traffic blind spot detection", "specs": ["surround_view_monitor", "smart_pilot_assist", "rear_cross_traffic_alert", "blind_spot_detection"]},
     "climate": {"query": "climate zone dual automatic AC rear vent defogging carbon filter", "specs": ["auto_defogging", "no_of_zone_climate", "rear_vent_ac", "active_carbon_filter", "temp_diff_control"]},
-    "terrain_capabilities": {"query": "terrain modes off-road crawl smart intelli turn display", "specs": ["terrain_modes", "crawl_smart", "intelli_turn", "off_road_info_display"]},
-    "differential": {"query": "differential central limited slip LSD lock", "specs": ["central_differential", "limited_slip_differential"]},
+    "terrain_capabilities": {"query": "terrain modes off-road crawl smart display", "specs": ["terrain_modes", "crawl_smart", "off_road_info_display"]},
+    "differential": {"query": "differential central lock", "specs": ["central_differential"]},
     "offroad_tech": {"query": "wading sensing water depth electronic gear shift driveline disconnect", "specs": ["wading_sensing_system", "electronic_gear_shift", "electric_driveline_disconnect"]},
     "usb_ports": {"query": "USB Type-C port front rear 12V socket power outlet", "specs": ["usb_type_c_front_row", "usb_type_c_front_row_count", "usb_type_c_rear_row", "socket_12v"]},
     "brake_assist": {"query": "auto hold brake assist AVH HBA EBA emergency", "specs": ["auto_hold", "avh_auto_vehicle_hold", "hba_hydraulic_brake", "eba_brake_assist"]},
@@ -670,14 +659,14 @@ SPEC_GROUPS = {
     "brake_tech": {"query": "ABS EBD TCS traction control brake disc wiping EDTC CBC cornering DST", "specs": ["ebp_electronic_brake_prefill", "bdw_brake_disc_wiping", "edtc_engine_drag_torque", "tcs_traction_control", "ebd_electronic_brake", "abs_antilock", "cbc_cornering_brake", "dst_dynamic_steering"]},
     "boot_features": {"query": "boot organizer cargo net lamp trunk light", "specs": ["boot_organizer", "boot_lamp"]},
     "door_trim": {"query": "bottle holder door pocket arm rest", "specs": ["bottle_holder", "door_arm_rest"]},
-    "tail_door_accessories": {"query": "tail door cup holder hooks warning triangle cargo", "specs": ["cup_holder_tail_door", "hooks_tail_door", "warning_triangle_tail_door"]},
-    "misc_features": {"query": "active noise reduction voice control transparent car bottom intellectual dodge", "specs": ["active_noise_reduction", "intelligent_voice_control", "transparent_car_bottom", "intellectual_dodge"]},
+    "tail_door_accessories": {"query": "tail door cup holder warning triangle cargo", "specs": ["cup_holder_tail_door", "warning_triangle_tail_door"]},
+    "misc_features": {"query": "active noise reduction voice control transparent car bottom", "specs": ["active_noise_reduction", "intelligent_voice_control", "transparent_car_bottom"]},
     "misc_accessories": {"query": "picnic table trunk subwoofer dashcam provision door magnetic strap", "specs": ["car_picnic_table", "trunk_subwoofer", "dashcam_provision", "door_magnetic_strap"]},
     "exterior_body": {"query": "wheel arch claddings front bumper grille foot step side", "specs": ["wheel_arch_claddings", "front_bumper_grille", "foot_step"]},
     "floor_console": {"query": "floor console armrest cup holders storage", "specs": ["floor_console_armrest", "cup_holders"]},
-    "child_safety": {"query": "child anchor ISOFIX lock rear door PAB airbag deactivation", "specs": ["child_anchor", "child_lock", "pab_deactivation_switch"]},
+    "child_safety": {"query": "child anchor ISOFIX lock rear door", "specs": ["child_anchor", "child_lock"]},
     "connectivity": {"query": "smartphone connectivity bluetooth mirroring connected drive wireless OTA", "specs": ["smartphone_connectivity", "bluetooth", "connected_drive_wireless"]},
-    "security": {"query": "panic alarm horn dual tone engine immobilizer electronic security", "specs": ["panic_alarm", "horn", "engine_electronic_security"]},
+    "security": {"query": "panic alarm engine immobilizer electronic security", "specs": ["panic_alarm", "engine_electronic_security"]},
     "cruise_speed": {"query": "cruise control ACC adaptive active over speeding bell alert TPMS", "specs": ["active_cruise_control", "over_speeding_bell", "tpms"]},
 }
 
@@ -883,10 +872,7 @@ SPEC_DESCRIPTIONS = {
     "crawl": "Low-speed crawl function: Hill Descent Control or 4L crawl ratio",
     "manual_transmission_performance": "Manual gearbox quality: shift throw length, clutch weight, notchiness",
     "automatic_transmission_performance": "AT/AMT/CVT/DCT smoothness, kickdown response, paddle shifters",
-    "pedal_operation": "Clutch pedal weight and engagement point (manual variants)",
-    "gear_shift": "Gear shifter mechanical feel, effort required, precise or vague",
     "gear_selection": "Precision of individual gear selection, slotting quality",
-    "pedal_travel": "Brake/clutch pedal travel distance — long vs short",
     "ride": "Overall ride quality — comfortable, stiff, pliant, or harsh",
     "ride_quality": "Suspension comfort over city bumps and highways — bump absorption",
     "stiff_on_pot_holes": "Behaviour over potholes and broken roads — jolt vs absorption",
@@ -938,7 +924,6 @@ SPEC_DESCRIPTIONS = {
     "armrest": "Front and rear armrest quality, padding, height",
     "headrest": "Headrest adjustability (height/angle), comfort for tall passengers",
     "egress": "Ease of getting out of the car — door width, sill height, roof clearance",
-    "ingress": "Ease of getting into the car — step-in height, door opening angle",
     "seatbelt_features": "Seatbelt pretensioners and load limiters — how many rows, height adjusters on which seats",
     "infotainment_screen": "Touchscreen size and system name (e.g., '10.25-inch Bluelink touchscreen')",
     "resolution": "Infotainment display resolution or sharpness description",
