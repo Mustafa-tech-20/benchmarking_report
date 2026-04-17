@@ -18,17 +18,8 @@ python-dotenv
 uvicorn
 json-repair
 
-# Authentication dependencies
-python-jose[cryptography]
-passlib[bcrypt]
+# File upload support
 python-multipart
-email-validator
-
-# MongoDB dependencies
-motor
-pymongo
-dnspython
-certifi
 
 # Data processing
 pandas

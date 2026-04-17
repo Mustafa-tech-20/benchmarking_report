@@ -1,8 +1,8 @@
 {
-  "name": "car-benchmarking-ai-frontend",
+  "name": "vehicle-dev-agent-frontend",
   "version": "1.0.0",
   "private": true,
-  "description": "Professional chatbot interface for Car Benchmarking AI Agent",
+  "description": "Chat interface for Vehicle Development Agent",
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

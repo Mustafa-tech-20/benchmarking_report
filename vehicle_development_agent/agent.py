@@ -401,9 +401,9 @@ def scrape_cars_tool(car_names: str, user_decision: Optional[str] = None, use_cu
         car_names: Comma-separated list of FULL car names (Brand + Model together). Minimum 1, maximum 10.
                    IMPORTANT: Each car name must include the COMPLETE name (brand + model + variant if any).
                    Do NOT split a single car's name - "Mahindra Thar Roxx" is ONE car, not two.
-                   Example: "Mahindra Thar Roxx, Jetour T2" (2 cars)
-                   Example: "CODE:PROTO1, Mahindra Thar Roxx, Maruti Jimny" (3 cars)
-                   WRONG: "Mahindra Thar, Roxx" - this incorrectly treats Roxx as separate car
+                   Example: "Toyota Fortuner, Jeep Compass" (2 cars)
+                   Example: "CODE:PROTO1, Toyota Fortuner, Maruti Jimny" (3 cars)
+                   WRONG: "Toyota Fortuner, Legender" - this incorrectly treats Legender as separate car
         user_decision: User's choice for code cars: 'rag'
         use_custom_search: If True (default), use Custom Search API; if False, use Gemini URL parsing
 
@@ -1124,8 +1124,8 @@ infotainment_screen, apple_carplay, sunroof, boot_space, wheelbase, parking, off
 ## WORKFLOW EXAMPLES
 
 **Standard comparison (no PDF):**
-1. User: "Compare Thar and Swift"
-2. Call: `scrape_cars_tool(car_names="Mahindra Thar, Maruti Swift")`
+1. User: "Compare Fortuner and Creta"
+2. Call: `scrape_cars_tool(car_names="Toyota Fortuner, Hyundai Creta")`
 3. Present HTML report URL
 
 **PDF summary:**
@@ -1137,37 +1137,37 @@ infotainment_screen, apple_carplay, sunroof, boot_space, wheelbase, parking, off
 2. Read PDF → return structured specs for each car found
 
 **PDF comparison with extra cars:**
-1. User: "Compare the cars in this with Mahindra Thar" + uploads PDF
+1. User: "Compare the cars in this with Toyota Fortuner" + uploads PDF
 2. Read PDF → extract car names AND specs for each PDF car
    e.g. MG M9: price ₹38 Lakh, 174 bhp, 7 Seater, 2.0L Turbo
 3. Call: `save_pdf_car_specs_tool(car_name="MG M9", specs_json='{"price_range":"₹38 Lakh","performance":"174 bhp","seating_capacity":"7 Seater","torque":"380 Nm"}')`
-4. Merge car names: "MG M9, Mahindra Thar"
-5. Call: `scrape_cars_tool(car_names="MG M9, Mahindra Thar")`
+4. Merge car names: "MG M9, Toyota Fortuner"
+5. Call: `scrape_cars_tool(car_names="MG M9, Toyota Fortuner")`
    → MG M9: PDF specs pre-filled, only missing specs searched; citation = "PDF uploaded by user"
-   → Mahindra Thar: fully scraped as normal
+   → Toyota Fortuner: fully scraped as normal
 6. Present HTML report URL
 
 **Code Car via RAG:**
-1. User: "Compare CODE:PROTO1 with Thar"
-2. Call: `scrape_cars_tool(car_names="CODE:PROTO1, Mahindra Thar")`
+1. User: "Compare CODE:PROTO1 with Fortuner"
+2. Call: `scrape_cars_tool(car_names="CODE:PROTO1, Toyota Fortuner")`
    → Returns: `"status": "awaiting_code_car_specs"` with 2-option message
 3. Show the message to user and wait for their decision
 4. User says: "rag"
-5. Call: `scrape_cars_tool(car_names="CODE:PROTO1, Mahindra Thar", user_decision="rag")`
+5. Call: `scrape_cars_tool(car_names="CODE:PROTO1, Toyota Fortuner", user_decision="rag")`
    → RAG corpus queried automatically for CODE:PROTO1 specs
 6. Present HTML report URL
 
 **Code Car via PDF upload:**
-1. User: "Compare CODE:PROTO1 with Thar"
-2. Call: `scrape_cars_tool(car_names="CODE:PROTO1, Mahindra Thar")`
+1. User: "Compare CODE:PROTO1 with Fortuner"
+2. Call: `scrape_cars_tool(car_names="CODE:PROTO1, Toyota Fortuner")`
    → Returns: `"status": "awaiting_code_car_specs"` with 2-option message
 3. Show the message to user and wait for their decision
-4. User attaches PDF and says: "compare CODE:PROTO1 from uploaded PDF with Mahindra Thar"
+4. User attaches PDF and says: "compare CODE:PROTO1 from uploaded PDF with Toyota Fortuner"
 5. Read the PDF → extract CODE:PROTO1 specs → map to 87-spec field names
 6. Call: `save_pdf_car_specs_tool(car_name="CODE:PROTO1", specs_json='{...}')`
-7. Call: `scrape_cars_tool(car_names="CODE:PROTO1, Mahindra Thar")`
+7. Call: `scrape_cars_tool(car_names="CODE:PROTO1, Toyota Fortuner")`
    → CODE:PROTO1: pre-filled from PDF; citation = "PDF uploaded by user"
-   → Mahindra Thar: fully scraped as normal
+   → Toyota Fortuner: fully scraped as normal
 8. Present HTML report URL
 
 ## 87 SPECIFICATIONS
