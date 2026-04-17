@@ -1,6 +1,6 @@
 /**
  * Car Benchmarking AI Agent - Professional Chat Interface with RBAC
- * Mahindra Color Scheme with Industry-Standard UX
+ * Premium Color Scheme with Industry-Standard UX
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -573,11 +573,7 @@ function App() {
       {/* Top Navigation */}
       <header className="top-nav">
         <div className="nav-left">
-          <img
-            src="https://www.mahindra.com//sites/default/files/2025-07/mahindra-red-logo.webp"
-            alt="Mahindra"
-            className="nav-logo"
-          />
+          {/* Logo placeholder - add your organization's logo */}
         </div>
 
         <div className="nav-right">

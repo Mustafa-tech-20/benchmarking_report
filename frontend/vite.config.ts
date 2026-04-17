@@ -1,8 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-export default defineConfig({
-  base: '/benchmarking/frontend/',
+export default defineConfig(({ mode }) => ({
+  base: mode === 'production' ? '/benchmarking/frontend/' : '/',
   plugins: [react()],
   server: {
     port: 3000,
@@ -14,4 +14,4 @@ export default defineConfig({
     host: true,
     allowedHosts: ['td-dev-benchmark.m-devsecops.com', 'localhost'],
   }
-})
+}))

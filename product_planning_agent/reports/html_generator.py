@@ -2492,7 +2492,7 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str, 
     - Grouped specification table with accordion functionality
     - Sticky header with smooth-scrolling navigation
     - Professional section headers with icons
-    - Alternating color charts (dark blue and Mahindra red)
+    - Alternating color charts (dark blue and red)
     - Scroll animations for all components
     - PDF-optimized printing (2 charts per page, landscape table)
     
@@ -4537,7 +4537,7 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str, 
 </head>
 <body>
     <header class="site-header">
-        <a href="#"><img src="https://www.mahindra.com//sites/default/files/2025-07/mahindra-red-logo.webp" alt="Logo" class="logo"></a>
+        <a href="#"><!-- Logo placeholder --></a>
         <div class="header-actions">
             <nav class="main-nav">
                 <a href="#vehicle-highlights">Highlights</a>
@@ -4637,7 +4637,7 @@ def create_comparison_chart_html(comparison_data: Dict[str, Any], summary: str, 
         </div>
         <div class="content" id="citations-section" style="display: none;"><div class="section-header"><div class="icon-wrapper"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><line x1="10" y1="9" x2="8" y2="9"></line></svg></div><h2>Data Source Citations</h2></div><div class="citations-grid">{citations_html}</div></div>
     </div>
-    <footer class="footer"><span>Copyright© 2026 Mahindra&Mahindra Ltd. All Rights Reserved.</span></footer>
+    <footer class="footer"><span>Copyright© 2026 All Rights Reserved.</span></footer>
     <script>
             function toggleAccordion(headerRow) {{
     headerRow.classList.toggle('active');

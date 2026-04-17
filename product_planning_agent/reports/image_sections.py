@@ -237,7 +237,7 @@ def generate_hero_section(comparison_data: Dict[str, Any]) -> str:
             </svg>
         </div>
         <div class="cover-logo">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Mahindra_logo.svg/1920px-Mahindra_logo.svg.png?_=20231128143513" alt="Mahindra">
+            <!-- Logo placeholder - customize for your organization -->
         </div>
         <div class="cover-content">
             <h1 class="cover-title">{title}</h1>
@@ -279,7 +279,7 @@ def generate_hero_section(comparison_data: Dict[str, Any]) -> str:
     <div class="hero-image-page" id="hero-comparison">
         <div class="hero-page-header">
             <h1 class="hero-page-title">VEHICLE COMPARISON | <span class="highlight">PRODUCT PLANNING</span></h1>
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Mahindra_logo.svg/1920px-Mahindra_logo.svg.png?_=20231128143513" alt="Mahindra" class="hero-page-logo">
+            <!-- Logo placeholder -->
         </div>
         <div class="hero-comparison-container">
             <div class="hero-comparison-side hero-comparison-left-side">
@@ -1069,7 +1069,7 @@ def generate_technical_spec_section(comparison_data: Dict[str, Any], page_start:
     if not car_names:
         return ""
 
-    # First car is the reference (Mahindra car)
+    # First car is the reference car
     reference_car = car_names[0] if car_names else ""
 
     # Specs that should show variant columns (one column per engine variant)
@@ -1411,7 +1411,7 @@ def generate_technical_spec_section(comparison_data: Dict[str, Any], page_start:
     <div class="spec-page" id="tech-spec-section">
         <div class="spec-page-header">
             <h1 class="spec-page-title">TECHNICAL SPECIFICATION | <span class="highlight">PRODUCT PLANNING</span></h1>
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Mahindra_logo.svg/1920px-Mahindra_logo.svg.png?_=20231128143513" alt="Mahindra" class="spec-page-logo">
+            <!-- Logo placeholder -->
         </div>
         <div class="spec-legend">
             <div class="legend-item"><span class="legend-color superior"></span> Superior to {car_names[-1] if len(car_names) > 1 else 'Competitor'}</div>
@@ -1693,7 +1693,7 @@ def generate_feature_list_section(comparison_data: Dict[str, Any], page_start: i
     <div class="feature-page" id="feature-list-section">
         <div class="feature-page-header">
             <h1 class="feature-page-title">FEATURE LIST COMPARISON | <span class="highlight">PRODUCT PLANNING {car_names_title}</span></h1>
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Mahindra_logo.svg/1920px-Mahindra_logo.svg.png?_=20231128143513" alt="Mahindra" class="feature-page-logo">
+            <!-- Logo placeholder -->
         </div>
         <div class="feature-legend">
             <div class="legend-item"><span class="legend-color superior"></span> Superior to {competitor}</div>
@@ -2062,7 +2062,7 @@ def generate_lifecycle_section(comparison_data: Dict[str, Any]) -> str:
         <div class="lifecycle-header">
             <h1 class="lifecycle-title">Journey of {car_name} so far</h1>
             <h2 class="lifecycle-subtitle">Life cycle of {car_name.split()[-1]}</h2>
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/89/Mahindra_logo.svg/1920px-Mahindra_logo.svg.png?_=20231128143513" alt="Mahindra" class="lifecycle-logo">
+            <!-- Logo placeholder -->
         </div>
 
         <div class="lifecycle-content">
@@ -2721,11 +2721,11 @@ def generate_venn_diagram_section(
 
     n = len(car_names)
 
-    # Mahindra brand colors - red, blue, gray palette (no yellow)
+    # Brand colors - red, blue, gray palette
     FILLS   = [
         "rgba(180,180,190,0.50)",   # soft gray
-        "rgba(220,100,100,0.50)",   # mahindra red/coral
-        "rgba(100,150,220,0.50)",   # mahindra blue
+        "rgba(220,100,100,0.50)",   # red/coral
+        "rgba(100,150,220,0.50)",   # blue
         "rgba(160,160,170,0.50)",   # medium gray
     ]
     STROKES = ["#8888a0", "#cc0000", "#0066cc", "#888899"]

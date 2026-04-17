@@ -1,6 +1,6 @@
 """
 Technical Specifications HTML Report Generator
-Generates professional technical specification reports similar to Mahindra launch reports
+Generates professional technical specification reports for vehicle launches
 Includes: Technical Specs, Variant Walk, Price Ladder, Dimensions
 """
 

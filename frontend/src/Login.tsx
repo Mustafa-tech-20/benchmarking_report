@@ -1,5 +1,5 @@
 /**
- * Login Page - Mahindra RBAC Authentication
+ * Login Page - RBAC Authentication
  * Industry-standard JWT authentication UI
  */
 
@@ -87,11 +87,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         <div className="login-card">
           {/* Logo and Header */}
           <div className="login-header">
-            <img
-              src="https://www.mahindra.com//sites/default/files/2025-07/mahindra-red-logo.webp"
-              alt="Mahindra"
-              className="login-logo"
-            />
+            {/* Logo placeholder - add your organization's logo */}
             <h1 className="login-title">Car Benchmarking Platform</h1>
             <p className="login-subtitle">Sign in to access your agent</p>
           </div>
@@ -116,7 +112,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="form-input"
-                placeholder="you@mahindra.com"
+                placeholder="you@company.com"
                 required
                 disabled={isLoading}
               />

@@ -1,6 +1,6 @@
 /**
  * Login Page Styles - Premium Dark Theme
- * Mahindra Color Scheme with Glassmorphism
+ * Premium Color Scheme with Glassmorphism
  */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap');
@@ -10,10 +10,10 @@
    ============================================ */
 :root {
   /* Brand Colors */
-  --mahindra-red: #ef4444;
-  --mahindra-red-hover: #dc2626;
-  --mahindra-red-glow: rgba(239, 68, 68, 0.4);
-  --mahindra-red-subtle: rgba(239, 68, 68, 0.1);
+  --accent-red: #ef4444;
+  --accent-red-hover: #dc2626;
+  --accent-red-glow: rgba(239, 68, 68, 0.4);
+  --accent-red-subtle: rgba(239, 68, 68, 0.1);
 
   /* Dark Theme Surfaces */
   --bg-primary: #0a0a0a;
@@ -188,10 +188,10 @@
   align-items: center;
   gap: 10px;
   padding: 14px 16px;
-  background: var(--mahindra-red-subtle);
-  border: 1px solid var(--mahindra-red);
+  background: var(--accent-red-subtle);
+  border: 1px solid var(--accent-red);
   border-radius: 12px;
-  color: var(--mahindra-red);
+  color: var(--accent-red);
   font-size: 14px;
   margin-bottom: 24px;
   animation: slideDown 0.3s ease;
@@ -253,8 +253,8 @@
 
 .form-input:focus {
   background: var(--bg-input) !important;
-  border-color: var(--mahindra-red);
-  box-shadow: 0 0 0 4px var(--mahindra-red-subtle);
+  border-color: var(--accent-red);
+  box-shadow: 0 0 0 4px var(--accent-red-subtle);
   color: var(--text-primary) !important;
   -webkit-text-fill-color: var(--text-primary);
 }
@@ -296,12 +296,12 @@
   font-weight: 600;
   font-family: var(--font-sans);
   color: #ffffff;
-  background: linear-gradient(135deg, var(--mahindra-red) 0%, var(--mahindra-red-hover) 100%);
+  background: linear-gradient(135deg, var(--accent-red) 0%, var(--accent-red-hover) 100%);
   border: none;
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.25s ease;
-  box-shadow: 0 4px 16px var(--mahindra-red-glow);
+  box-shadow: 0 4px 16px var(--accent-red-glow);
   position: relative;
   overflow: hidden;
 }
@@ -322,8 +322,8 @@
 }
 
 .login-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--mahindra-red-hover) 0%, #b91c1c 100%);
-  box-shadow: 0 6px 24px var(--mahindra-red-glow);
+  background: linear-gradient(135deg, var(--accent-red-hover) 0%, #b91c1c 100%);
+  box-shadow: 0 6px 24px var(--accent-red-glow);
   transform: translateY(-2px);
 }
 
@@ -333,7 +333,7 @@
 
 .login-button:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px var(--mahindra-red-glow), 0 4px 16px var(--mahindra-red-glow);
+  box-shadow: 0 0 0 3px var(--accent-red-glow), 0 4px 16px var(--accent-red-glow);
 }
 
 .login-button:disabled {
@@ -413,10 +413,10 @@
 }
 
 .role-badge:hover:not(:disabled) {
-  background: var(--mahindra-red-subtle);
-  border-color: var(--mahindra-red);
+  background: var(--accent-red-subtle);
+  border-color: var(--accent-red);
   transform: translateY(-2px);
-  box-shadow: 0 4px 16px var(--mahindra-red-subtle);
+  box-shadow: 0 4px 16px var(--accent-red-subtle);
 }
 
 .role-badge:disabled {
